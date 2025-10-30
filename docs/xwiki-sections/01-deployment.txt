@@ -1,0 +1,452 @@
+= (% id="H1" %)📘 1. 오프라인 배포 가이드 =
+
+{{panel title="**✨ 이 섹션에서 배울 내용**"}}
+* ☑️ 2-파일 패키지 구성 및 시스템 요구사항
+* ☑️ 10분 자동 설치 절차 (install.sh)
+* ☑️ Traefik 연동 설정
+* ☑️ 일상 운영 관리 (시작/중지/백업/로그)
+{{/panel}}
+
+---
+
+== 1️⃣ 배포 방식 ==
+
+{{success}}
+**🎯 권장 배포: 에어갭 (Air-Gap) 2-파일 방식**
+* **인터넷 불필요**: 완전 오프라인 설치 (~10-15분)
+* **파일 2개만**: blacklist.tar.gz + install.sh
+* **보안**: 외부 네트워크 차단, 내부망 전용
+* **패키지 크기**: 813MB (v3.3.7)
+{{/success}}
+
+=== 1.1 📦 패키지 구성 ===
+
+{{info}}
+**🎯 2-파일 패키지 특징 (v3.3.7)**
+* **파일**: {{code}}blacklist.tar.gz{{/code}} (813MB) + {{code}}install.sh{{/code}} (20KB)
+* **설치 시간**: (% style="color:#4CAF50; font-weight:bold;" %)10-15분(%)
+* **인터넷**: (% style="color:#4CAF50; font-weight:bold;" %)❌ 불필요(%)
+* **버전**: 3.3.7 (2025-10-29)
+* **서비스**: 5개 컨테이너 (nginx 제거)
+{{/info}}
+
+**📂 blacklist.tar.gz 내용:**
+
+{{code language="bash"}}
+blacklist.tar.gz (813MB)
+├── 🐳 docker-images/            # 5개 Docker 이미지
+│   ├── blacklist-app(날짜).tar     # 🐍 Flask API (455MB)
+│   ├── blacklist-collector(날짜).tar # 📊 수집기 (1.5GB)
+│   ├── blacklist-postgres(날짜).tar  # 🐘 PostgreSQL 15 (265MB)
+│   ├── blacklist-redis(날짜).tar     # 🔴 Redis 7 (41MB)
+│   └── blacklist-frontend(날짜).tar  # ⚛️  Next.js (206MB)
+├── 📂 config/
+│   ├── docker-compose.yml       # 서비스 오케스트레이션
+│   ├── .env.example             # 환경변수 템플릿
+│   └── migrations/              # 17개 SQL 마이그레이션
+└── 📚 docs/
+    └── xwiki-sections/          # XWiki 문서 (14개)
+{{/code}}
+
+{{warning}}
+**⚠️ Traefik 별도 설치 필요**
+* Traefik은 패키지에 포함되지 않습니다
+* 설치 전에 Traefik 먼저 설정해야 합니다
+* 가이드: {{code}}docs/TRAEFIK-SETUP.md{{/code}}
+{{/warning}}
+
+=== 1.2 💻 시스템 요구사항 ===
+
+(% class="wikitable" %)
+|=(% style="background:#607D8B; color:white;" %)항목|=(% style="background:#607D8B; color:white;" %)최소 요구사항|=(% style="background:#607D8B; color:white;" %)✅ 권장사양
+|**OS**|RHEL 8.8 / Ubuntu 20.04+|(% style="color:#4CAF50; font-weight:bold;" %)RHEL 8.8 / Rocky Linux 9(%)
+|**CPU**|4 Core|(% style="color:#4CAF50; font-weight:bold;" %)8 Core(%)
+|**RAM**|8GB|(% style="color:#4CAF50; font-weight:bold;" %)16GB(%)
+|**Disk**|50GB (SSD)|(% style="color:#4CAF50; font-weight:bold;" %)100GB (SSD)(%)
+|**Docker**|20.10+|(% style="color:#4CAF50; font-weight:bold;" %)24.0+(%)
+|**Docker Compose**|2.0+|(% style="color:#4CAF50; font-weight:bold;" %)2.20+(%)
+|**Traefik**|v2.10+|(% style="color:#4CAF50; font-weight:bold;" %)별도 설치(%)
+
+{{warning}}
+**⚠️ 중요**: SSD 사용 강력 권장. HDD 사용 시 DB 성능 저하 발생.
+{{/warning}}
+
+---
+
+== 2️⃣ 설치 절차 ==
+
+=== 2.1 🚀 Traefik 먼저 설치 (필수) ===
+
+{{error}}
+**❗ 중요: Traefik을 먼저 설치해야 합니다**
+{{/error}}
+
+{{code language="bash"}}
+# ① Traefik 디렉토리 생성
+mkdir -p /home/jclee/infrastructure/traefik/{config,ssl}
+
+# ② SSL 인증서 복사
+cp /path/to/cert.crt /home/jclee/infrastructure/traefik/ssl/default.crt
+cp /path/to/key.key /home/jclee/infrastructure/traefik/ssl/default.key
+chmod 600 /home/jclee/infrastructure/traefik/ssl/*.key
+
+# ③ docker-compose.yml 작성
+# (docs/TRAEFIK-SETUP.md 참고)
+
+# ④ Traefik 시작
+cd /home/jclee/infrastructure/traefik
+docker compose up -d
+
+# ⑤ 네트워크 생성 (자동으로 생성되지만 확인)
+docker network ls | grep traefik-public
+
+# ⑥ Traefik 확인
+docker ps | grep traefik
+docker logs traefik
+{{/code}}
+
+{{success}}
+**✅ Traefik 설치 완료 확인**
+* {{code}}docker ps{{/code}}에 traefik 컨테이너 표시
+* {{code}}docker network ls{{/code}}에 traefik-public 네트워크 표시
+{{/success}}
+
+=== 2.2 📦 Blacklist 패키지 설치 ===
+
+{{success}}
+**🎉 자동 설치**: {{code}}install.sh{{/code}} 실행으로 모든 과정 자동 완료
+{{/success}}
+
+{{code language="bash"}}
+# ① 패키지 전송 (에어갭 환경)
+scp blacklist.tar.gz install.sh user@target:/opt/
+
+# ② 설치 디렉토리 이동
+cd /opt
+
+# ③ 자동 설치 실행
+bash install.sh
+
+# ④ 설치 과정 (자동)
+# - Preflight 체크 (Docker, 디스크, 포트)
+# - 패키지 압축 해제 (813MB)
+# - Docker 이미지 로드 (5개 서비스)
+# - 데이터 디렉토리 생성
+# - DB 마이그레이션 (17개 SQL)
+# - 환경변수 설정 (.env)
+# - 서비스 시작 (docker compose)
+# - 헬스체크 (6개 테스트)
+
+# ⑤ 설치 완료 (10-15분)
+{{/code}}
+
+**🎬 설치 화면 예시:**
+
+{{code}}
+╔════════════════════════════════════════╗
+║  Blacklist Installation v3.3.7        ║
+╚════════════════════════════════════════╝
+
+[STEP 1/8] Preflight Checks
+  ✓ Docker installed (24.0.7)
+  ✓ Docker Compose installed (2.20.3)
+  ✓ Disk space: 85GB available
+  ✓ Ports available: 2542, 2543, 8545
+
+[STEP 2/8] Extract Package (813MB)
+  ✓ blacklist.tar.gz extracted
+
+[STEP 3/8] Load Docker Images (5 services)
+  ✓ blacklist-app loaded (455MB)
+  ✓ blacklist-collector loaded (1.5GB)
+  ✓ blacklist-postgres loaded (265MB)
+  ✓ blacklist-redis loaded (41MB)
+  ✓ blacklist-frontend loaded (206MB)
+
+[STEP 4/8] Create Data Directories
+  ✓ /data/postgres created
+  ✓ /data/redis created
+
+[STEP 5/8] Database Migrations (17 SQL)
+  ✓ All migrations applied
+
+[STEP 6/8] Environment Configuration
+  ✓ .env created
+
+[STEP 7/8] Start Services
+  ✓ blacklist-postgres (healthy)
+  ✓ blacklist-redis (healthy)
+  ✓ blacklist-collector (healthy)
+  ✓ blacklist-app (healthy)
+  ✓ blacklist-frontend (healthy)
+
+[STEP 8/8] Health Checks
+  ✓ API health: 200 OK
+  ✓ DB connection: OK
+  ✓ Redis connection: OK
+
+✅ Installation Complete!
+   URL: https://blacklist.nxtd.co.kr
+   Time: 12m 34s
+{{/code}}
+
+=== 2.3 🔍 설치 확인 ===
+
+{{code language="bash"}}
+# ① 컨테이너 상태 확인
+docker ps
+
+# 예상 출력 (5개 컨테이너)
+# blacklist-frontend    (healthy)
+# blacklist-app         (healthy)
+# blacklist-collector   (healthy)
+# blacklist-postgres    (healthy)
+# blacklist-redis       (healthy)
+
+# ② 네트워크 확인
+docker network ls | grep -E "(blacklist-network|traefik-public)"
+
+# ③ API 헬스체크
+curl http://localhost:2542/health
+# 응답: {"status": "healthy", "database": "connected", "redis": "connected"}
+
+# ④ 웹 접속 (Traefik 통해)
+curl -k https://blacklist.nxtd.co.kr
+{{/code}}
+
+{{success}}
+**✅ 설치 성공 확인 기준**
+* 5개 컨테이너 모두 (% style="color:#4CAF50;" %)**(healthy)**(%) 상태
+* API 헬스체크 {{code}}200 OK{{/code}}
+* 웹 UI 접속 가능 (https://blacklist.nxtd.co.kr)
+{{/success}}
+
+---
+
+== 3️⃣ 일상 운영 ==
+
+=== 3.1 🚀 서비스 관리 ===
+
+{{code language="bash"}}
+# 시작
+docker compose up -d
+
+# 중지
+docker compose down
+
+# 재시작
+docker compose restart
+
+# 특정 서비스만 재시작
+docker compose restart blacklist-app
+
+# 상태 확인
+docker compose ps
+{{/code}}
+
+=== 3.2 📊 로그 확인 ===
+
+{{code language="bash"}}
+# 전체 로그 (실시간)
+docker compose logs -f
+
+# 특정 서비스 로그
+docker compose logs -f blacklist-app
+
+# 최근 100줄
+docker compose logs --tail=100 blacklist-app
+
+# 타임스탬프 포함
+docker compose logs -f --timestamps blacklist-app
+{{/code}}
+
+=== 3.3 💾 백업 ===
+
+{{code language="bash"}}
+# ① 데이터베이스 백업
+docker exec blacklist-postgres pg_dump -U postgres blacklist > backup_$(date +%Y%m%d).sql
+
+# ② Redis 백업 (자동 RDB)
+docker exec blacklist-redis redis-cli SAVE
+cp /data/redis/dump.rdb backup_redis_$(date +%Y%m%d).rdb
+
+# ③ 설정 파일 백업
+tar -czf backup_config_$(date +%Y%m%d).tar.gz docker-compose.yml .env
+{{/code}}
+
+=== 3.4 🔄 복원 ===
+
+{{code language="bash"}}
+# ① DB 복원
+docker exec -i blacklist-postgres psql -U postgres blacklist < backup_20251029.sql
+
+# ② Redis 복원
+docker compose down
+cp backup_redis_20251029.rdb /data/redis/dump.rdb
+docker compose up -d
+{{/code}}
+
+---
+
+== 4️⃣ 업그레이드 ==
+
+=== 4.1 📦 패키지 업그레이드 ===
+
+{{code language="bash"}}
+# ① 기존 서비스 중지
+cd /opt/blacklist
+docker compose down
+
+# ② 데이터 백업 (중요!)
+docker exec blacklist-postgres pg_dump -U postgres blacklist > backup_before_upgrade.sql
+
+# ③ 새 패키지 설치
+bash install.sh
+
+# ④ 데이터베이스 마이그레이션 (자동)
+# install.sh가 자동 실행
+
+# ⑤ 서비스 시작 (자동)
+# install.sh가 자동 실행
+{{/code}}
+
+{{warning}}
+**⚠️ 업그레이드 전 필수 작업**
+* DB 백업 필수
+* 다운타임 공지 (약 10-15분)
+* 테스트 환경에서 먼저 검증 권장
+{{/warning}}
+
+---
+
+== 5️⃣ 트러블슈팅 ==
+
+=== 5.1 🐛 일반적인 문제 ===
+
+==== 문제 1: 컨테이너가 시작하지 않음 ====
+
+{{code language="bash"}}
+# 원인 확인
+docker compose logs blacklist-app
+
+# 흔한 원인:
+# - DB 연결 실패 → postgres 컨테이너 상태 확인
+# - 포트 충돌 → 다른 프로세스가 포트 사용 중
+# - 환경변수 누락 → .env 파일 확인
+
+# 해결:
+docker compose ps blacklist-postgres  # DB 상태
+docker logs blacklist-postgres         # DB 로그
+netstat -tulpn | grep -E "(2542|2543|8545)"  # 포트 확인
+{{/code}}
+
+==== 문제 2: 웹 UI 접속 불가 ====
+
+{{code language="bash"}}
+# Traefik 확인
+docker ps | grep traefik
+docker logs traefik | grep blacklist
+
+# 네트워크 확인
+docker network inspect traefik-public
+docker inspect blacklist-frontend | grep -A 5 Networks
+
+# Frontend 로그 확인
+docker logs blacklist-frontend
+{{/code}}
+
+==== 문제 3: 데이터 수집 실패 ====
+
+{{code language="bash"}}
+# Collector 로그 확인
+docker logs blacklist-collector | grep -i error
+
+# 수집 상태 확인 (API)
+curl http://localhost:2542/api/collection/status
+
+# 수집 인증 정보 확인 (DB)
+docker exec blacklist-postgres psql -U postgres -d blacklist \
+  -c "SELECT source_type, is_active FROM collection_credentials;"
+{{/code}}
+
+=== 5.2 📋 진단 명령어 ===
+
+{{code language="bash"}}
+# 전체 시스템 상태
+docker compose ps
+docker compose logs --tail=50
+
+# 리소스 사용량
+docker stats --no-stream
+
+# 디스크 사용량
+df -h
+du -sh /data/*
+
+# 네트워크 확인
+docker network ls
+docker network inspect blacklist-network
+docker network inspect traefik-public
+{{/code}}
+
+---
+
+== 6️⃣ 참고 정보 ==
+
+=== 6.1 📁 주요 디렉토리 ===
+
+{{code}}
+/opt/blacklist/               # 설치 디렉토리
+├── docker-compose.yml        # 서비스 정의
+├── .env                      # 환경변수
+├── data/                     # 영구 데이터
+│   ├── postgres/             # DB 데이터
+│   └── redis/                # Redis 데이터
+└── docs/                     # 문서
+
+/home/jclee/infrastructure/traefik/  # Traefik (별도)
+├── docker-compose.yml
+├── config/tls.yml
+└── ssl/
+    ├── default.crt
+    └── default.key
+{{/code}}
+
+=== 6.2 🔧 환경변수 (.env) ===
+
+{{code language="bash"}}
+# PostgreSQL
+POSTGRES_HOST=blacklist-postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=blacklist
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+# Redis
+REDIS_HOST=blacklist-redis
+REDIS_PORT=6379
+
+# Flask
+FLASK_ENV=production
+PORT=2542
+
+# Collector
+COLLECTION_INTERVAL=86400  # 24시간 (초)
+HEALTH_CHECK_PORT=8545
+
+# Timezone
+TZ=Asia/Seoul
+{{/code}}
+
+=== 6.3 🌐 주요 엔드포인트 ===
+
+(% class="wikitable" %)
+|=(% style="background:#607D8B; color:white;" %)서비스|=(% style="background:#607D8B; color:white;" %)URL|=(% style="background:#607D8B; color:white;" %)용도
+|웹 UI|https://blacklist.nxtd.co.kr|메인 웹 인터페이스
+|API|http://localhost:2542|REST API (내부)
+|Collector|http://localhost:8545/health|수집기 헬스체크 (내부)
+|Traefik Dashboard|https://traefik.nxtd.co.kr|Traefik 관리 (별도)
+
+---
+
+**다음 섹션**: [[2. 시스템 아키텍처>>doc:blacklist-platform.02-architecture]]

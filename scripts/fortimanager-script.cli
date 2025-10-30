@@ -1,0 +1,25 @@
+config system external-resource
+    edit "NXTD-Blacklist"
+        set type address
+        set category 193
+        set resource "https://blacklist.nxtd.co.kr/api/fortinet/active-ips"
+        set refresh-rate 5
+        set status enable
+        set comments "NXTD Blacklist Auto-updated"
+    next
+end
+
+config firewall address
+    edit "NXTD-Blacklist"
+        set type external-resource
+        set external-resource "NXTD-Blacklist"
+        set comment "NXTD Blacklist Address"
+    next
+end
+
+config firewall addrgrp
+    edit "NXTD-Blacklist-Group"
+        set member "NXTD-Blacklist"
+        set comment "NXTD Blacklist Group"
+    next
+end

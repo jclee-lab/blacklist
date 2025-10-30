@@ -1,0 +1,432 @@
+= (% id="H5" %)🔄 5. 업그레이드 가이드 =
+
+{{panel title="**✨ 이 섹션에서 배울 내용**"}}
+* ☑️ 무중단 블루-그린 배포 전략
+* ☑️ 데이터베이스 마이그레이션 절차
+* ☑️ 롤백 프로토콜
+* ☑️ 버전별 변경사항 및 체크리스트
+{{/panel}}
+
+---
+
+== 1️⃣ 무중단 업데이트 ==
+
+=== 🟦🟩 블루-그린 배포 전략 ===
+
+{{info}}
+**🎯 블루-그린 배포 개념**
+* **Blue (현재 버전)**: 실제 서비스 중인 기존 버전
+* **Green (새 버전)**: 새로 배포할 버전 (다른 포트 사용)
+* **장점**: 검증 후 전환, 문제 시 즉시 롤백 가능
+{{/info}}
+
+{{plantuml}}
+@startuml
+skinparam backgroundColor white
+
+rectangle "1️⃣ 배포 전" {
+    card "🟦 Blue v1.0\n:2542\n서비스 중" as BLUE1 #87CEEB
+    cloud "트래픽" as TRAFFIC1 #90EE90
+    TRAFFIC1 --> BLUE1
+}
+
+rectangle "2️⃣ Green 배포" {
+    card "🟦 Blue v1.0\n:2542\n서비스 중" as BLUE2 #87CEEB
+    card "🟩 Green v1.1\n:2543\n검증 중" as GREEN2 #90EE90
+    cloud "트래픽" as TRAFFIC2 #90EE90
+    actor "테스트" as TEST
+    TRAFFIC2 --> BLUE2
+    TEST ..> GREEN2
+}
+
+rectangle "3️⃣ 트래픽 전환" {
+    card "🟦 Blue v1.0\n:2542\n대기" as BLUE3 #D3D3D3
+    card "🟩 Green v1.1\n:2543\n서비스 중" as GREEN3 #90EE90
+    cloud "트래픽" as TRAFFIC3 #90EE90
+    TRAFFIC3 --> GREEN3
+}
+
+[1️⃣ 배포 전] -down-> [2️⃣ Green 배포] : 새 버전 배포
+[2️⃣ Green 배포] -down-> [3️⃣ 트래픽 전환] : 검증 완료
+
+note right of GREEN2
+    **검증 항목**
+    • 헬스체크 통과
+    • API 테스트 통과
+    • 30분 모니터링
+end note
+
+@enduml
+{{/plantuml}}
+
+**📋 단계별 절차:**
+
+{{code language="bash"}}
+# 1️⃣ 현재 버전 확인 및 백업
+echo "📸 현재 시스템 스냅샷"
+docker-compose ps
+docker exec blacklist-postgres pg_dump -U postgres blacklist > \
+  /opt/backups/pre_upgrade_$(date +%Y%m%d_%H%M%S).sql
+echo "✅ 백업 완료"
+
+# 2️⃣ 새 버전 패키지 준비
+cd /opt
+tar -xzf blacklist-offline-v1.1.0.tar.gz
+cd blacklist-offline-v1.1.0/
+
+# 3️⃣ 포트 변경 (다른 포트 사용)
+# docker-compose.yml 수정
+sed -i 's/2542:2542/2543:2542/g' docker-compose.yml
+sed -i 's/2543:2543/3001:2543/g' docker-compose.yml
+
+# 4️⃣ 🟩 Green 버전 시작
+docker-compose up -d
+echo "⏳ 초기화 대기 중..."
+sleep 90
+
+# 5️⃣ 헬스체크
+echo "💚 헬스체크"
+curl http://localhost:2543/health | jq
+if [ $? -ne 0 ]; then
+    echo "❌ 헬스체크 실패 - 중단"
+    exit 1
+fi
+
+# 6️⃣ 연기 테스트
+echo "🧪 API 테스트"
+curl "http://localhost:2543/api/blacklist/check?ip=1.2.3.4" | jq
+curl "http://localhost:2543/api/stats" | jq
+
+# 7️⃣ 트래픽 전환
+echo "🔀 트래픽 전환 (FortiGate 설정 변경)"
+echo "   Backend 포트: 2542 → 2543"
+# 수동으로 방화벽/로드밸런서 설정 변경
+
+# 8️⃣ 모니터링 (30분)
+echo "📊 30분간 모니터링..."
+for i in {1..30}; do
+    curl -s http://localhost:2543/health | jq '.status'
+    sleep 60
+done
+
+# 9️⃣ 🟦 Blue 버전 종료 (문제 없으면)
+echo "🛑 구 버전 종료"
+cd /opt/blacklist-offline-v1.0.0/
+docker-compose down
+
+# 🔟 포트 원복 (선택적)
+cd /opt/blacklist-offline-v1.1.0/
+sed -i 's/2543:2542/2542:2542/g' docker-compose.yml
+docker-compose down && docker-compose up -d
+{{/code}}
+
+=== 🔙 롤백 절차 ===
+
+{{warning}}
+**⚠️ 롤백 기준 (하나라도 해당 시 즉시 롤백)**
+* ❌ 헬스체크 실패
+* ❌ API 에러율 > 1%
+* ❌ 데이터베이스 연결 실패
+* ❌ 핵심 기능 장애 (화이트리스트 미작동)
+{{/warning}}
+
+{{code language="bash"}}
+# 🚨 긴급 롤백 (1분 이내)
+
+echo "🚨 긴급 롤백 시작"
+
+# 1️⃣ 트래픽 Blue로 전환 (포트 2542)
+echo "🔀 트래픽 전환: Green → Blue"
+# 방화벽/로드밸런서 설정 복원
+
+# 2️⃣ Green 버전 종료
+cd /opt/blacklist-offline-v1.1.0/
+docker-compose down
+
+# 3️⃣ Blue 버전 재시작 (이미 실행 중이면 skip)
+cd /opt/blacklist-offline-v1.0.0/
+docker-compose ps | grep -q "Up" || docker-compose up -d
+
+# 4️⃣ 검증
+echo "✅ 롤백 검증"
+curl http://localhost:2542/health | jq
+
+# 5️⃣ 문제 원인 분석
+cd /opt/blacklist-offline-v1.1.0/
+docker-compose logs blacklist-app > /tmp/upgrade_failure_$(date +%Y%m%d_%H%M%S).log
+echo "📋 로그 저장: /tmp/upgrade_failure_*.log"
+{{/code}}
+
+---
+
+== 2️⃣ 데이터베이스 마이그레이션 ==
+
+=== 📝 스키마 변경 적용 ===
+
+{{success}}
+**✅ 안전한 마이그레이션**: 백업 테이블 생성 + 트랜잭션 사용
+{{/success}}
+
+{{code language="sql"}}
+-- 📄 /opt/migrations/v1.1.0_add_severity_column.sql
+
+BEGIN;  -- ✅ 트랜잭션 시작
+
+-- 1️⃣ 백업 테이블 생성 (롤백용)
+DROP TABLE IF EXISTS blacklist_ips_backup_20251014;
+CREATE TABLE blacklist_ips_backup_20251014 AS
+SELECT * FROM blacklist_ips;
+
+-- 2️⃣ 새 컬럼 추가
+ALTER TABLE blacklist_ips
+ADD COLUMN severity VARCHAR(10) DEFAULT 'medium';
+
+UPDATE blacklist_ips
+SET severity = CASE
+    WHEN country IN ('CN', 'RU', 'KP') THEN 'high'
+    WHEN country IN ('US', 'KR', 'JP') THEN 'low'
+    ELSE 'medium'
+END;
+
+-- 3️⃣ 인덱스 추가
+CREATE INDEX idx_blacklist_severity ON blacklist_ips(severity);
+CREATE INDEX idx_blacklist_country_severity ON blacklist_ips(country, severity);
+
+-- 4️⃣ 검증
+DO $$
+DECLARE
+    null_count INT;
+BEGIN
+    SELECT COUNT(*) INTO null_count
+    FROM blacklist_ips
+    WHERE severity IS NULL;
+
+    IF null_count > 0 THEN
+        RAISE EXCEPTION 'severity 컬럼에 NULL 값 발견: % 건', null_count;
+    END IF;
+END $$;
+
+COMMIT;  -- ✅ 커밋
+
+-- 확인
+SELECT
+    severity,
+    COUNT(*) as count,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+FROM blacklist_ips
+GROUP BY severity
+ORDER BY count DESC;
+{{/code}}
+
+**🔧 적용 방법:**
+
+{{code language="bash"}}
+# 1️⃣ 마이그레이션 파일 복사
+docker cp /opt/migrations/v1.1.0_add_severity_column.sql \
+  blacklist-postgres:/tmp/
+
+# 2️⃣ 실행
+echo "🔄 마이그레이션 실행 중..."
+docker exec -it blacklist-postgres \
+  psql -U postgres -d blacklist -f /tmp/v1.1.0_add_severity_column.sql
+
+# 3️⃣ 결과 확인
+docker exec -it blacklist-postgres \
+  psql -U postgres -d blacklist -c "\d blacklist_ips"
+
+# 4️⃣ 데이터 검증
+docker exec -it blacklist-postgres \
+  psql -U postgres -d blacklist -c "SELECT severity, COUNT(*) FROM blacklist_ips GROUP BY severity;"
+{{/code}}
+
+=== ✅ 데이터 무결성 검증 ===
+
+{{code language="sql"}}
+-- 📊 무결성 검사 스크립트
+
+-- 1️⃣ 중복 IP 체크
+SELECT ip_address, source, COUNT(*)
+FROM blacklist_ips
+GROUP BY ip_address, source
+HAVING COUNT(*) > 1;
+-- 예상 결과: 0 rows
+
+-- 2️⃣ NULL 값 체크 (필수 컬럼)
+SELECT
+    COUNT(*) FILTER (WHERE ip_address IS NULL) as null_ip,
+    COUNT(*) FILTER (WHERE reason IS NULL) as null_reason,
+    COUNT(*) FILTER (WHERE detection_date IS NULL) as null_date
+FROM blacklist_ips;
+-- 예상 결과: 0, 0, 0
+
+-- 3️⃣ 외래키 무결성 (audit_log)
+SELECT COUNT(*) as orphaned_logs
+FROM audit_log a
+LEFT JOIN blacklist_ips b ON a.ip_address = b.ip_address
+WHERE a.action LIKE 'blacklist%' AND b.ip_address IS NULL;
+-- 예상 결과: 0
+
+-- 4️⃣ 날짜 논리 검증
+SELECT COUNT(*) as invalid_dates
+FROM blacklist_ips
+WHERE removal_date < detection_date;
+-- 예상 결과: 0
+
+-- 5️⃣ 활성 IP 통계
+SELECT
+    is_active,
+    COUNT(*) as count,
+    ROUND(AVG(EXTRACT(EPOCH FROM (CURRENT_DATE - detection_date))/86400), 1) as avg_age_days
+FROM blacklist_ips
+GROUP BY is_active;
+{{/code}}
+
+---
+
+== 3️⃣ 버전별 변경사항 ==
+
+=== v3.3.6 → v3.3.7 업그레이드 (최신) ===
+
+{{success}}
+**🎯 주요 변경사항**: nginx 제거, Traefik 분리, 5개 서비스로 최적화
+{{/success}}
+
+(% class="wikitable" %)
+|=(% style="background:#2196F3; color:white;" %)변경 항목|=(% style="background:#2196F3; color:white;" %)세부사항|=(% style="background:#2196F3; color:white;" %)영향|=(% style="background:#2196F3; color:white;" %)조치 필요
+|**🔧 아키텍처 변경**|nginx 제거, Traefik으로 전환|⚠️ **중요**|Traefik 별도 설치 필수
+|**📦 패키지 최적화**|860MB → 813MB (47MB 감소)|✅ 성능 향상|없음
+|**🐳 서비스 수 변경**|6개 → 5개 컨테이너|✅ 구조 단순화|없음
+|**🌐 도메인 변경**|blacklist.jclee.me → blacklist.nxtd.co.kr|⚠️ 설정 변경|Traefik 라우팅 설정
+|**🔌 네트워크 추가**|traefik-public 외부 네트워크|⚠️ 설정 변경|네트워크 생성 필요
+|**📊 새 웹 페이지** (v3.3.6)|/integrations, /sessions, /collection-logs|✅ 기능 추가|없음
+|**🔒 FortiGate API** (v3.3.6)|/api/fortinet/active-sessions 추가|✅ 기능 추가|없음
+
+{{panel title="**📋 v3.3.7 업그레이드 체크리스트**"}}
+**배포 전 (Pre-Deployment):**
+- [ ] ✅ **Traefik 설치 확인** ({{code}}docs/TRAEFIK-SETUP.md{{/code}} 참고)
+- [ ] ✅ {{code}}traefik-public{{/code}} 네트워크 생성 ({{code}}docker network create traefik-public{{/code}})
+- [ ] ✅ SSL 인증서 준비 ({{code}}/home/jclee/infrastructure/traefik/ssl/{{/code}})
+- [ ] ✅ 데이터베이스 백업 완료
+- [ ] ✅ 디스크 여유 공간 확인 (최소 2GB)
+
+**배포 순서:**
+- [ ] 1️⃣ **Traefik 먼저 시작** ({{code}}cd /home/jclee/infrastructure/traefik && docker compose up -d{{/code}})
+- [ ] 2️⃣ traefik-public 네트워크 확인 ({{code}}docker network ls | grep traefik-public{{/code}})
+- [ ] 3️⃣ 구 버전 중지 ({{code}}docker compose down{{/code}})
+- [ ] 4️⃣ v3.3.7 패키지 압축 해제
+- [ ] 5️⃣ 새 버전 시작 ({{code}}bash install.sh{{/code}})
+- [ ] 6️⃣ 헬스체크 ({{code}}curl -k https://blacklist.nxtd.co.kr/health{{/code}})
+
+**배포 후 (Post-Deployment):**
+- [ ] ✅ Traefik 로그 확인 ({{code}}docker logs traefik | grep blacklist{{/code}})
+- [ ] ✅ Frontend 네트워크 확인 ({{code}}docker inspect blacklist-frontend | grep Networks -A 5{{/code}})
+- [ ] ✅ 도메인 접근 확인 ({{code}}https://blacklist.nxtd.co.kr{{/code}})
+- [ ] ✅ 새 웹 페이지 접근 확인
+  - {{code}}https://blacklist.nxtd.co.kr/integrations{{/code}}
+  - {{code}}https://blacklist.nxtd.co.kr/sessions{{/code}}
+  - {{code}}https://blacklist.nxtd.co.kr/collection-logs{{/code}}
+- [ ] ✅ FortiGate API 테스트 ({{code}}/api/fortinet/active-sessions{{/code}})
+{{/panel}}
+
+{{warning}}
+**⚠️ 중요 주의사항**
+* **Traefik은 패키지에 포함되지 않습니다** - 별도 설치 필수
+* **nginx 컨테이너 제거** - 더 이상 사용되지 않음
+* **포트 노출 변경** - 이제 Traefik을 통해서만 외부 접근
+* **네트워크 구성 변경** - Frontend만 traefik-public 연결
+{{/warning}}
+
+**🔧 Traefik 설치 (신규 설치 시):**
+
+{{code language="bash"}}
+# 1️⃣ Traefik 디렉터리 생성
+mkdir -p /home/jclee/infrastructure/traefik/{config,ssl}
+
+# 2️⃣ SSL 인증서 복사
+cp /path/to/cert.crt /home/jclee/infrastructure/traefik/ssl/default.crt
+cp /path/to/key.key /home/jclee/infrastructure/traefik/ssl/default.key
+chmod 600 /home/jclee/infrastructure/traefik/ssl/*.key
+
+# 3️⃣ docker-compose.yml 및 config 파일 준비
+# (docs/TRAEFIK-SETUP.md 참고)
+
+# 4️⃣ Traefik 시작
+cd /home/jclee/infrastructure/traefik
+docker compose up -d
+
+# 5️⃣ 네트워크 생성
+docker network create traefik-public
+
+# 6️⃣ Traefik 동작 확인
+docker logs traefik
+curl -k https://traefik.nxtd.co.kr  # 대시보드 (설정된 경우)
+{{/code}}
+
+**🔄 롤백 (v3.3.6으로 복원):**
+
+{{code language="bash"}}
+# 긴급 롤백 절차
+# 1️⃣ v3.3.7 중지
+docker compose down
+
+# 2️⃣ v3.3.6 패키지로 복원
+cd /opt/blacklist-v3.3.6/
+docker compose up -d
+
+# 3️⃣ nginx 재시작 (v3.3.6은 nginx 사용)
+docker compose restart blacklist-nginx
+
+# 4️⃣ 검증
+curl http://localhost/health
+{{/code}}
+
+---
+
+=== v1.0 → v1.1 업그레이드 (레거시) ===
+
+(% class="wikitable" %)
+|=(% style="background:#607D8B; color:white;" %)변경 항목|=(% style="background:#607D8B; color:white;" %)영향|=(% style="background:#607D8B; color:white;" %)호환성|=(% style="background:#607D8B; color:white;" %)조치 필요
+|**화이트리스트 우선 체크**|블랙리스트 로직 변경|✅ 하위 호환|없음
+|**Redis 캐싱 추가**|성능 향상 (85% 히트율)|✅ 하위 호환|REDIS_PASSWORD 설정
+|**REGTECH 수집 자동화**|수동 → 자동 수집|⚠️ 설정 필요|REGTECH_ID, REGTECH_PW
+|**severity 컬럼 추가**|DB 스키마 변경|⚠️ 마이그레이션 필요|SQL 실행
+|**Prometheus 메트릭**|모니터링 강화|✅ 하위 호환|없음
+
+{{panel title="**📋 업그레이드 체크리스트**"}}
+**배포 전 (Pre-Deployment):**
+- [ ] ✅ 데이터베이스 백업 완료 ({{code}}pg_dump{{/code}})
+- [ ] ✅ 현재 버전 태그 기록
+- [ ] ✅ 디스크 여유 공간 확인 (최소 10GB)
+- [ ] ✅ .env 파일에 {{code}}REDIS_PASSWORD{{/code}} 추가
+- [ ] ✅ .env 파일에 {{code}}REGTECH_ID{{/code}}, {{code}}REGTECH_PW{{/code}} 설정
+
+**배포 중 (Deployment):**
+- [ ] ✅ 블루-그린 배포로 새 버전 시작 (다른 포트)
+- [ ] ✅ DB 마이그레이션 실행 및 검증
+- [ ] ✅ 헬스체크 통과 확인 ({{code}}/health{{/code}})
+- [ ] ✅ 샘플 IP 테스트 (화이트리스트 우선 확인)
+- [ ] ✅ 통계 API 응답 확인 ({{code}}/api/stats{{/code}})
+
+**배포 후 (Post-Deployment):**
+- [ ] ✅ 트래픽 전환 완료
+- [ ] ✅ 30분간 모니터링 (에러율, 응답 시간)
+- [ ] ✅ 구 버전 종료
+- [ ] ✅ 24시간 모니터링 계획 수립
+{{/panel}}
+
+---
+
+
+//작성: 정보보안팀//
+
+----
+
+== 💬 Discussion ==
+
+{{info}}
+이 문서에 대한 질문이나 피드백이 있으시면 아래에 댓글로 남겨주세요.
+{{/info}}
+
+{{comment}}
+댓글을 추가하세요...
+{{/comment}}

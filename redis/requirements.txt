@@ -1,0 +1,2 @@
+# Redis Container Dependencies  
+# No additional dependencies needed - using official redis:7-alpine base image

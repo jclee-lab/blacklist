@@ -1,0 +1,197 @@
+= (% id="H8" %)📝 8. 부록 =
+
+{{panel title="**✨ 이 섹션에서 배울 내용**"}}
+* ☑️ 포트 목록 전체
+* ☑️ 주요 명령어 모음
+* ☑️ 빠른 참조 가이드
+{{/panel}}
+
+---
+
+== 📋 포트 목록 ==
+
+(% class="wikitable" %)
+|=(% style="background:#455A64; color:white;" %)서비스|=(% style="background:#455A64; color:white;" %)컨테이너 내부|=(% style="background:#455A64; color:white;" %)호스트 외부|=(% style="background:#455A64; color:white;" %)외부 노출|=(% style="background:#455A64; color:white;" %)용도
+|⚛️  **blacklist-frontend**|2543|2543|✅ 예|Next.js 웹 UI
+|🐍 **blacklist-app**|2542|2542|✅ 예|Flask API
+|📊 **blacklist-collector**|8545|8545|❌ 아니오|데이터 수집기 (내부 전용)
+|🐘 **blacklist-postgres**|5432|5432|❌ 아니오|PostgreSQL DB (내부 전용)
+|🔴 **blacklist-redis**|6379|6379|❌ 아니오|Redis 캐시 (내부 전용)
+
+{{info}}
+**🔒 보안 권장사항**
+* 외부 노출 포트 (2543, 2542)만 방화벽 오픈
+* 내부 포트 (5432, 6379, 8545)는 Docker 네트워크 내부에서만 접근 가능
+* 프로덕션 환경에서는 2542 포트도 VPN 또는 방화벽으로 보호 권장
+{{/info}}
+
+---
+
+== 🛠️  주요 명령어 모음 ==
+
+=== 🐳 Docker 관리 ===
+
+{{code language="bash"}}
+# 📊 상태 확인
+docker-compose ps
+
+# 📋 로그 확인
+docker-compose logs -f blacklist-app
+docker-compose logs -f --tail=100 blacklist-app
+
+# 🔄 서비스 재시작
+docker-compose restart blacklist-app
+
+# 🛑 전체 중지
+docker-compose down
+
+# 🚀 전체 시작
+docker-compose up -d
+
+# 🔧 특정 서비스만 재시작
+docker-compose restart blacklist-postgres
+
+# 🗑️  리소스 정리
+docker system prune -a --volumes
+{{/code}}
+
+=== 💚 헬스체크 ===
+
+{{code language="bash"}}
+# API 헬스체크
+curl http://localhost:2542/health | jq
+
+# IP 체크 테스트
+curl "http://localhost:2542/api/blacklist/check?ip=1.2.3.4" | jq
+
+# 통계 조회
+curl http://localhost:2542/api/stats | jq
+
+# Prometheus 메트릭
+curl http://localhost:2542/metrics
+{{/code}}
+
+=== 🐘 PostgreSQL 관리 ===
+
+{{code language="bash"}}
+# 🔌 DB 연결
+docker exec -it blacklist-postgres psql -U postgres -d blacklist
+
+# 📊 테이블 목록
+docker exec blacklist-postgres psql -U postgres -d blacklist -c "\dt"
+
+# 📈 블랙리스트 통계
+docker exec blacklist-postgres psql -U postgres -d blacklist << 'SQL'
+SELECT
+    country,
+    COUNT(*) as total,
+    COUNT(*) FILTER (WHERE is_active = true) as active
+FROM blacklist_ips
+GROUP BY country
+ORDER BY total DESC
+LIMIT 10;
+SQL
+
+# 💾 백업
+docker exec blacklist-postgres pg_dump -U postgres blacklist > \
+  /opt/backups/blacklist_$(date +%Y%m%d_%H%M%S).sql
+
+# 📥 복원
+docker exec -i blacklist-postgres psql -U postgres -d blacklist < \
+  /opt/backups/blacklist_20251014_100000.sql
+{{/code}}
+
+=== 🔴 Redis 관리 ===
+
+{{code language="bash"}}
+# 🔌 Redis 연결
+docker exec -it blacklist-redis redis-cli
+
+# 📊 정보 확인
+docker exec blacklist-redis redis-cli INFO stats
+
+# 🔍 키 조회
+docker exec blacklist-redis redis-cli KEYS "ip:*" | head -10
+
+# 📈 캐시 히트율
+docker exec blacklist-redis redis-cli INFO stats | grep -E "keyspace_hits|keyspace_misses"
+
+# 🗑️  특정 키 삭제
+docker exec blacklist-redis redis-cli DEL "ip:1.2.3.4"
+
+# 💥 전체 캐시 초기화 (주의!)
+docker exec blacklist-redis redis-cli FLUSHDB
+{{/code}}
+
+---
+
+== 🚀 빠른 참조 ==
+
+=== 일일 점검 체크리스트 ===
+
+{{panel title="**📋 일일 운영 체크리스트**"}}
+**매일 오전 (10분)**
+- [ ] ✅ {{code}}docker-compose ps{{/code}} → 5개 모두 "healthy"
+- [ ] ✅ {{code}}curl http://localhost:2542/health{{/code}} → "status": "healthy"
+- [ ] ✅ 디스크 사용량 확인: {{code}}df -h{{/code}} → 여유 공간 10GB 이상
+- [ ] ✅ 로그 에러 확인: {{code}}docker-compose logs --since 24h \| grep ERROR{{/code}}
+- [ ] ✅ 통계 확인: {{code}}curl http://localhost:2542/api/stats{{/code}}
+
+**매일 밤 (자동화 권장)**
+- [ ] ✅ PostgreSQL 백업: {{code}}pg_dump{{/code}}
+- [ ] ✅ 백업 파일 압축 및 원격 저장
+{{/panel}}
+
+=== 장애 대응 플로우 ===
+
+{{plantuml}}
+@startuml
+skinparam backgroundColor white
+skinparam activity {
+    BackgroundColor<<action>> #E3F2FD
+    BackgroundColor<<success>> #C8E6C9
+    BackgroundColor<<escalate>> #FFECB3
+}
+
+start
+:🚨 장애 감지;
+
+switch (장애 유형?)
+case (컨테이너 다운)
+    :컨테이너 재시작 <<action>>\ndocker-compose restart;
+case (DB 연결 실패)
+    :PostgreSQL 확인 <<action>>\npg_isready;
+case (API 오류)
+    :로그 확인 <<action>>\ndocker logs;
+case (성능 저하)
+    :캐시/DB 최적화 <<action>>\nRedis/PostgreSQL 튜닝;
+endswitch
+
+:검증 테스트;
+
+if (정상 복구?) then (✅ YES)
+    :로그 기록 <<success>>\n문서화;
+    stop
+else (❌ NO)
+    :전문가 지원 요청 <<escalate>>\n정보보안팀 연락;
+    stop
+endif
+
+@enduml
+{{/plantuml}}
+
+---
+
+//작성: 정보보안팀//
+
+----
+
+== 💬 Discussion ==
+
+{{info}}
+이 문서에 대한 질문이나 피드백이 있으시면 아래에 댓글로 남겨주세요.
+{{/info}}
+
+{{comment}}
+댓글을 추가하세요...
+{{/comment}}

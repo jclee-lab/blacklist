@@ -1,0 +1,37 @@
+# FortiManager CLI Script
+# FortiManager에서 직접 실행됨 (5분마다)
+# Device Manager > Script에 등록
+
+config system admin
+    # Flask API에서 IP 리스트 다운로드
+    execute url-get https://blacklist.nxtd.co.kr/api/fortinet/active-ips /tmp/nxtd-blacklist.txt
+end
+
+# External Resource 등록
+config system external-resource
+    edit "NXTD-Blacklist"
+        set type address
+        set category 193
+        set resource "file:///tmp/nxtd-blacklist.txt"
+        set refresh-rate 5
+        set status enable
+        set comments "NXTD Blacklist - Auto-updated"
+    next
+end
+
+# Address Object 생성
+config firewall address
+    edit "NXTD-Blacklist"
+        set type external-resource
+        set external-resource "NXTD-Blacklist"
+        set comment "NXTD Blacklist"
+    next
+end
+
+# Address Group 생성
+config firewall addrgrp
+    edit "NXTD-Blacklist-Group"
+        set member "NXTD-Blacklist"
+        set comment "NXTD Blacklist Group"
+    next
+end

@@ -1,0 +1,244 @@
+# Changelog
+
+All notable changes to the Blacklist Intelligence Platform will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [3.3.8] - 2025-10-30
+
+### Fixed
+- **Credential Initialization UX** (Patch 006)
+  - 초기 설정 시 "REGTECH 인증 정보 없음" 경고 메시지가 계속 출력되던 문제 수정
+  - 인증 정보가 없는 상태에서도 설정 UI가 정상 동작하도록 개선
+  - `secure_credential_service.py`: logger.warning → logger.debug 변경
+  - `monitoring_scheduler.py`: credentials 조회 시 조용히 None 반환
+  - 사용자가 처음 시스템을 설치했을 때 깨끗한 로그와 UI 제공
+
+### Changed
+- **Docker Compose**: Traefik 설정 최적화
+  - HTTPS Only (443) - HTTP(80) 제거
+  - 간결한 Traefik labels (6줄)
+  - `blacklist-app` 컨테이너에 패치 디렉토리 마운트 추가
+  - `./offline-packages/patches:/patches:ro` (read-only)
+
+### Added
+- **Auto-Patching on Container Start with Smart Detection** (NEW!)
+  - `app/entrypoint.sh`: 컨테이너 재부팅 시 **적용 안된 패치만** 자동 스캔 및 적용
+  - 패치 추적 파일: `/app/.applied_patches` (성공한 패치 기록)
+  - 스마트 감지: 이미 적용된 패치 자동 스킵 (불필요한 재실행 방지)
+  - 상대 경로 지원: `/patches`, `/app/patches`, `./offline-packages/patches`
+  - `set -eo pipefail` 설정 (파이프 에러 감지)
+  - 패치 실행 결과 통계 (Applied/Skipped/Failed 카운트)
+  - 패치 히스토리 표시 (총 적용된 패치 개수)
+  - 패치 실패 시에도 컨테이너 정상 시작 (graceful degradation)
+  - Dockerfile: bash 런타임 추가, ENTRYPOINT 설정
+- **Offline Package: Patches 포함**
+  - `create-dual-package.sh`: 패치 디렉토리 자동 포함
+  - `install.sh`: `setup_patches()` 함수 추가 (실행 권한 설정)
+- **Runtime Patches**:
+  - `001-upgrade-entrypoint-smart-detection.sh`: 스마트 패치 감지 시스템 (최우선 - 다른 패치 자동 적용 기반)
+  - `002-migrate-to-traefik.sh`: Traefik 설정 자동 마이그레이션
+  - `003-fix-credential-initialization.sh`: Credential 초기화 UX 개선
+- **Documentation**: TRAEFIK-SETUP.md 업데이트 (v3.3.8 반영)
+
+---
+
+## [3.3.7] - 2025-10-30
+
+### Added
+- **Traefik Offline Package** (traefik-offline.tar.gz, 48M)
+  - 독립 배포 가능한 Traefik 리버스 프록시 패키지
+  - NXTD SSL 인증서 지원
+  - Multi-service 환경을 위한 별도 배포 옵션
+
+### Fixed
+- **HTTPS Port Fix for Air-gap Environments**
+  - Monitoring scheduler HTTPS 설정 수정
+  - SECUDIUM URL 및 파일 경로 수정
+  - 격리 환경(air-gap)에서 HTTPS 통신 안정화
+
+### Changed
+- **Interactive Manual Collection Guide**
+  - 사용자 친화적인 수동 수집 트리거 가이드 추가
+  - Step-by-step 날짜 선택 및 수집 실행 지원
+
+---
+
+## [3.3.6] - 2025-10-25
+
+### Added
+- **Web UI Pages** (3 new pages)
+  1. **FortiGate/FortiManager Integration** (`/integrations`)
+     - 8 FortiGate API endpoints 문서화 및 라이브 테스트
+     - FortiManager 자동화 스크립트 가이드
+     - 복사-붙여넣기 및 인라인 테스트 기능
+
+  2. **Session History Management** (`/sessions`)
+     - 실시간 통계 (active, last hour, last 24h, unique countries)
+     - Multi-filter system (time range, status, risk level, country)
+     - Auto-refresh every 30 seconds
+     - CSV export and session detail modal
+
+  3. **Collection Logs Viewer** (`/collection-logs`)
+     - REGTECH/SECUDIUM 실시간 수집 로그
+     - Log level 분류 (success/error/warning/info)
+     - Auto-refresh toggle with countdown timer
+     - Expandable log details and CSV export
+
+---
+
+## [3.3.5] - 2025-10-22
+
+### Added
+- **Application Security (Phase 1.3)**
+  - CSRF Protection (Flask-WTF) - All state-changing requests
+  - Rate Limiting (Flask-Limiter + Redis) - Global: 200/day, 50/hour
+  - Security Headers (X-Frame-Options, CSP, HSTS, etc.)
+  - Input Validation (SQL injection prevention, IP format validation)
+
+### Changed
+- **Security Test Coverage**: `tests/security/test_security.py` (319 lines)
+  - CSRF token validation tests
+  - Rate limiting tests
+  - SQL injection prevention tests
+  - Security headers tests
+
+---
+
+## [3.3.4] - 2025-10-20
+
+### Added
+- **SECUDIUM Integration** (Multi-collector architecture)
+  - Dual-source collection (REGTECH + SECUDIUM)
+  - Unified API for multiple threat intelligence sources
+  - Browser automation for SECUDIUM data extraction
+  - Separate scheduling per source (independent intervals)
+
+### Changed
+- **Database Migrations**:
+  - 013_add_notify_trigger.sql - PostgreSQL NOTIFY trigger for real-time updates
+  - 014_add_source_column.sql - Source tracking for blacklist entries
+
+---
+
+## [3.3.3] - 2025-10-18
+
+### Added
+- **Runtime Patch System** (v2.1)
+  - Intelligent patch scripts with auto-recovery
+  - Unified logging system
+  - Password auto-detection
+  - 3 retry attempts on service restart
+  - Graceful degradation
+
+### Fixed
+- **REGTECH Authentication**
+  - Two-stage authentication (findOneMember → addLogin)
+  - Session management improvements
+  - Cookie handling fixes
+
+---
+
+## [3.3.2] - 2025-10-15
+
+### Added
+- **Air-gap Deployment** (2-file method)
+  - `blacklist.tar.gz` (560M) - 6 Docker images
+  - `install.sh` (18K) - Auto-install script
+  - Network pre-validation (REGTECH/SECUDIUM connectivity)
+  - Air-gap mode support (`--skip-network-check`)
+
+---
+
+## [3.3.1] - 2025-10-12
+
+### Added
+- **API Proxying** (`/api/proxy/*`)
+  - CORS-free API proxying to collector service
+  - Avoids frontend CORS issues
+
+### Changed
+- **Network Validation** in `install.sh`
+  - Validates REGTECH and SECUDIUM API connectivity
+  - Can be skipped with `--skip-network-check` flag
+
+---
+
+## [3.3.0] - 2025-10-10
+
+### Added
+- **Whitelist Priority System** (Phase 1)
+  - VIP protection - Whitelist checked BEFORE blacklist
+  - `is_active` flag for whitelist entries
+  - Priority-based IP check logic
+
+### Changed
+- **Database Schema**:
+  - `whitelist_ips` table with priority check
+  - `unified_ip_list` view (blacklist + whitelist)
+
+---
+
+## [3.2.0] - 2025-10-05
+
+### Added
+- **FortiGate Integration**
+  - 8 FortiGate/FortiManager API endpoints
+  - Push-based blacklist updates
+  - FortiManager automation scripts
+
+---
+
+## [3.1.0] - 2025-10-01
+
+### Added
+- **REGTECH Policy Monitor**
+  - Automated daily collection
+  - Excel parsing with pandas + openpyxl fallback
+  - Database-driven configuration
+
+---
+
+## [3.0.0] - 2025-09-25
+
+### Changed
+- **Flask App Factory Pattern**
+  - Blueprint-based modular route organization
+  - 15+ Blueprints for API endpoints
+  - Singleton service pattern
+
+---
+
+## [2.0.0] - 2025-09-20
+
+### Added
+- **Container-based Development**
+  - 6 microservices in Docker
+  - PostgreSQL 15 + Redis 7
+  - Next.js SSR frontend
+  - Nginx reverse proxy
+
+---
+
+## [1.0.0] - 2025-09-01
+
+### Added
+- **Initial Release**
+  - Basic blacklist IP management
+  - Manual IP add/remove
+  - PostgreSQL database
+  - Simple Flask API
+
+---
+
+**Version Naming Convention**:
+- **Major (X.0.0)**: Architecture changes, breaking changes
+- **Minor (3.X.0)**: New features, significant improvements
+- **Patch (3.3.X)**: Bug fixes, minor improvements, runtime patches
+
+**Maintained by**: Claude Code
+**Project**: REGTECH Blacklist Intelligence Platform
+**License**: MIT

@@ -1,0 +1,809 @@
+= (% id="H3" %)🔌 3. API 레퍼런스 =
+
+{{panel title="**✨ 이 섹션에서 배울 내용**"}}
+* ☑️ 15개 REST API 엔드포인트 전체 스펙
+* ☑️ Python SDK 및 Shell 스크립트 예제
+* ☑️ FortiGate 방화벽 연동 API
+* ☑️ 헬스체크 및 통계 API
+{{/panel}}
+
+---
+
+== 1️⃣ API 개요 ==
+
+{{info}}
+**🔗 API 기본 정보**
+* **Base URL**: {{code}}http://{서버IP}:2542{{/code}} (내부), {{code}}https://blacklist.nxtd.co.kr{{/code}} (외부)
+* **프로토콜**: HTTP/1.1
+* **데이터 형식**: JSON (UTF-8)
+* **인증**: (현재 버전: 인증 없음, 내부망 전용)
+* **버전**: 3.3.7
+{{/info}}
+
+---
+
+== 2️⃣ 헬스체크 ==
+
+{{success}}
+**💚 시스템 상태 확인**: 서비스 가용성 및 의존성 체크
+{{/success}}
+
+{{code}}
+GET /health
+{{/code}}
+
+**응답 예시 (정상):**
+
+{{code language="json"}}
+{
+  "status": "healthy",              // ✅ 시스템 상태
+  "timestamp": "2025-10-29T10:30:00Z",
+  "version": "3.3.7",
+  "dependencies": {
+    "postgres": "healthy",          // 🐘 DB 연결
+    "redis": "healthy"              // 🔴 캐시 연결
+  }
+}
+{{/code}}
+
+**응답 예시 (장애):**
+
+{{code language="json"}}
+{
+  "status": "degraded",             // ⚠️  부분 장애
+  "timestamp": "2025-10-29T10:35:00Z",
+  "version": "3.3.7",
+  "dependencies": {
+    "postgres": "unhealthy",        // ❌ DB 연결 실패
+    "redis": "healthy"
+  }
+}
+{{/code}}
+
+(% class="wikitable" %)
+|=(% style="background:#4CAF50; color:white;" %)상태 코드|=(% style="background:#4CAF50; color:white;" %)의미|=(% style="background:#4CAF50; color:white;" %)조치
+|**200 OK**|✅ 모든 시스템 정상|정상 운영
+|**503 Service Unavailable**|❌ 의존성 장애|즉시 대응 필요
+
+---
+
+== 3️⃣ 블랙리스트 API ==
+
+=== 3.1 🔍 IP 체크 (핵심 API) ===
+
+{{panel title="**⚡ 최다 호출 API - 화이트리스트 우선 체크**"}}
+이 API는 **화이트리스트를 먼저 체크**하여 화이트리스트을 보호합니다
+{{/panel}}
+
+**GET 방식:**
+
+{{code}}
+GET /api/blacklist/check?ip={ip_address}
+{{/code}}
+
+**POST 방식:**
+
+{{code}}
+POST /api/blacklist/check
+Content-Type: application/json
+
+{
+  "ip": "1.2.3.4"
+}
+{{/code}}
+
+**응답 패턴:**
+
+**① 화이트리스트 (화이트리스트):**
+
+{{code language="json"}}
+{
+  "blocked": false,
+  "reason": "whitelist",
+  "ip": "192.168.1.100",
+  "metadata": {
+    "source": "whitelist_ips",
+    "added_at": "2025-10-01"
+  }
+}
+{{/code}}
+
+**② 블랙리스트 (위협 IP):**
+
+{{code language="json"}}
+{
+  "blocked": true,
+  "reason": "악성 스캔 활동 탐지",
+  "ip": "1.2.3.4",
+  "metadata": {
+    "country": "CN",
+    "detection_date": "2025-10-01",
+    "source": "REGTECH"
+  }
+}
+{{/code}}
+
+**③ 정상 IP (목록에 없음):**
+
+{{code language="json"}}
+{
+  "blocked": false,
+  "reason": "not_in_blacklist",
+  "ip": "8.8.8.8"
+}
+{{/code}}
+
+=== 3.2 ➕ 수동 추가 ===
+
+{{code}}
+POST /api/blacklist/manual-add
+Content-Type: application/json
+
+{
+  "ip_address": "1.2.3.4",
+  "country": "CN",
+  "reason": "공격 시도 탐지"
+}
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "message": "IP 1.2.3.4가 블랙리스트에 추가되었습니다"
+}
+{{/code}}
+
+---
+
+== 4️⃣ 화이트리스트 API ==
+
+{{success}}
+**🥇 화이트리스트 보호**: 이 목록의 IP는 블랙리스트에 있어도 차단되지 않습니다
+{{/success}}
+
+=== 4.1 ➕ 화이트리스트 IP 추가 ===
+
+{{code}}
+POST /api/whitelist/manual-add
+Content-Type: application/json
+
+{
+  "ip_address": "192.168.1.100",
+  "country": "KR",
+  "reason": "화이트리스트사"
+}
+{{/code}}
+
+=== 4.2 📋 목록 조회 ===
+
+{{code}}
+GET /api/whitelist/list?page=1&per_page=50
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "ip_address": "192.168.1.100",
+        "country": "KR",
+        "reason": "화이트리스트사",
+        "created_at": "2025-10-01T09:00:00Z",
+        "is_active": true
+      }
+    ],
+    "total": 42,
+    "page": 1,
+    "per_page": 50
+  }
+}
+{{/code}}
+
+---
+
+== 5️⃣ 인증정보 관리 API ==
+
+{{success}}
+**🔐 보안 우선**: 인증정보는 UI를 통해 암호화하여 저장하는 것을 권장합니다
+{{/success}}
+
+=== 5.1 💾 인증정보 저장 (Collection Panel API - 암호화) ===
+
+{{code}}
+POST /collection-panel/api/save-credentials
+Content-Type: application/json
+
+{
+  "regtech_username": "레그테크_아이디",
+  "regtech_password": "레그테크_비밀번호",
+  "secudium_username": "세큐디움_아이디",
+  "secudium_password": "세큐디움_비밀번호"
+}
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "message": "인증정보가 저장되었습니다"
+}
+{{/code}}
+
+**특징:**
+* ✅ `secure_credential_service` 사용 (AES 암호화)
+* ✅ 인증정보 설정 시 자동수집 스케줄러 시작
+* ✅ `collection_credentials` 테이블에 암호화 저장
+
+=== 5.2 📥 인증정보 로드 (복호화) ===
+
+{{code}}
+GET /collection-panel/api/load-credentials
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "credentials": {
+    "regtech_username": "레그테크_아이디",
+    "regtech_password": "레그테크_비밀번호",
+    "secudium_username": "세큐디움_아이디",
+    "secudium_password": "세큐디움_비밀번호"
+  }
+}
+{{/code}}
+
+**특징:**
+* ✅ 암호화된 데이터 자동 복호화
+* ✅ 패스워드 마스킹 없음 (UI에서 마스킹 처리)
+
+=== 5.3 📋 모든 인증정보 조회 (Settings API) ===
+
+{{code}}
+GET /settings/api/credentials
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "count": 2,
+  "credentials": [
+    {
+      "service_name": "REGTECH",
+      "username": "레그테크_아이디",
+      "password": "********",
+      "is_active": true,
+      "created_at": "2025-10-22T10:00:00",
+      "config": {
+        "base_url": "https://regtech.fsec.or.kr"
+      }
+    },
+    {
+      "service_name": "SECUDIUM",
+      "username": "세큐디움_아이디",
+      "password": "********",
+      "is_active": true
+    }
+  ]
+}
+{{/code}}
+
+**보안:**
+* ✅ 패스워드는 항상 `********`로 마스킹
+
+=== 5.4 🔄 인증정보 업데이트 ===
+
+{{code}}
+PUT /settings/api/credentials/<service_name>
+Content-Type: application/json
+
+{
+  "username": "새_아이디",
+  "password": "새_비밀번호",
+  "is_active": true
+}
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "service_name": "REGTECH",
+  "message": "Credentials updated successfully"
+}
+{{/code}}
+
+{{info}}
+**UI 접근 방법**:
+* **Collection Panel**: https://blacklist.nxtd.co.kr/collection-panel (권장)
+* **Settings UI**: https://blacklist.nxtd.co.kr/settings
+{{/info}}
+
+---
+
+== 6️⃣ 데이터 수집 API ==
+
+=== 6.1 📊 수집 상태 ===
+
+{{code}}
+GET /api/collection/status
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "data": {
+    "service": "REGTECH",
+    "last_collection": {
+      "timestamp": "2025-10-14T09:00:00+09:00",
+      "items_collected": 99784,
+      "duration_seconds": 248,
+      "success": true
+    },
+    "next_scheduled": "2025-10-14T10:00:00+09:00"
+  }
+}
+{{/code}}
+
+=== 6.2 🔄 수동 수집 트리거 ===
+
+{{warning}}
+**⚠️ 주의**: 이 API는 즉시 수집을 시작합니다. 이전 수집이 완료된 후 호출하세요.
+{{/warning}}
+
+{{code}}
+POST /api/collection/regtech/trigger
+{{/code}}
+
+**응답 (즉시):**
+
+{{code language="json"}}
+{
+  "success": true,
+  "message": "REGTECH 수집이 백그라운드에서 시작되었습니다",
+  "job_id": "collection-20251014-090000"
+}
+{{/code}}
+
+---
+
+== 7️⃣ 통계 API ==
+
+{{code}}
+GET /api/stats
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "data": {
+    "blacklist": {
+      "total_ips": 99784,
+      "active_ips": 87234,
+      "by_country": {
+        "CN": 45234,
+        "RU": 18765,
+        "US": 12456,
+        "KR": 5678
+      }
+    },
+    "whitelist": {
+      "total_ips": 42,
+      "by_country": {
+        "KR": 38,
+        "US": 4
+      }
+    },
+    "checks_today": {
+      "total": 1523456,
+      "blocked": 12345,
+      "whitelist_hits": 12346,
+      "allowed": 1498765
+    }
+  }
+}
+{{/code}}
+
+---
+
+== 8️⃣ FortiGate 연동 ==
+
+{{panel title="**🔒 방화벽 자동 연동**"}}
+FortiGate 방화벽에서 이 API를 주기적으로 호출하여 블랙리스트를 자동 동기화할 수 있습니다
+{{/panel}}
+
+=== 8.1 📋 활성 IP 목록 ===
+
+{{code}}
+GET /api/fortinet/active-ips
+{{/code}}
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "data": {
+    "ips": [
+      "1.2.3.4",
+      "5.6.7.8",
+      "9.10.11.12"
+    ],
+    "total": 87234,
+    "last_updated": "2025-10-14T09:00:00Z"
+  }
+}
+{{/code}}
+
+=== 8.2 🛡️  FortiGate 형식 출력 ===
+
+{{code}}
+GET /api/fortinet/blocklist
+{{/code}}
+
+**응답 (FortiGate 전용 형식):**
+
+{{code language="text"}}
+config firewall address
+    edit "blacklist-1.2.3.4"
+        set subnet 1.2.3.4/32
+        set comment "REGTECH-CN-2025-10-01"
+    next
+    edit "blacklist-5.6.7.8"
+        set subnet 5.6.7.8/32
+        set comment "REGTECH-RU-2025-10-02"
+    next
+end
+{{/code}}
+
+=== 8.3 📊 실시간 세션 모니터링 (NEW v3.3.6) ===
+
+{{success}}
+**🔍 활성 위협 세션**: 실시간으로 감지된 위협 IP의 세션 정보를 제공합니다
+{{/success}}
+
+{{code}}
+GET /api/fortinet/active-sessions?limit=50&hours=24
+{{/code}}
+
+**Query Parameters:**
+* `limit`: 반환할 세션 수 (기본: 50, 최대: 500)
+* `hours`: 시간 범위 (기본: 24시간)
+
+**응답:**
+
+{{code language="json"}}
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "ip_address": "1.2.3.4",
+      "country": "CN",
+      "session_status": "active",
+      "active_hours": 2.5,
+      "confidence_level": 95,
+      "detection_date": "2025-10-29T14:30:00Z",
+      "reason": "Port scanning activity"
+    }
+  ],
+  "stats": {
+    "total_sessions": 150,
+    "active_count": 45,
+    "last_hour": 12,
+    "last_24h": 45,
+    "unique_countries": 23
+  }
+}
+{{/code}}
+
+**사용 사례:**
+* 실시간 위협 모니터링 대시보드
+* FortiGate 세션 테이블 동기화
+* 자동화된 위협 대응 트리거
+
+---
+
+== 9️⃣ Python SDK ==
+
+{{success}}
+**🐍 Python 클라이언트 라이브러리**: 손쉬운 API 호출
+{{/success}}
+
+{{code language="python"}}
+import requests
+from typing import Dict, Optional
+
+class BlacklistClient:
+    """Blacklist Management System API 클라이언트"""
+
+    def __init__(self, base_url: str):
+        """
+        Args:
+            base_url: API 서버 주소 (예: http://192.168.1.100:2542)
+        """
+        self.base_url = base_url.rstrip('/')
+
+    def check_ip(self, ip: str) -> Dict:
+        """
+        IP 차단 여부 확인 (화이트리스트 우선)
+
+        Args:
+            ip: 확인할 IP 주소
+
+        Returns:
+            {"blocked": bool, "reason": str, ...}
+        """
+        response = requests.get(
+            f"{self.base_url}/api/blacklist/check",
+            params={"ip": ip},
+            timeout=5
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def add_whitelist(self, ip: str, reason: str, country: Optional[str] = None) -> Dict:
+        """
+        화이트리스트에 화이트리스트 IP 추가
+
+        Args:
+            ip: IP 주소
+            reason: 등록 사유
+            country: 국가 코드 (예: KR)
+
+        Returns:
+            {"success": bool, "message": str}
+        """
+        data = {"ip_address": ip, "reason": reason}
+        if country:
+            data["country"] = country
+
+        response = requests.post(
+            f"{self.base_url}/api/whitelist/manual-add",
+            json=data,
+            timeout=5
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def add_blacklist(self, ip: str, reason: str, country: Optional[str] = None) -> Dict:
+        """블랙리스트에 위협 IP 추가"""
+        data = {"ip_address": ip, "reason": reason}
+        if country:
+            data["country"] = country
+
+        response = requests.post(
+            f"{self.base_url}/api/blacklist/manual-add",
+            json=data,
+            timeout=5
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_stats(self) -> Dict:
+        """전체 통계 조회"""
+        response = requests.get(
+            f"{self.base_url}/api/stats",
+            timeout=5
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+# 사용 예시
+if __name__ == "__main__":
+    # 클라이언트 초기화
+    client = BlacklistClient("http://192.168.1.100:2542")
+
+    # IP 체크
+    result = client.check_ip("1.2.3.4")
+    if result["blocked"]:
+        print(f"⛔ 차단: {result['reason']}")
+    else:
+        print(f"✅ 허용: {result['reason']}")
+
+    # 화이트리스트 추가
+    client.add_whitelist("192.168.1.100", "화이트리스트사", "KR")
+
+    # 통계 조회
+    stats = client.get_stats()
+    print(f"📊 블랙리스트: {stats['data']['blacklist']['total_ips']:,}개")
+{{/code}}
+
+---
+
+== 🔟 Shell 스크립트 ==
+
+{{code language="bash"}}
+#!/bin/bash
+# blacklist-cli.sh - Blacklist Management CLI
+
+SERVER="http://192.168.1.100:2542"
+
+# 🔍 IP 체크
+check_ip() {
+    local ip=$1
+    echo "🔍 IP 체크: $ip"
+    curl -s "$SERVER/api/blacklist/check?ip=$ip" | jq
+}
+
+# ➕ 화이트리스트 추가
+add_whitelist() {
+    local ip=$1
+    local reason=$2
+    echo "➕ 화이트리스트 추가: $ip"
+    curl -s -X POST "$SERVER/api/whitelist/manual-add" \
+        -H "Content-Type: application/json" \
+        -d "{\"ip_address\": \"$ip\", \"reason\": \"$reason\"}" | jq
+}
+
+# 📊 통계 조회
+show_stats() {
+    echo "📊 시스템 통계"
+    curl -s "$SERVER/api/stats" | jq '.data'
+}
+
+# 💚 헬스체크
+health_check() {
+    echo "💚 헬스체크"
+    curl -s "$SERVER/health" | jq
+}
+
+# 메인 로직
+case "$1" in
+    check)
+        check_ip "$2"
+        ;;
+    add-whitelist)
+        add_whitelist "$2" "$3"
+        ;;
+    stats)
+        show_stats
+        ;;
+    health)
+        health_check
+        ;;
+    *)
+        echo "사용법: $0 {check|add-whitelist|stats|health} [args]"
+        echo "예시:"
+        echo "  $0 check 1.2.3.4"
+        echo "  $0 add-whitelist 192.168.1.100 '화이트리스트'"
+        echo "  $0 stats"
+        echo "  $0 health"
+        exit 1
+        ;;
+esac
+{{/code}}
+
+**사용 예시:**
+
+{{code language="bash"}}
+# 실행 권한 부여
+chmod +x blacklist-cli.sh
+
+# IP 체크
+./blacklist-cli.sh check 1.2.3.4
+
+# 화이트리스트 추가
+./blacklist-cli.sh add-whitelist 192.168.1.100 "화이트리스트사"
+
+# 통계 조회
+./blacklist-cli.sh stats
+
+# 헬스체크
+./blacklist-cli.sh health
+{{/code}}
+
+---
+
+== 1️⃣1️⃣ 웹 페이지 엔드포인트 (NEW v3.3.6) ==
+
+{{success}}
+**🌐 관리 웹 인터페이스**: 브라우저에서 직접 접근 가능한 관리 페이지
+{{/success}}
+
+=== 11.1 🔌 FortiGate/FortiManager 통합 관리 ===
+
+{{code}}
+GET /integrations
+{{/code}}
+
+**기능:**
+* ✅ 8개 FortiGate API 엔드포인트 문서화 및 실시간 테스트
+* ✅ FortiManager 자동화 스크립트 가이드
+* ✅ 복사-붙여넣기 기능 (클립보드)
+* ✅ 인라인 API 테스트 (실시간 응답 확인)
+* ✅ 각 엔드포인트별 응답 예시 제공
+
+**주요 API 엔드포인트:**
+1. `/api/fortinet/active-ips` - 활성 IP 목록
+2. `/api/fortinet/blocklist` - FortiGate 형식 차단 목록
+3. `/api/fortinet/threat-feed` - Push API JSON 형식
+4. `/api/fortinet/json-connector` - 강화된 위협 인텔리전스
+5. `/api/fortinet/active-sessions` - 실시간 세션 모니터링
+6. `/api/fortinet/config` - 통합 설정
+7. `/api/fortinet/health` - 헬스체크
+8. `/api/fortinet/stats` - 통계
+
+=== 11.2 📊 세션 히스토리 관리 ===
+
+{{code}}
+GET /sessions
+{{/code}}
+
+**기능:**
+* ✅ 실시간 통계 (활성, 최근 1시간, 24시간, 고유 국가 수)
+* ✅ 다중 필터 시스템 (시간 범위, 상태, 위험도, 국가)
+* ✅ 30초마다 자동 새로고침
+* ✅ CSV 내보내기
+* ✅ 세션 상세 정보 모달
+* ✅ IP 차단/화이트리스트 추가 액션
+
+**필터 옵션:**
+* 시간 범위: 1시간, 24시간, 7일, 30일, 전체
+* 세션 상태: 전체, 활성, 비활성
+* 위험도: 전체, 높음, 중간, 낮음
+* 국가: 전체, 또는 특정 국가 선택
+
+=== 11.3 📝 수집 로그 뷰어 ===
+
+{{code}}
+GET /collection-logs
+{{/code}}
+
+**기능:**
+* ✅ REGTECH 및 SECUDIUM 수집 로그 실시간 확인
+* ✅ 로그 레벨별 분류 (success/error/warning/info)
+* ✅ 자동 새로고침 토글 (카운트다운 타이머)
+* ✅ 확장 가능한 로그 상세 정보
+* ✅ CSV 내보내기
+* ✅ 두 소스 모두 실시간 수집 상태 표시
+
+**로그 유형:**
+* **Success**: 성공적인 수집 완료
+* **Error**: 수집 실패 또는 오류
+* **Warning**: 경고 (부분 성공 등)
+* **Info**: 정보성 메시지
+
+**수집 소스:**
+1. REGTECH (regtech.fsec.or.kr)
+2. SECUDIUM (www.secudium.com)
+
+{{info}}
+**💡 접근 방법**:
+* **Base URL**: https://blacklist.nxtd.co.kr
+* **통합 페이지**: https://blacklist.nxtd.co.kr/integrations
+* **세션 관리**: https://blacklist.nxtd.co.kr/sessions
+* **수집 로그**: https://blacklist.nxtd.co.kr/collection-logs
+{{/info}}
+
+---
+
+
+//작성: 정보보안팀//
+
+----
+
+== 💬 Discussion ==
+
+{{info}}
+이 문서에 대한 질문이나 피드백이 있으시면 아래에 댓글로 남겨주세요.
+{{/info}}
+
+{{comment}}
+댓글을 추가하세요...
+{{/comment}}

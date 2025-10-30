@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파이프라인 모니터링 대시보드 - Blacklist System</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .status-healthy { color: #28a745; }
+        .status-warning { color: #ffc107; }
+        .status-error { color: #dc3545; }
+        .card-stat { transition: all 0.3s ease; }
+        .card-stat:hover { transform: translateY(-5px); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .alert-item { border-left: 4px solid; margin-bottom: 10px; }
+        .alert-error { border-color: #dc3545; }
+        .alert-warning { border-color: #ffc107; }
+        .metric-card { min-height: 300px; }
+        .refresh-indicator { display: none; }
+        .refresh-indicator.active { display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-shield-alt me-2"></i>
+                Blacklist 파이프라인 모니터링
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text">
+                    <i class="fas fa-sync-alt refresh-indicator" id="refreshIndicator"></i>
+                    마지막 업데이트: <span id="lastUpdate">-</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- 전체 시스템 상태 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-heartbeat me-2"></i>시스템 전체 상태</h5>
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
+                            <i class="fas fa-sync-alt me-1"></i>새로고침
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="overallStatus" class="d-flex align-items-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">시스템 상태 확인 중...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 주요 메트릭 카드 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card card-stat text-center">
+                    <div class="card-body">
+                        <i class="fas fa-cogs fa-2x text-primary mb-2"></i>
+                        <h6 class="card-title">CI/CD 파이프라인</h6>
+                        <h4 id="pipelineStatus" class="mb-0">-</h4>
+                        <small class="text-muted" id="pipelineLastRun">-</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat text-center">
+                    <div class="card-body">
+                        <i class="fas fa-download fa-2x text-success mb-2"></i>
+                        <h6 class="card-title">데이터 수집</h6>
+                        <h4 id="collectionStatus" class="mb-0">-</h4>
+                        <small class="text-muted" id="collectionLastRun">-</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat text-center">
+                    <div class="card-body">
+                        <i class="fas fa-database fa-2x text-info mb-2"></i>
+                        <h6 class="card-title">수집된 IP</h6>
+                        <h4 id="totalIPs" class="mb-0">-</h4>
+                        <small class="text-muted">전체 IP 개수</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat text-center">
+                    <div class="card-body">
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                        <h6 class="card-title">활성 알림</h6>
+                        <h4 id="alertCount" class="mb-0">-</h4>
+                        <small class="text-muted">미해결 이슈</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 파이프라인 메트릭 차트 -->
+            <div class="col-md-6 mb-4">
+                <div class="card metric-card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>CI/CD 파이프라인 성능</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="pipelineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 데이터 수집 메트릭 차트 -->
+            <div class="col-md-6 mb-4">
+                <div class="card metric-card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>데이터 수집 성과</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="collectionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 최근 알림 -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-bell me-2"></i>최근 알림</h6>
+                    </div>
+                    <div class="card-body" id="alertsList">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 상세 상태 -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>상세 상태</h6>
+                    </div>
+                    <div class="card-body" id="detailStatus">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let pipelineChart, collectionChart;
+        const refreshInterval = 30000; // 30초마다 새로고침
+
+        // 페이지 로드 시 초기 데이터 로드
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            refreshData();
+            setInterval(refreshData, refreshInterval);
+        });
+
+        function initializeCharts() {
+            // CI/CD 파이프라인 차트
+            const pipelineCtx = document.getElementById('pipelineChart').getContext('2d');
+            pipelineChart = new Chart(pipelineCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '실행 시간 (초)',
+                        data: [],
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '시간 (초)' }
+                        }
+                    }
+                }
+            });
+
+            // 데이터 수집 차트
+            const collectionCtx = document.getElementById('collectionChart').getContext('2d');
+            collectionChart = new Chart(collectionCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['REGTECH', 'CERTCC', '기타'],
+                    datasets: [{
+                        label: '수집된 IP 개수',
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.8)',
+                            'rgba(255, 193, 7, 0.8)',
+                            'rgba(108, 117, 125, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'IP 개수' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function refreshData() {
+            const refreshIndicator = document.getElementById('refreshIndicator');
+            refreshIndicator.classList.add('active');
+
+            try {
+                const response = await fetch('/monitoring/api/dashboard-data');
+                const result = await response.json();
+
+                if (result.success) {
+                    updateDashboard(result.data);
+                    updateLastRefreshTime(result.timestamp);
+                } else {
+                    console.error('데이터 로드 실패:', result.error);
+                    showError('데이터를 로드할 수 없습니다: ' + result.error);
+                }
+            } catch (error) {
+                console.error('네트워크 오류:', error);
+                showError('네트워크 연결에 문제가 있습니다.');
+            } finally {
+                refreshIndicator.classList.remove('active');
+            }
+        }
+
+        function updateDashboard(data) {
+            // 전체 시스템 상태 업데이트
+            updateOverallStatus(data);
+            
+            // 주요 메트릭 업데이트
+            updateMainMetrics(data);
+            
+            // 차트 업데이트
+            updateCharts(data);
+            
+            // 알림 업데이트
+            updateAlerts(data.alerts);
+            
+            // 상세 상태 업데이트
+            updateDetailStatus(data);
+        }
+
+        function updateOverallStatus(data) {
+            const overallStatus = document.getElementById('overallStatus');
+            const pipelineOk = data.pipeline_status?.status === 'success';
+            const collectionOk = !data.alerts || data.alerts.length === 0;
+            
+            let status, statusClass, icon;
+            if (pipelineOk && collectionOk) {
+                status = '정상'; statusClass = 'status-healthy'; icon = 'fa-check-circle';
+            } else if (pipelineOk || collectionOk) {
+                status = '주의'; statusClass = 'status-warning'; icon = 'fa-exclamation-triangle';
+            } else {
+                status = '오류'; statusClass = 'status-error'; icon = 'fa-times-circle';
+            }
+            
+            overallStatus.innerHTML = `
+                <i class="fas ${icon} fa-2x ${statusClass} me-3"></i>
+                <div>
+                    <h4 class="mb-0 ${statusClass}">${status}</h4>
+                    <small class="text-muted">전체 시스템 상태</small>
+                </div>
+            `;
+        }
+
+        function updateMainMetrics(data) {
+            // CI/CD 파이프라인 상태
+            const pipelineStatus = data.pipeline_status?.status === 'success' ? '정상' : '오류';
+            document.getElementById('pipelineStatus').textContent = pipelineStatus;
+            document.getElementById('pipelineStatus').className = 
+                data.pipeline_status?.status === 'success' ? 'mb-0 status-healthy' : 'mb-0 status-error';
+            document.getElementById('pipelineLastRun').textContent = 
+                data.pipeline_status?.timestamp ? new Date(data.pipeline_status.timestamp).toLocaleString('ko-KR') : '-';
+
+            // 데이터 수집 상태
+            const activeCollections = data.collection_status?.active_collections?.length || 0;
+            document.getElementById('collectionStatus').textContent = activeCollections > 0 ? '실행중' : '대기중';
+            document.getElementById('collectionStatus').className = 
+                activeCollections > 0 ? 'mb-0 status-healthy' : 'mb-0 text-muted';
+            
+            // 수집된 IP 개수 (예시 데이터)
+            document.getElementById('totalIPs').textContent = data.collection_metrics?.total_collected || '-';
+            
+            // 활성 알림 개수
+            document.getElementById('alertCount').textContent = data.alerts?.length || 0;
+            document.getElementById('alertCount').className = 
+                (data.alerts?.length || 0) > 0 ? 'mb-0 status-warning' : 'mb-0 status-healthy';
+        }
+
+        function updateCharts(data) {
+            // CI/CD 파이프라인 차트 업데이트 (예시 데이터)
+            if (data.pipeline_metrics?.execution_times) {
+                const times = data.pipeline_metrics.execution_times.slice(-10);
+                pipelineChart.data.labels = times.map((_, i) => `실행 ${i + 1}`);
+                pipelineChart.data.datasets[0].data = times;
+                pipelineChart.update();
+            }
+            
+            // 데이터 수집 차트 업데이트
+            if (data.collection_metrics?.by_source) {
+                const sources = data.collection_metrics.by_source;
+                collectionChart.data.datasets[0].data = [
+                    sources.regtech || 0,
+                    sources.certcc || 0,
+                    sources.other || 0
+                ];
+                collectionChart.update();
+            }
+        }
+
+        function updateAlerts(alerts) {
+            const alertsList = document.getElementById('alertsList');
+            
+            if (!alerts || alerts.length === 0) {
+                alertsList.innerHTML = '<p class="text-muted text-center">활성 알림이 없습니다.</p>';
+                return;
+            }
+            
+            let alertsHtml = '';
+            alerts.slice(0, 5).forEach(alert => {
+                const alertClass = alert.type === 'error' ? 'alert-error' : 'alert-warning';
+                const icon = alert.type === 'error' ? 'fa-times-circle' : 'fa-exclamation-triangle';
+                alertsHtml += `
+                    <div class="alert-item p-2 ${alertClass}">
+                        <i class="fas ${icon} me-2"></i>
+                        <strong>${alert.source}:</strong> ${alert.message}
+                        <br><small class="text-muted">${new Date(alert.timestamp).toLocaleString('ko-KR')}</small>
+                    </div>
+                `;
+            });
+            
+            alertsList.innerHTML = alertsHtml;
+        }
+
+        function updateDetailStatus(data) {
+            const detailStatus = document.getElementById('detailStatus');
+            
+            let statusHtml = '<div class="row">';
+            
+            // CI/CD 파이프라인 상세 정보
+            statusHtml += `
+                <div class="col-12 mb-3">
+                    <h6><i class="fas fa-cogs me-2"></i>CI/CD 파이프라인</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>상태:</strong> ${data.pipeline_status?.status || '-'}</li>
+                        <li><strong>마지막 실행:</strong> ${data.pipeline_status?.timestamp ? new Date(data.pipeline_status.timestamp).toLocaleString('ko-KR') : '-'}</li>
+                        <li><strong>실행 시간:</strong> ${data.pipeline_metrics?.avg_execution_time || '-'}초</li>
+                    </ul>
+                </div>
+            `;
+            
+            // 데이터 수집 상세 정보
+            statusHtml += `
+                <div class="col-12 mb-3">
+                    <h6><i class="fas fa-download me-2"></i>데이터 수집</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>활성 수집:</strong> ${data.collection_status?.active_collections?.length || 0}개</li>
+                        <li><strong>성공률:</strong> ${data.collection_metrics?.success_rate || '-'}%</li>
+                        <li><strong>총 수집 IP:</strong> ${data.collection_metrics?.total_collected || '-'}개</li>
+                    </ul>
+                </div>
+            `;
+            
+            statusHtml += '</div>';
+            detailStatus.innerHTML = statusHtml;
+        }
+
+        function updateLastRefreshTime(timestamp) {
+            const lastUpdate = document.getElementById('lastUpdate');
+            lastUpdate.textContent = new Date(timestamp).toLocaleString('ko-KR');
+        }
+
+        function showError(message) {
+            const overallStatus = document.getElementById('overallStatus');
+            overallStatus.innerHTML = `
+                <i class="fas fa-exclamation-triangle fa-2x text-warning me-3"></i>
+                <div>
+                    <h4 class="mb-0 text-warning">오류</h4>
+                    <small class="text-muted">${message}</small>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# PostgreSQL Container Dependencies
+# No Python dependencies needed - using official postgres:15-alpine base image

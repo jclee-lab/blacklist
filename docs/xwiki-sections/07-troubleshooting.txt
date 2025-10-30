@@ -1,0 +1,944 @@
+= (% id="H7" %)🔧 7. 상세 문제 해결 =
+
+{{panel title="**✨ 이 섹션에서 배울 내용**"}}
+* ☑️ 8가지 주요 증상별 해결 방법 (v3.3.7: Traefik 이슈 포함)
+* ☑️ 원인 분석 및 진단 명령어
+* ☑️ 단계별 해결 프로세스
+* ☑️ 예방 조치
+{{/panel}}
+
+---
+
+== 🚨 증상 1: 컨테이너 시작 실패 ==
+
+=== 원인 1-1: 포트 충돌 ===
+
+{{warning}}
+**🔴 증상**: {{code}}Error starting userland proxy: listen tcp4 0.0.0.0:2542: bind: address already in use{{/code}}
+{{/warning}}
+
+{{info}}
+**v3.3.7 참고**: 포트 2542, 2543은 Docker 내부 전용입니다. 외부 접근은 Traefik(80/443)을 통해서만 가능합니다.
+{{/info}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 내부 포트 사용 확인 (blacklist-network 내부)
+netstat -tlnp | grep -E '2542|2543|5432|6379'
+# 또는
+ss -tlnp | grep -E '2542|2543|5432|6379'
+
+# 특정 포트 상세 확인
+lsof -i :2542
+
+# v3.3.7: 외부 접근용 Traefik 포트 확인
+netstat -tlnp | grep -E '80|443'
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 방법 1: 기존 프로세스 종료
+kill -9 <PID>
+
+# 방법 2 (v3.3.7): 일반적으로 불필요
+# 포트 2542, 2543은 Docker 내부 전용이므로 외부 충돌 없음
+# docker-compose.yml에는 ports 매핑이 없어야 정상
+
+# 방법 3: docker-compose.yml 확인 (v3.3.7)
+# blacklist-app, blacklist-frontend에 ports 매핑 제거됨
+# expose만 사용 (내부 전용)
+
+docker-compose up -d
+{{/code}}
+
+=== 원인 1-2: 네트워크 문제 ===
+
+{{warning}}
+**🔴 증상**: {{code}}ERROR: could not find an available, non-overlapping IPv4 address pool{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Docker 네트워크 상태 확인
+docker network ls
+docker network inspect blacklist-network
+
+# IP 대역 충돌 확인
+ip route | grep 172.25
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 네트워크 재생성
+docker-compose down
+docker network rm blacklist-network
+docker network create blacklist-network --subnet 172.25.0.0/16
+docker-compose up -d
+
+# 또는 다른 서브넷 사용
+docker network create blacklist-network --subnet 172.26.0.0/16
+# docker-compose.yml에서 IP도 변경 필요
+{{/code}}
+
+=== 원인 1-3: 권한 문제 ===
+
+{{warning}}
+**🔴 증상**: {{code}}FATAL: data directory has wrong ownership{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 볼륨 권한 확인
+ls -la /opt/blacklist-data/
+ls -la /opt/blacklist-data/postgres/
+ls -la /opt/blacklist-data/redis/
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# PostgreSQL 데이터 디렉토리 (UID=999)
+chown -R 999:999 /opt/blacklist-data/postgres
+chmod 700 /opt/blacklist-data/postgres
+
+# Redis 데이터 디렉토리 (UID=999)
+chown -R 999:999 /opt/blacklist-data/redis
+chmod 755 /opt/blacklist-data/redis
+
+# SELinux 컨텍스트 (RHEL)
+chcon -R -t container_file_t /opt/blacklist-data/
+
+# 재시작
+docker-compose restart blacklist-postgres blacklist-redis
+{{/code}}
+
+=== 원인 1-4: 디스크 부족 ===
+
+{{warning}}
+**🔴 증상**: {{code}}Error response from daemon: no space left on device{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 디스크 사용량 확인
+df -h
+docker system df
+
+# 큰 로그 파일 찾기
+find /var/lib/docker/containers -name "*.log" -size +100M -ls
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# Docker 시스템 정리
+docker system prune -a --volumes
+# 주의: 사용하지 않는 컨테이너/이미지/볼륨 모두 삭제
+
+# 오래된 로그 삭제 (7일 이상)
+find /var/lib/docker/containers -name "*.log" -mtime +7 -delete
+
+# 로그 로테이션 설정 (/etc/docker/daemon.json)
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+
+systemctl restart docker
+{{/code}}
+
+---
+
+== 🚨 증상 2: DB 연결 실패 ==
+
+=== 원인 2-1: 비밀번호 불일치 ===
+
+{{warning}}
+**🔴 증상**: {{code}}psycopg2.OperationalError: FATAL: password authentication failed{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# .env 파일 확인
+grep POSTGRES_PASSWORD .env
+
+# PostgreSQL 컨테이너 환경변수 확인
+docker exec blacklist-postgres env | grep POSTGRES_PASSWORD
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 비밀번호 재설정
+docker exec -it blacklist-postgres \
+  psql -U postgres -c "ALTER USER postgres PASSWORD 'new_password';"
+
+# .env 파일 동기화
+vi .env
+# POSTGRES_PASSWORD=new_password
+
+# 앱 재시작
+docker-compose restart blacklist-app blacklist-collector
+{{/code}}
+
+=== 원인 2-2: 네트워크 격리 문제 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 네트워크 연결 테스트
+docker exec blacklist-app ping -c 3 blacklist-postgres
+
+# DNS 해석 테스트
+docker exec blacklist-app nslookup blacklist-postgres
+
+# 네트워크 확인
+docker inspect blacklist-app | jq '.[0].NetworkSettings.Networks'
+docker inspect blacklist-postgres | jq '.[0].NetworkSettings.Networks'
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 네트워크 재연결
+docker network connect blacklist-network blacklist-app
+docker network connect blacklist-network blacklist-postgres
+
+# 또는 전체 재시작
+docker-compose down
+docker-compose up -d
+{{/code}}
+
+=== 원인 2-3: PostgreSQL 서비스 다운 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# PostgreSQL 상태 확인
+docker-compose ps blacklist-postgres
+
+# 로그 확인
+docker-compose logs blacklist-postgres | tail -50
+
+# 직접 연결 테스트
+docker exec -it blacklist-postgres pg_isready -U postgres -d blacklist
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 재시작
+docker-compose restart blacklist-postgres
+
+# 수동 연결 테스트
+docker exec -it blacklist-postgres psql -U postgres -d blacklist
+
+# 데이터 디렉토리 복구 (심각한 경우)
+docker-compose down
+docker volume rm blacklist_postgres_data
+docker-compose up -d
+# 주의: 데이터 손실 가능, 백업 복원 필요
+{{/code}}
+
+---
+
+== 🚨 증상 3: REGTECH 수집 실패 ==
+
+=== 원인 3-1: 인증 만료 ===
+
+{{warning}}
+**🔴 증상**: {{code}}Authentication failed: Invalid credentials{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 인증 정보 확인
+docker exec blacklist-postgres psql -U postgres -d blacklist \
+  -c "SELECT * FROM collection_credentials WHERE service_name='REGTECH';"
+
+# 환경변수 확인
+docker exec blacklist-collector env | grep REGTECH
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 수동 인증 테스트
+docker exec -it blacklist-collector python3 << 'EOF'
+from collector.api.regtech_api import authenticate
+result = authenticate()
+print(result)
+EOF
+
+# 새 인증 정보 등록
+docker exec blacklist-postgres psql -U postgres -d blacklist << 'SQL'
+UPDATE collection_credentials
+SET username = 'new_regtech_id',
+    password = 'new_regtech_pw',
+    updated_at = CURRENT_TIMESTAMP
+WHERE service_name = 'REGTECH';
+SQL
+
+# 수집기 재시작
+docker-compose restart blacklist-collector
+{{/code}}
+
+=== 원인 3-2: 네트워크 타임아웃 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# REGTECH 포털 연결 테스트
+docker exec blacklist-collector \
+  curl -I https://regtech.example.com --connect-timeout 10
+
+# DNS 해석
+docker exec blacklist-collector nslookup regtech.example.com
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 타임아웃 증가 (collector/config.py)
+docker exec -it blacklist-collector bash
+vi /app/collector/config.py
+# REQUEST_TIMEOUT = 60  # 30 → 60초
+
+# 재시작
+docker-compose restart blacklist-collector
+
+# 프록시 설정 (필요 시)
+# .env에 추가:
+# HTTP_PROXY=http://proxy.company.com:8080
+# HTTPS_PROXY=http://proxy.company.com:8080
+{{/code}}
+
+=== 원인 3-3: Excel 파싱 오류 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 로그에서 오류 확인
+docker-compose logs blacklist-collector | grep -i "parse error"
+docker-compose logs blacklist-collector | grep -i "excel"
+
+# 수동 파싱 테스트
+docker exec -it blacklist-collector python3 << 'EOF'
+import pandas as pd
+df = pd.read_excel('/tmp/test.xlsx', engine='openpyxl')
+print(df.head())
+EOF
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="python"}}
+# collector/parsers/excel_parser.py 수정
+
+import pandas as pd
+import openpyxl
+
+def parse_excel(file_path):
+    """Excel 파싱 (다중 엔진 폴백)"""
+    try:
+        # 1차 시도: openpyxl (xlsx)
+        df = pd.read_excel(file_path, engine='openpyxl')
+        return df
+    except Exception as e:
+        print(f"openpyxl 실패: {e}")
+        try:
+            # 2차 시도: xlrd (xls 바이너리)
+            df = pd.read_excel(file_path, engine='xlrd')
+            return df
+        except Exception as e2:
+            print(f"xlrd 실패: {e2}")
+            # 3차 시도: 수동 파싱
+            return parse_excel_manual(file_path)
+{{/code}}
+
+---
+
+== 🚨 증상 4: 성능 저하 ==
+
+=== 원인 4-1: 캐시 히트율 낮음 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Redis 통계 확인
+docker exec blacklist-redis redis-cli INFO stats | grep keyspace
+
+# 키 개수 확인
+docker exec blacklist-redis redis-cli DBSIZE
+
+# 캐시 히트율 계산
+docker exec blacklist-redis redis-cli INFO stats | grep -E "keyspace_hits|keyspace_misses"
+# 목표: hits / (hits + misses) ≥ 0.85
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 방법 1: TTL 증가 (app/core/services/blacklist_service.py)
+# CACHE_TTL = 7200  # 1시간 → 2시간
+
+# 방법 2: Redis 메모리 증가
+# docker-compose.yml
+# redis:
+#   command: redis-server --maxmemory 4gb
+
+# 방법 3: 캐시 워밍업 (자주 사용되는 IP 미리 로드)
+docker exec blacklist-app python3 << 'EOF'
+from core.services.blacklist_service import BlacklistService
+service = BlacklistService()
+# Top 1000 IPs 캐시
+for ip in top_1000_ips:
+    service.check_blacklist(ip)
+EOF
+{{/code}}
+
+=== 원인 4-2: DB 쿼리 느림 ===
+
+**🔍 진단:**
+
+{{code language="sql"}}
+-- PostgreSQL 느린 쿼리 확인
+-- (pg_stat_statements 확장 필요)
+
+SELECT
+    query,
+    mean_exec_time,
+    calls,
+    (mean_exec_time * calls) as total_time
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC
+LIMIT 10;
+
+-- 쿼리 플랜 분석
+EXPLAIN ANALYZE
+SELECT * FROM blacklist_ips WHERE ip_address = '1.2.3.4';
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="sql"}}
+-- 인덱스 추가
+CREATE INDEX idx_blacklist_country ON blacklist_ips(country);
+CREATE INDEX idx_blacklist_active ON blacklist_ips(is_active) WHERE is_active = true;
+CREATE INDEX idx_blacklist_detection_date ON blacklist_ips(detection_date DESC);
+
+-- 부분 인덱스 (활성 IP만)
+CREATE INDEX idx_blacklist_active_ips ON blacklist_ips(ip_address)
+WHERE is_active = true;
+
+-- 통계 업데이트
+ANALYZE blacklist_ips;
+ANALYZE whitelist_ips;
+
+-- VACUUM (정기적으로 실행)
+VACUUM ANALYZE;
+{{/code}}
+
+=== 원인 4-3: 디스크 I/O 병목 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# I/O 통계 확인
+iostat -x 1 10
+
+# PostgreSQL I/O 대기
+docker exec blacklist-postgres psql -U postgres << 'SQL'
+SELECT
+    pid,
+    usename,
+    state,
+    wait_event_type,
+    wait_event
+FROM pg_stat_activity
+WHERE wait_event_type = 'IO';
+SQL
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="sql"}}
+-- PostgreSQL 설정 튜닝
+ALTER SYSTEM SET shared_buffers = '4GB';
+ALTER SYSTEM SET effective_cache_size = '12GB';
+ALTER SYSTEM SET work_mem = '16MB';
+ALTER SYSTEM SET maintenance_work_mem = '512MB';
+ALTER SYSTEM SET random_page_cost = 1.1;  -- SSD 사용 시
+
+SELECT pg_reload_conf();
+{{/code}}
+
+{{code language="bash"}}
+# SSD 사용 또는 RAID 설정
+# 볼륨을 SSD에 마운트
+mkdir /mnt/ssd/blacklist-data
+mount /dev/sdb1 /mnt/ssd/blacklist-data
+
+# docker-compose.yml에서 볼륨 경로 변경
+# volumes:
+#   - /mnt/ssd/blacklist-data/postgres:/var/lib/postgresql/data
+{{/code}}
+
+---
+
+== 🚨 증상 5: 메모리 부족 ==
+
+=== 원인 5-1: OOM Killer 발동 ===
+
+{{warning}}
+**🔴 증상**: 컨테이너가 예기치 않게 종료되고 {{code}}Exited (137){{/code}} 표시
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# OOM 로그 확인
+dmesg | grep -i "out of memory"
+journalctl -u docker.service | grep -i "oom"
+
+# 컨테이너 종료 코드 확인
+docker inspect blacklist-app | jq '.[0].State.ExitCode'
+# 137 = SIGKILL (OOM)
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="yaml"}}
+# docker-compose.yml에 메모리 제한 설정
+
+services:
+  blacklist-app:
+    mem_limit: 2g
+    mem_reservation: 1g
+    memswap_limit: 2g
+
+  blacklist-postgres:
+    mem_limit: 4g
+    mem_reservation: 2g
+
+  blacklist-redis:
+    mem_limit: 2g
+    mem_reservation: 1g
+{{/code}}
+
+=== 원인 5-2: 메모리 누수 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 컨테이너 메모리 사용량 확인
+docker stats --no-stream
+
+# Python 메모리 프로파일링
+docker exec blacklist-app pip install memory_profiler
+docker exec blacklist-app python -m memory_profiler app/run_app.py
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 임시 조치: 정기 재시작 (cron)
+0 3 * * * docker-compose restart blacklist-app
+
+# 근본 원인 수정 (코드 레벨)
+# - 데이터베이스 연결 풀 크기 제한
+# - 큰 객체 명시적 삭제 (del)
+# - 순환 참조 제거
+{{/code}}
+
+=== 원인 5-3: Swap 사용량 증가 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Swap 확인
+free -h
+swapon --show
+
+# 프로세스별 Swap 사용량
+for file in /proc/*/status ; do awk '/VmSwap|Name/{printf $2 " " $3}END{ print ""}' $file; done | sort -k 2 -n -r | head
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# Swappiness 조정 (기본 60 → 10)
+sysctl vm.swappiness=10
+echo "vm.swappiness=10" >> /etc/sysctl.conf
+
+# Swap 비활성화 (충분한 RAM 있을 경우)
+swapoff -a
+sed -i '/swap/d' /etc/fstab
+
+# 또는 RAM 증설
+{{/code}}
+
+---
+
+== 🚨 증상 6: 화이트리스트 미작동 ==
+
+=== 원인 6-1: is_active=false ===
+
+**🔍 진단:**
+
+{{code language="sql"}}
+-- 비활성 화이트리스트 확인
+SELECT * FROM whitelist_ips WHERE is_active = false;
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="sql"}}
+-- 활성화
+UPDATE whitelist_ips
+SET is_active = true
+WHERE ip_address = '192.168.1.100';
+
+-- 전체 활성화
+UPDATE whitelist_ips
+SET is_active = true
+WHERE is_active = false;
+{{/code}}
+
+=== 원인 6-2: 캐시 무효화 필요 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Redis 캐시 확인
+docker exec blacklist-redis redis-cli KEYS "ip:*"
+docker exec blacklist-redis redis-cli GET "ip:192.168.1.100"
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 특정 IP 캐시 삭제
+docker exec blacklist-redis redis-cli DEL "ip:192.168.1.100"
+
+# 전체 캐시 초기화 (주의!)
+docker exec blacklist-redis redis-cli FLUSHDB
+# 또는
+docker-compose restart blacklist-redis
+{{/code}}
+
+=== 원인 6-3: DB 동기화 문제 ===
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 앱 로그에서 화이트리스트 체크 확인
+docker-compose logs blacklist-app | grep "whitelist_hit"
+
+# DB 직접 확인
+docker exec blacklist-postgres psql -U postgres -d blacklist \
+  -c "SELECT * FROM whitelist_ips WHERE ip_address = '192.168.1.100';"
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 앱 재시작으로 DB 연결 재설정
+docker-compose restart blacklist-app
+
+# DB 연결 풀 초기화 (Python)
+docker exec blacklist-app python3 << 'EOF'
+from core.services.database_service import DatabaseService
+db = DatabaseService.get_instance()
+db.reset_connection_pool()
+EOF
+{{/code}}
+
+---
+
+
+//작성: 정보보안팀//
+
+----
+
+== 💬 Discussion ==
+
+{{info}}
+이 문서에 대한 질문이나 피드백이 있으시면 아래에 댓글로 남겨주세요.
+{{/info}}
+
+{{comment}}
+댓글을 추가하세요...
+{{/comment}}
+
+---
+
+== 🚨 증상 7: Traefik 라우팅 실패 ==
+
+=== 원인 7-1: Traefik 네트워크 연결 실패 ===
+
+{{warning}}
+**🔴 증상**: {{code}}Network traefik-public declared as external, but could not be found{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Traefik 네트워크 존재 확인
+docker network ls | grep -i traefik
+
+# 네트워크 상세 정보
+docker network inspect traefik-public
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 방법 1: Traefik 네트워크가 없는 경우 생성
+docker network create traefik-public
+
+# 방법 2: 다른 이름의 Traefik 네트워크 확인
+docker network ls | grep -i traefik
+# 예: traefik-gateway 발견 시 docker-compose.yml 수정
+
+# 방법 3: 서비스 재시작
+docker compose up -d
+{{/code}}
+
+=== 원인 7-2: Traefik 라벨 설정 오류 ===
+
+{{warning}}
+**🔴 증상**: {{code}}https://blacklist.nxtd.co.kr{{/code}} 접속 시 404 Not Found
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Traefik 로그 확인
+docker logs traefik | grep blacklist
+
+# 라우터 생성 확인
+docker logs traefik | grep -E "Router.*blacklist"
+# 예상 출력: "Router 'blacklist-https' created"
+
+# v3.3.7: blacklist-frontend 컨테이너 라벨 확인 (nginx 제거됨)
+docker inspect blacklist-frontend | grep -A 20 Labels
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# docker-compose.yml 라벨 검증
+vi docker-compose.yml
+
+# v3.3.7 필수 라벨 (blacklist-frontend 서비스):
+#   - traefik.enable=true
+#   - traefik.docker.network=traefik-public
+#   - traefik.http.routers.blacklist-https.rule=Host(`blacklist.nxtd.co.kr`)
+#   - traefik.http.routers.blacklist-https.tls.certresolver=letsencrypt
+#   - traefik.http.services.blacklist.loadbalancer.server.port=2543
+
+# 수정 후 재배포
+docker compose down
+docker compose up -d
+
+# Traefik 재시작 (서비스 감지 갱신)
+docker restart traefik
+{{/code}}
+
+=== 원인 7-3: Let's Encrypt 인증서 발급 실패 ===
+
+{{warning}}
+**🔴 증상**: {{code}}https://blacklist.nxtd.co.kr{{/code}} 접속 시 SSL 인증서 오류
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Traefik acme.json 확인
+docker exec traefik ls -la /letsencrypt/acme.json
+
+# Traefik 로그에서 인증서 발급 확인
+docker logs traefik | grep -E "ACME|certificate|blacklist.nxtd.co.kr"
+
+# DNS 설정 확인 (중요!)
+nslookup blacklist.nxtd.co.kr
+# 예상 출력: 서버 IP 주소 (192.168.50.100 또는 공인 IP)
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 방법 1: DNS 설정 확인
+# - blacklist.nxtd.co.kr A 레코드 → 서버 IP
+# - 포트 80, 443 방화벽 오픈 확인
+
+# 방법 2: Traefik 재시작 (인증서 재발급 시도)
+docker restart traefik
+
+# 방법 3: acme.json 초기화 (기존 인증서 삭제)
+docker exec traefik rm /letsencrypt/acme.json
+docker exec traefik touch /letsencrypt/acme.json
+docker exec traefik chmod 600 /letsencrypt/acme.json
+docker restart traefik
+
+# 방법 4: Let's Encrypt staging 서버로 테스트
+# /home/jclee/infrastructure/traefik/docker-compose.yml에서:
+#   - "--certificatesresolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# 방법 5: v3.3.7 Traefik 설정 확인
+# /home/jclee/infrastructure/traefik/config/dynamic.yml 확인
+# 라우터가 올바른 도메인(blacklist.nxtd.co.kr)을 사용하는지 검증
+{{/code}}
+
+=== 원인 7-4: Traefik과 Frontend 통신 실패 (NEW v3.3.7) ===
+
+{{warning}}
+**🔴 증상**: Traefik 로그에 {{code}}Gateway Timeout{{/code}} 또는 {{code}}Service Unavailable{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Frontend 컨테이너 상태 확인
+docker ps | grep blacklist-frontend
+
+# Frontend 헬스체크
+curl http://172.25.0.2:2543/health
+# 또는 (컨테이너 내부에서)
+docker exec blacklist-frontend curl http://localhost:2543/
+
+# Traefik이 Frontend를 발견했는지 확인
+docker logs traefik | grep frontend
+
+# 네트워크 연결 확인
+docker network inspect traefik-public | grep blacklist-frontend
+docker network inspect blacklist-network | grep blacklist-frontend
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# 방법 1: Frontend가 두 네트워크에 모두 연결되어 있는지 확인
+docker inspect blacklist-frontend | grep -A 10 Networks
+# 예상: blacklist-network, traefik-public 모두 보여야 함
+
+# 방법 2: docker-compose.yml 네트워크 설정 확인
+vi docker-compose.yml
+# blacklist-frontend:
+#   networks:
+#     - blacklist-network
+#     - traefik-public
+
+# 방법 3: 네트워크 재연결
+docker network disconnect traefik-public blacklist-frontend
+docker network connect traefik-public blacklist-frontend
+
+# 방법 4: 전체 재배포
+docker compose down
+docker compose up -d
+
+# 방법 5: Frontend 로그 확인 (Next.js 에러)
+docker logs blacklist-frontend
+{{/code}}
+
+---
+
+== 🚨 증상 8: 데이터 수집 테스트 기능 실패 ==
+
+=== 원인 8-1: Collector API 엔드포인트 미구현 ===
+
+{{warning}}
+**🔴 증상**: {{code}}"message": "인증 실패: Collector API error: 404"{{/code}}
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# Collector 로그 확인
+docker logs blacklist-collector | grep -i "test-auth"
+
+# Collector API 라우트 확인
+docker exec blacklist-collector ls -la /app/api/
+docker exec blacklist-collector grep -r "test-auth" /app/
+
+# API 호출 테스트
+curl -X POST http://localhost:8545/api/test-auth/REGTECH
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# Collector API에 /api/test-auth 엔드포인트 추가 필요
+# (개발 작업 필요)
+
+# 임시 대안: 직접 credentials 테이블 확인
+docker exec blacklist-postgres psql -U postgres -d blacklist \
+  -c "SELECT service_name, id, status FROM collection_credentials;"
+
+# 수동으로 인증 테스트 (REGTECH)
+docker exec blacklist-app python3 -c "
+from collector.api.regtech_api import REGTECHCollector
+collector = REGTECHCollector()
+result = collector.authenticate()
+print(result)
+"
+{{/code}}
+
+---
+
+== 🚨 증상 9: Git LFS 파일 다운로드 실패 ==
+
+=== 원인 9-1: CloudFlare 100MB 제한 ===
+
+{{warning}}
+**🔴 증상**: tar.gz 파일이 701MB가 아닌 134 bytes (LFS pointer 파일)
+{{/warning}}
+
+**🔍 진단:**
+
+{{code language="bash"}}
+# 파일 크기 확인
+ls -lh offline-packages/*.tar.gz
+# 예상: 701MB, 실제: 134 bytes → LFS 미다운로드
+
+# LFS 파일 상태 확인
+git lfs ls-files
+cat offline-packages/*.tar.gz | head -5
+# "version https://git-lfs.github.com/spec/v1" → pointer 파일
+{{/code}}
+
+**✅ 해결 방법:**
+
+{{code language="bash"}}
+# CloudFlare 우회 설정 (DNS override)
+sudo bash -c 'echo "221.153.20.249 git.jclee.me" >> /etc/hosts'
+
+# SSL 검증 비활성화 (self-signed cert)
+git config --global http.sslVerify false
+
+# 저장소 재클론 (LFS 다운로드)
+GIT_SSL_NO_VERIFY=1 git clone --depth 1 ssh://git@git.jclee.me:2223/gitadmin/blacklist.git
+
+# 파일 검증
+ls -lh blacklist/offline-packages/*.tar.gz
+# 예상: ~701MB
+
+sha256sum -c blacklist/offline-packages/*.sha256
+# 예상: OK
+{{/code}}
+
+---
+
+//작성: 정보보안팀 - 2025-10-22 업데이트//

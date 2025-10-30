@@ -1,0 +1,428 @@
+= 📊 10. Monitoring & Observability =
+
+{{info}}
+이 페이지는 Grafana 대시보드를 **실시간으로 임베드**합니다.
+Synology NAS(grafana.jclee.me)에 네트워크 접근이 필요합니다.
+{{/info}}
+
+----
+
+== Real-time Dashboards ==
+
+=== Blacklist Statistics Dashboard ===
+
+{{html}}
+<div class="grafana-container">
+  <div class="dashboard-header">
+    <h3>📈 Blacklist Statistics</h3>
+    <p>실시간 IP 차단 통계 및 추세 분석</p>
+    <a href="https://grafana.jclee.me/d/blacklist-stats" target="_blank" class="external-link">
+      🔗 새 창에서 열기
+    </a>
+  </div>
+
+  <iframe
+    src="https://grafana.jclee.me/d/blacklist-stats?orgId=1&refresh=10s&kiosk&theme=light"
+    width="100%"
+    height="600px"
+    frameborder="0"
+    class="grafana-iframe">
+  </iframe>
+
+  <div class="dashboard-info">
+    <strong>포함된 메트릭:</strong>
+    <ul>
+      <li>Total Blacklist/Whitelist IPs</li>
+      <li>IP Check Decision Rates</li>
+      <li>Top 10 Countries</li>
+      <li>Collection Success Rate</li>
+    </ul>
+  </div>
+</div>
+{{/html}}
+
+----
+
+=== System Health Dashboard ===
+
+{{html}}
+<div class="grafana-container">
+  <div class="dashboard-header">
+    <h3>🏥 System Health</h3>
+    <p>컨테이너 상태, CPU/메모리 사용률, 응답 시간</p>
+    <a href="https://grafana.jclee.me/d/blacklist-health" target="_blank" class="external-link">
+      🔗 새 창에서 열기
+    </a>
+  </div>
+
+  <iframe
+    src="https://grafana.jclee.me/d/blacklist-health?orgId=1&refresh=10s&kiosk&theme=light"
+    width="100%"
+    height="600px"
+    frameborder="0"
+    class="grafana-iframe">
+  </iframe>
+
+  <div class="dashboard-info">
+    <strong>포함된 메트릭:</strong>
+    <ul>
+      <li>Container Status (Up/Down)</li>
+      <li>CPU & Memory Usage</li>
+      <li>API Response Time (p50, p95, p99)</li>
+      <li>Database Connection Pool</li>
+    </ul>
+  </div>
+</div>
+{{/html}}
+
+----
+
+=== Application Performance Dashboard ===
+
+{{html}}
+<div class="grafana-container">
+  <div class="dashboard-header">
+    <h3>⚡ Application Performance</h3>
+    <p>API 성능, 처리량, 에러율</p>
+    <a href="https://grafana.jclee.me/d/blacklist-performance" target="_blank" class="external-link">
+      🔗 새 창에서 열기
+    </a>
+  </div>
+
+  <iframe
+    src="https://grafana.jclee.me/d/blacklist-performance?orgId=1&refresh=10s&kiosk&theme=light"
+    width="100%"
+    height="600px"
+    frameborder="0"
+    class="grafana-iframe">
+  </iframe>
+
+  <div class="dashboard-info">
+    <strong>포함된 메트릭:</strong>
+    <ul>
+      <li>Requests per Second (RPS)</li>
+      <li>Error Rate (5xx responses)</li>
+      <li>API Latency Distribution</li>
+      <li>Cache Hit Rate (Redis)</li>
+    </ul>
+  </div>
+</div>
+
+<style>
+.grafana-container {
+  margin: 30px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.dashboard-header {
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #0066cc;
+}
+
+.dashboard-header h3 {
+  margin: 0 0 8px 0;
+  color: #0066cc;
+  font-size: 22px;
+}
+
+.dashboard-header p {
+  margin: 0;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.external-link {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #0066cc;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.external-link:hover {
+  background: #0052a3;
+}
+
+.grafana-iframe {
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  background: white;
+}
+
+.dashboard-info {
+  margin-top: 15px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.dashboard-info strong {
+  color: #28a745;
+  font-size: 16px;
+}
+
+.dashboard-info ul {
+  margin: 10px 0 0 0;
+  padding-left: 20px;
+}
+
+.dashboard-info li {
+  margin: 5px 0;
+  color: #495057;
+}
+</style>
+{{/html}}
+
+----
+
+== Prometheus Metrics ==
+
+=== Key Metrics ===
+
+{{code language="prometheus"}}
+# Application Metrics
+blacklist_decisions_total{decision="allowed_whitelist"}
+blacklist_decisions_total{decision="allowed_not_found"}
+blacklist_decisions_total{decision="blocked_blacklist"}
+blacklist_whitelist_hits_total
+blacklist_blacklist_hits_total
+
+# API Performance
+blacklist_api_requests_total
+blacklist_api_request_duration_seconds_bucket
+blacklist_api_errors_total
+
+# Collection Metrics
+blacklist_collection_duration_seconds
+blacklist_collection_items_total
+blacklist_collection_errors_total
+
+# System Metrics
+process_cpu_seconds_total
+process_resident_memory_bytes
+python_gc_objects_collected_total
+{{/code}}
+
+=== Metrics Endpoint ===
+
+{{info}}
+**v3.3.7 아키텍처**: 포트 2542는 내부 전용입니다. 외부에서는 Traefik를 통해 접근하거나, 서버 내부에서 직접 접근하세요.
+{{/info}}
+
+{{code language="bash"}}
+# v3.3.7: 내부 접근 (서버 SSH 접속 후)
+curl http://172.25.0.3:2542/metrics
+# 또는 localhost (컨테이너 내부)
+docker exec blacklist-app curl http://localhost:2542/metrics
+
+# v3.3.7: 외부 접근 (Traefik proxy 사용)
+curl https://blacklist.nxtd.co.kr/metrics
+# 주의: Traefik 라우팅 설정 필요
+
+# Filter specific metrics
+curl http://172.25.0.3:2542/metrics | grep blacklist_decisions
+
+# Prometheus scrape config (Synology NAS에서 자동 수집)
+curl https://prometheus.jclee.me/api/v1/targets | jq '.data.activeTargets[] | select(.labels.job=="blacklist")'
+{{/code}}
+
+----
+
+== Loki Log Aggregation ==
+
+=== Log Query Examples ===
+
+{{panel}}
+==== Application Logs ====
+
+**최근 에러 로그**:
+{{code language="logql"}}
+{job="blacklist-app"} |= "ERROR"
+{{/code}}
+
+**특정 IP 검색**:
+{{code language="logql"}}
+{job="blacklist-app"} |= "1.2.3.4" | json | ip_address="1.2.3.4"
+{{/code}}
+
+**Collection 시작/종료**:
+{{code language="logql"}}
+{job="blacklist-collector"} |~ "Collection (started|completed)"
+{{/code}}
+
+**API 응답 시간 분석**:
+{{code language="logql"}}
+{job="blacklist-app"} | json | response_time > 1000
+{{/code}}
+{{/panel}}
+
+=== Log Levels ===
+
+|= Level |= Color |= Usage |= Example Query
+| DEBUG | Gray | 개발용 상세 로그 | {{code}}{job="blacklist"} \\|= "DEBUG"{{/code}}
+| INFO | Blue | 정상 운영 정보 | {{code}}{job="blacklist"} \\|= "INFO"{{/code}}
+| WARNING | Yellow | 주의 필요 | {{code}}{job="blacklist"} \\|= "WARNING"{{/code}}
+| ERROR | Red | 오류 발생 | {{code}}{job="blacklist"} \\|= "ERROR"{{/code}}
+| CRITICAL | Dark Red | 심각한 오류 | {{code}}{job="blacklist"} \\|= "CRITICAL"{{/code}}
+
+----
+
+== Alerting Rules ==
+
+=== Critical Alerts ===
+
+{{warning}}
+다음 조건에서 **즉시 알림**이 발생합니다:
+{{/warning}}
+
+|= Alert Name |= Condition |= Severity |= Action
+| **BlacklistServiceDown** | {{code}}up{job="blacklist-app"} == 0{{/code}} | Critical | 즉시 재시작
+| **HighErrorRate** | {{code}}rate(blacklist_api_errors_total[5m]) > 10{{/code}} | Critical | 로그 확인
+| **CollectionFailure** | {{code}}blacklist_collection_errors_total > 0{{/code}} | High | REGTECH 연결 확인
+| **HighMemoryUsage** | {{code}}process_resident_memory_bytes > 2GB{{/code}} | High | 메모리 누수 조사
+| **DatabaseConnectionLoss** | {{code}}blacklist_db_connections{state="idle"} == 0{{/code}} | Critical | PostgreSQL 재시작
+
+=== Warning Alerts ===
+
+|= Alert Name |= Condition |= Severity |= Action
+| **SlowResponseTime** | {{code}}histogram_quantile(0.95, ...) > 1s{{/code}} | Warning | 성능 최적화
+| **HighCacheMissRate** | {{code}}redis_cache_hit_rate < 0.8{{/code}} | Warning | 캐시 전략 검토
+| **LowDiskSpace** | {{code}}node_filesystem_avail_bytes < 10GB{{/code}} | Warning | 디스크 정리
+
+----
+
+== Monitoring Best Practices ==
+
+{{panel}}
+=== 1. 대시보드 활용 ===
+
+* **매일 아침**: Health Dashboard 확인 (5분)
+* **배포 전후**: Performance Dashboard 비교 (10분)
+* **주간 리뷰**: Statistics Dashboard 추세 분석 (30분)
+
+=== 2. 알림 관리 ===
+
+* **Slack 통합**: 모든 Critical 알림 → #blacklist-alerts 채널
+* **Email 통합**: High 알림 → 운영팀 메일링 리스트
+* **PagerDuty**: Critical 알림 → 24/7 온콜 엔지니어
+
+=== 3. 로그 분석 ===
+
+* **에러 로그**: 매일 리뷰, 패턴 분석
+* **API 로그**: 느린 쿼리 식별 (>1s)
+* **Collection 로그**: 실패 원인 추적
+
+=== 4. 메트릭 기반 의사결정 ===
+
+* **스케일 아웃**: RPS > 1000일 때 컨테이너 추가
+* **캐시 튜닝**: Cache Hit Rate < 80%일 때 전략 변경
+* **DB 최적화**: Query Time > 500ms일 때 인덱스 추가
+{{/panel}}
+
+----
+
+== Grafana Access ==
+
+{{info}}
+**Grafana URL**: https://grafana.jclee.me
+
+**로그인 정보**:
+* Username: `admin`
+* Password: `${GRAFANA_ADMIN_PASSWORD}` (Synology NAS 환경변수)
+
+**권한**:
+* **Viewer**: 대시보드 조회만 가능
+* **Editor**: 대시보드 수정 가능
+* **Admin**: 모든 설정 변경 가능
+{{/info}}
+
+----
+
+== Troubleshooting ==
+
+=== Grafana에서 데이터가 보이지 않음 ===
+
+{{code language="bash"}}
+# 1. Prometheus가 메트릭을 수집하는지 확인
+curl https://prometheus.jclee.me/api/v1/query?query=up{job="blacklist-app"}
+
+# 2. v3.3.7: 애플리케이션 메트릭 엔드포인트 확인 (내부 접근)
+curl http://172.25.0.3:2542/metrics
+# 또는 서버에서
+ssh user@192.168.50.100
+curl http://localhost:2542/metrics
+
+# 3. Prometheus 설정 확인 (Synology NAS)
+ssh admin@192.168.50.215
+cat /volume1/docker/grafana/configs/prometheus.yml | grep blacklist
+# 확인: Prometheus가 blacklist-app:2542를 scrape하는지 검증
+{{/code}}
+
+=== 임베드된 Dashboard가 로드되지 않음 ===
+
+* **원인 1**: Synology NAS (192.168.50.215) 네트워크 불가
+  * **해결**: `ping 192.168.50.215` 테스트
+* **원인 2**: Grafana 서비스 중단
+  * **해결**: SSH로 Synology 접속 → `docker ps | grep grafana`
+* **원인 3**: 브라우저 iframe 차단
+  * **해결**: 브라우저 설정에서 iframe 허용
+
+=== Loki 로그가 표시되지 않음 ===
+
+{{code language="bash"}}
+# 1. Promtail이 로그를 전송하는지 확인
+docker logs blacklist-app | tail -20
+
+# 2. Loki 쿼리 테스트
+curl -G -s "https://loki.jclee.me/loki/api/v1/query_range" \
+  --data-urlencode 'query={job="blacklist-app"}' | jq
+
+# 3. Promtail 설정 확인 (로컬 또는 Synology)
+cat /etc/promtail/config.yml
+{{/code}}
+
+----
+
+== Performance Optimization Tips ==
+
+{{success}}
+**최적화 팁**:
+
+1. **Dashboard Refresh Rate**: 실시간(10s) → 필요시만(30s)
+2. **Query Time Range**: 기본 6시간 → 필요한 범위만 선택
+3. **Panel 수 최소화**: 너무 많은 패널은 브라우저 부하
+4. **Alert 정리**: 불필요한 알림 비활성화
+{{/success}}
+
+----
+
+{{success}}
+**Monitoring Stack v3.3.7**
+Synology NAS 기반 중앙 집중식 모니터링
+* Blacklist System: v3.3.7 (Traefik 아키텍처)
+* Grafana: 10.2.3
+* Prometheus: 2.48.1
+* Loki: 2.9.3
+마지막 업데이트: 2025-10-29
+{{/success}}
+
+----
+
+== 💬 Discussion ==
+
+{{info}}
+이 문서에 대한 질문이나 피드백이 있으시면 아래에 댓글로 남겨주세요.
+{{/info}}
+
+{{comment}}
+댓글을 추가하세요...
+{{/comment}}

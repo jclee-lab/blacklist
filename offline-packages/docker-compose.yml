@@ -1,0 +1,158 @@
+networks:
+  blacklist-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  collector_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_uploads:
+    driver: local
+  nginx_logs:
+    driver: local
+
+services:
+  blacklist-postgres:
+    image: blacklist-postgres:offline
+    pull_policy: never
+    container_name: blacklist-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: Asia/Seoul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - blacklist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d blacklist"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  blacklist-redis:
+    image: blacklist-redis:offline
+    pull_policy: never
+    container_name: blacklist-redis
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - redis_data:/data
+    networks:
+      - blacklist-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  blacklist-collector:
+    image: blacklist-collector:offline
+    pull_policy: never
+    container_name: blacklist-collector
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: blacklist-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: blacklist-redis
+      REDIS_PORT: 6379
+      TZ: Asia/Seoul
+    volumes:
+      - collector_data:/app/data
+    networks:
+      - blacklist-network
+    depends_on:
+      blacklist-postgres:
+        condition: service_healthy
+      blacklist-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  blacklist-app:
+    image: blacklist-app:offline
+    pull_policy: never
+    container_name: blacklist-app
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: production
+      PORT: 2542
+      POSTGRES_HOST: blacklist-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: blacklist-redis
+      REDIS_PORT: 6379
+      TZ: Asia/Seoul
+    volumes:
+      - app_logs:/app/logs
+      - app_uploads:/app/uploads
+    networks:
+      - blacklist-network
+    depends_on:
+      blacklist-postgres:
+        condition: service_healthy
+      blacklist-redis:
+        condition: service_healthy
+      blacklist-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2542/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  blacklist-frontend:
+    image: blacklist-frontend:offline
+    pull_policy: never
+    container_name: blacklist-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://blacklist-app:2542
+      TZ: Asia/Seoul
+    networks:
+      - blacklist-network
+    depends_on:
+      blacklist-app:
+        condition: service_healthy
+
+  blacklist-nginx:
+    image: blacklist-nginx:offline
+    pull_policy: never
+    container_name: blacklist-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - nginx_logs:/var/log/nginx
+    networks:
+      - blacklist-network
+    depends_on:
+      - blacklist-frontend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

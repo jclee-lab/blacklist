@@ -1,0 +1,589 @@
+"""
+Multi-Source Collection Management API
+Manages REGTECH and SECUDIUM data collection via scheduler
+"""
+
+from flask import Blueprint, request, jsonify
+import logging
+import requests
+from datetime import datetime
+from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
+
+# Create Blueprint
+multi_collection_bp = Blueprint("multi_collection", __name__, url_prefix="/api/collection")
+
+# Collector service URL (internal Docker network)
+COLLECTOR_SERVICE_URL = "http://blacklist-collector:8545"
+
+
+def call_collector_api(endpoint: str, method: str = "GET", data: Dict = None) -> Dict[str, Any]:
+    """Call collector service API"""
+    try:
+        url = f"{COLLECTOR_SERVICE_URL}{endpoint}"
+
+        if method == "GET":
+            response = requests.get(url, timeout=10)
+        elif method == "POST":
+            response = requests.post(url, json=data, timeout=30)
+        else:
+            return {"success": False, "error": f"Unsupported method: {method}"}
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {
+                "success": False,
+                "error": f"Collector API error: {response.status_code}",
+                "details": response.text
+            }
+
+    except requests.exceptions.ConnectionError:
+        return {
+            "success": False,
+            "error": "Cannot connect to collector service",
+            "details": "Collector container may be down or unhealthy"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@multi_collection_bp.route("/status", methods=["GET"])
+def get_collection_status():
+    """
+    Get overall collection status for all sources
+
+    GET /api/collection/status
+
+    Returns:
+        {
+            "is_running": true,
+            "collectors": {
+                "REGTECH": {...},
+                "SECUDIUM": {...}
+            }
+        }
+    """
+    try:
+        health = call_collector_api("/health")
+
+        # Check if collector responded successfully
+        if health.get("status") == "healthy":
+            return jsonify({
+                "success": True,
+                "is_running": True,
+                "collectors": health.get("collectors", {}),
+                "timestamp": health.get("timestamp")
+            })
+        elif health.get("success") == False:
+            # API call failed (connection error, etc.)
+            return jsonify({
+                "success": False,
+                "error": health.get("error", "Unknown error"),
+                "details": health.get("details")
+            }), 500
+        else:
+            # Unexpected response format
+            return jsonify({
+                "success": True,
+                "is_running": True,
+                "collectors": {},
+                "message": "Scheduler is running but status details unavailable"
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting collection status: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@multi_collection_bp.route("/trigger/<source>", methods=["POST"])
+def trigger_collection(source: str):
+    """
+    Trigger manual collection for specific source
+
+    POST /api/collection/trigger/<source>
+
+    Args:
+        source: "regtech", "secudium", or "all"
+
+    Body (optional):
+        {
+            "force": true  # Force collection even if recently collected
+        }
+
+    Returns:
+        {
+            "success": true,
+            "source": "SECUDIUM",
+            "duration": 45.2,
+            "items_collected": 123,
+            "timestamp": "2025-10-19T..."
+        }
+    """
+    try:
+        source_upper = source.upper()
+
+        # Validate source
+        if source_upper not in ["REGTECH", "SECUDIUM", "ALL"]:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid source: {source}. Must be 'regtech', 'secudium', or 'all'"
+            }), 400
+
+        data = request.get_json() or {}
+        force = data.get("force", False)
+
+        logger.info(f"Triggering collection for {source_upper} (force={force})")
+
+        # Call collector service to trigger collection
+        result = call_collector_api(
+            f"/api/force-collection/{source_upper}",
+            method="POST",
+            data={"force": force}
+        )
+
+        if result.get("success"):
+            logger.info(f"✅ {source_upper} collection triggered successfully")
+            return jsonify(result)
+        else:
+            logger.error(f"❌ {source_upper} collection trigger failed: {result.get('error')}")
+            return jsonify(result), 500
+
+    except Exception as e:
+        logger.error(f"Error triggering collection: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+
+@multi_collection_bp.route("/history", methods=["GET"])
+def get_collection_history():
+    """
+    Get collection history for all sources
+
+    GET /api/collection/history?source=<source>&limit=<limit>
+
+    Query params:
+        source: Optional filter by source (REGTECH, SECUDIUM)
+        limit: Number of records (default: 50, max: 200)
+
+    Returns:
+        {
+            "success": true,
+            "history": [
+                {
+                    "id": 123,
+                    "service_name": "SECUDIUM",
+                    "collection_date": "2025-10-19T...",
+                    "items_collected": 150,
+                    "success": true,
+                    "duration_seconds": 45.2,
+                    "error_message": null
+                },
+                ...
+            ],
+            "total": 245
+        }
+    """
+    try:
+        from core.services.database_service import db_service
+
+        source = request.args.get("source", "").upper()
+        limit = min(int(request.args.get("limit", 50)), 200)
+
+        # Build query
+        query = """
+            SELECT
+                id,
+                service_name,
+                collection_date,
+                items_collected,
+                success,
+                execution_time_ms / 1000.0 as duration_seconds,
+                error_message,
+                details as metadata
+            FROM collection_history
+        """
+
+        params = []
+        if source and source in ["REGTECH", "SECUDIUM"]:
+            query += " WHERE service_name = %s"
+            params.append(source)
+
+        query += " ORDER BY collection_date DESC LIMIT %s"
+        params.append(limit)
+
+        # Execute query
+        rows = db_service.query(query, tuple(params))
+
+        # Format results
+        history = []
+        for row in rows:
+            history.append({
+                "id": row["id"],
+                "service_name": row["service_name"],
+                "collection_date": row["collection_date"].isoformat() if row["collection_date"] else None,
+                "items_collected": row["items_collected"],
+                "success": row["success"],
+                "duration_seconds": float(row["duration_seconds"]) if row["duration_seconds"] else None,
+                "error_message": row["error_message"],
+                "metadata": row["metadata"]
+            })
+
+        # Get total count
+        count_query = "SELECT COUNT(*) as count FROM collection_history"
+        if source and source in ["REGTECH", "SECUDIUM"]:
+            count_query += " WHERE service_name = %s"
+            total = db_service.query(count_query, (source,))[0]["count"]
+        else:
+            total = db_service.query(count_query)[0]["count"]
+
+        return jsonify({
+            "success": True,
+            "history": history,
+            "total": total,
+            "filtered": len(history)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting collection history: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@multi_collection_bp.route("/credentials/<source>", methods=["GET", "PUT"])
+def manage_credentials(source: str):
+    """
+    Get or update collection credentials
+
+    GET /api/collection/credentials/<source>
+    Returns: {"service_name": "SECUDIUM", "username": "***", "enabled": true, ...}
+
+    PUT /api/collection/credentials/<source>
+    Body: {"username": "new_user", "password": "new_pass", "enabled": true, "collection_interval": "daily"}
+    """
+    try:
+        from core.services.database_service import db_service
+
+        source_upper = source.upper()
+
+        if source_upper not in ["REGTECH", "SECUDIUM"]:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid source: {source}"
+            }), 400
+
+        if request.method == "GET":
+            # Get credentials (mask password)
+            query = """
+                SELECT service_name, username, enabled, collection_interval, last_collection
+                FROM collection_credentials
+                WHERE service_name = %s
+            """
+            result = db_service.query(query, (source_upper,))
+
+            if not result:
+                return jsonify({
+                    "success": False,
+                    "error": f"Credentials not found for {source_upper}"
+                }), 404
+
+            row = result[0]
+            return jsonify({
+                "success": True,
+                "service_name": row["service_name"],
+                "username": row["username"],
+                "password": "***masked***",
+                "enabled": row["enabled"],
+                "collection_interval": row["collection_interval"],
+                "last_collection": row["last_collection"].isoformat() if row["last_collection"] else None
+            })
+
+        elif request.method == "PUT":
+            # Update credentials
+            data = request.get_json()
+
+            if not data:
+                return jsonify({
+                    "success": False,
+                    "error": "No data provided"
+                }), 400
+
+            # Build update query
+            update_fields = []
+            params = []
+
+            if "username" in data:
+                update_fields.append("username = %s")
+                params.append(data["username"])
+
+            if "password" in data:
+                update_fields.append("password = %s")
+                params.append(data["password"])
+
+            if "enabled" in data:
+                update_fields.append("enabled = %s")
+                params.append(data["enabled"])
+
+            if "collection_interval" in data:
+                interval = data["collection_interval"]
+                # Convert string to seconds or accept integer directly
+                interval_seconds = None
+                if isinstance(interval, int):
+                    interval_seconds = interval
+                elif isinstance(interval, str):
+                    interval_map = {
+                        "hourly": 3600,
+                        "daily": 86400,
+                        "weekly": 604800
+                    }
+                    interval_seconds = interval_map.get(interval.lower())
+
+                if interval_seconds is None:
+                    return jsonify({
+                        "success": False,
+                        "error": "Invalid collection_interval. Must be: hourly, daily, weekly, or integer (seconds)"
+                    }), 400
+
+                update_fields.append("collection_interval = %s")
+                params.append(interval_seconds)
+
+            if not update_fields:
+                return jsonify({
+                    "success": False,
+                    "error": "No fields to update"
+                }), 400
+
+            # Add updated_at
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            params.append(source_upper)
+
+            query = f"""
+                UPDATE collection_credentials
+                SET {', '.join(update_fields)}
+                WHERE service_name = %s
+            """
+
+            # Execute UPDATE using execute method (for non-SELECT queries)
+            db_service.execute(query, tuple(params))
+
+            logger.info(f"✅ Updated credentials for {source_upper}")
+
+            # Restart scheduler to pick up new credentials
+            restart_result = call_collector_api("/api/scheduler/restart", method="POST")
+
+            return jsonify({
+                "success": True,
+                "message": f"Credentials updated for {source_upper}",
+                "scheduler_restart": restart_result.get("success", False)
+            })
+
+    except Exception as e:
+        logger.error(f"Error managing credentials: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@multi_collection_bp.route("/statistics", methods=["GET"])
+def get_collection_statistics():
+    """
+    Get collection statistics for all sources
+
+    GET /api/collection/statistics
+
+    Returns:
+        {
+            "success": true,
+            "sources": {
+                "REGTECH": {
+                    "total_collections": 145,
+                    "success_rate": 98.5,
+                    "total_items": 100000,
+                    "last_collection": "2025-10-19T...",
+                    "avg_duration": 35.2
+                },
+                "SECUDIUM": {...}
+            },
+            "overall": {
+                "total_collections": 290,
+                "total_items": 150000
+            }
+        }
+    """
+    try:
+        from core.services.database_service import db_service
+
+        # Get statistics per source
+        query = """
+            SELECT
+                service_name,
+                COUNT(*) as total_collections,
+                SUM(CASE WHEN success THEN 1 ELSE 0 END)::float / COUNT(*) * 100 as success_rate,
+                SUM(items_collected) as total_items,
+                MAX(collection_date) as last_collection,
+                AVG(execution_time_ms / 1000.0) as avg_duration
+            FROM collection_history
+            GROUP BY service_name
+        """
+
+        rows = db_service.query(query)
+
+        sources = {}
+        overall_collections = 0
+        overall_items = 0
+
+        for row in rows:
+            service_name = row["service_name"]
+            sources[service_name] = {
+                "total_collections": row["total_collections"],
+                "success_rate": round(float(row["success_rate"]), 2) if row["success_rate"] else 0,
+                "total_items": row["total_items"] or 0,
+                "last_collection": row["last_collection"].isoformat() if row["last_collection"] else None,
+                "avg_duration": round(float(row["avg_duration"]), 2) if row["avg_duration"] else 0
+            }
+            overall_collections += row["total_collections"]
+            overall_items += row["total_items"] or 0
+
+        return jsonify({
+            "success": True,
+            "sources": sources,
+            "overall": {
+                "total_collections": overall_collections,
+                "total_items": overall_items
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting collection statistics: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@multi_collection_bp.route("/credentials/<source>/test", methods=["POST"])
+def test_credentials(source: str):
+    """
+    Test credentials for a specific source
+
+    POST /api/collection/credentials/<source>/test
+
+    Returns:
+        {
+            "success": true,
+            "status": "connected" | "locked" | "failed",
+            "message": "인증 성공" | "계정이 잠겼습니다" | "인증 실패",
+            "error_code": "user.is.locked" | null,
+            "timestamp": "2025-10-20T..."
+        }
+    """
+    try:
+        source_upper = source.upper()
+
+        if source_upper not in ["REGTECH", "SECUDIUM"]:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid source: {source}"
+            }), 400
+
+        # Call collector service to test authentication
+        result = call_collector_api(
+            f"/api/test-auth/{source_upper}",
+            method="POST"
+        )
+
+        if result.get("success"):
+            return jsonify({
+                "success": True,
+                "status": "connected",
+                "message": "인증 성공",
+                "timestamp": datetime.now().isoformat()
+            })
+        else:
+            error_msg = result.get("error", "").lower()
+            error_code = result.get("error_code", "")
+
+            # Check if account is locked
+            if "잠긴" in str(error_msg) or "locked" in str(error_msg) or error_code == "user.is.locked":
+                return jsonify({
+                    "success": False,
+                    "status": "locked",
+                    "message": "계정이 잠겼습니다",
+                    "error_code": error_code,
+                    "timestamp": datetime.now().isoformat()
+                }), 403
+            else:
+                # 인증 실패는 테스트 결과이므로 200 OK 리턴
+                error_detail = result.get('error', '알 수 없는 오류')
+                return jsonify({
+                    "success": False,
+                    "status": "failed",
+                    "message": f"{source_upper} 인증 실패" if error_detail == "인증 실패" else f"인증 실패: {error_detail}",
+                    "error_code": error_code,
+                    "timestamp": datetime.now().isoformat()
+                })
+
+    except Exception as e:
+        logger.error(f"Error testing credentials: {e}")
+        return jsonify({
+            "success": False,
+            "status": "error",
+            "message": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+
+@multi_collection_bp.route("/health", methods=["GET"])
+def collection_health():
+    """
+    Health check for collection system
+
+    Returns:
+        {
+            "status": "healthy" | "unhealthy",
+            "collector_service": "healthy" | "unhealthy",
+            "database": "healthy" | "unhealthy",
+            "timestamp": "2025-10-19T..."
+        }
+    """
+    try:
+        from core.services.database_service import db_service
+
+        # Check collector service
+        collector_health = call_collector_api("/health")
+        collector_status = collector_health.get("status", "unhealthy")
+
+        # Check database
+        db_healthy = db_service.health_check()
+        db_status = "healthy" if db_healthy else "unhealthy"
+
+        # Overall status
+        overall_status = "healthy" if (collector_status == "healthy" and db_status == "healthy") else "unhealthy"
+
+        return jsonify({
+            "status": overall_status,
+            "collector_service": collector_status,
+            "database": db_status,
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"Error checking collection health: {e}")
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
