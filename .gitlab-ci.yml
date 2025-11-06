@@ -1,0 +1,149 @@
+# GitLab CI/CD: Release-Only Pipeline
+# Triggers ONLY on tags/releases (not on regular commits)
+# Lightweight pipeline for production releases
+
+stages:
+  - validate
+  - build
+  - release
+  - notify
+
+variables:
+  # Project-specific variables (override in GitLab CI/CD settings)
+  PROJECT_NAME: "${CI_PROJECT_NAME}"
+  RELEASE_DESCRIPTION: "Automated release from GitLab CI/CD"
+
+# ============================================================================
+# VALIDATION STAGE (on tags only)
+# ============================================================================
+
+validate:tag-format:
+  stage: validate
+  image: alpine:latest
+  script:
+    - echo "📋 Validating tag format..."
+    - echo "Tag: $CI_COMMIT_TAG"
+    - |
+      if [[ ! "$CI_COMMIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "❌ Tag must follow semantic versioning: v1.0.0"
+        exit 1
+      fi
+    - echo "✅ Tag format valid"
+  rules:
+    - if: $CI_COMMIT_TAG
+  allow_failure: false
+
+# ============================================================================
+# BUILD STAGE (create release artifacts)
+# ============================================================================
+
+build:package:
+  stage: build
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache tar gzip
+  script:
+    - echo "📦 Creating release package..."
+    - mkdir -p dist
+    - tar czf "dist/${PROJECT_NAME}-${CI_COMMIT_TAG}.tar.gz" \
+        --exclude='.git' \
+        --exclude='dist' \
+        --exclude='node_modules' \
+        --exclude='.env' \
+        .
+    - ls -lh dist/
+    - echo "✅ Package created"
+  artifacts:
+    paths:
+      - dist/*.tar.gz
+    expire_in: 90 days
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# ============================================================================
+# RELEASE STAGE (create GitLab release)
+# ============================================================================
+
+release:create-gitlab-release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  script:
+    - echo "🚀 Creating GitLab release..."
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Release $CI_COMMIT_TAG'
+    description: |
+      ## Release ${CI_COMMIT_TAG}
+
+      **Project**: ${PROJECT_NAME}
+      **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+      **Commit**: ${CI_COMMIT_SHORT_SHA}
+
+      ### Changes
+      See commit history for details.
+
+      ### Artifacts
+      - Package: ${PROJECT_NAME}-${CI_COMMIT_TAG}.tar.gz
+    assets:
+      links:
+        - name: '${PROJECT_NAME}-${CI_COMMIT_TAG}.tar.gz'
+          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/download?job=build:package'
+  rules:
+    - if: $CI_COMMIT_TAG
+
+# ============================================================================
+# NOTIFICATION STAGE (optional)
+# ============================================================================
+
+notify:slack:
+  stage: notify
+  image: curlimages/curl:latest
+  script:
+    - echo "📢 Sending release notification..."
+    - |
+      if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
+        curl -X POST "${SLACK_WEBHOOK_URL}" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"text\": \"🚀 Release ${CI_COMMIT_TAG} published\",
+            \"blocks\": [
+              {
+                \"type\": \"section\",
+                \"text\": {
+                  \"type\": \"mrkdwn\",
+                  \"text\": \"*${PROJECT_NAME}* release ${CI_COMMIT_TAG} is now available\n<${CI_PROJECT_URL}/-/releases/${CI_COMMIT_TAG}|View Release>\"
+                }
+              }
+            ]
+          }"
+        echo "✅ Slack notification sent"
+      else
+        echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping notification"
+      fi
+  rules:
+    - if: $CI_COMMIT_TAG
+  allow_failure: true
+  when: on_success
+
+# ============================================================================
+# HOW TO USE THIS PIPELINE
+# ============================================================================
+#
+# 1. Add this file to your project root as .gitlab-ci.yml
+#
+# 2. Create a release by tagging:
+#    git tag -a v1.0.0 -m "Release v1.0.0"
+#    git push origin v1.0.0
+#
+# 3. Pipeline will automatically:
+#    - Validate tag format (must be v1.0.0)
+#    - Create release package
+#    - Publish GitLab release
+#    - Send Slack notification (if configured)
+#
+# 4. Optional: Add SLACK_WEBHOOK_URL to GitLab CI/CD variables
+#    Settings > CI/CD > Variables > Add variable
+#    Key: SLACK_WEBHOOK_URL
+#    Value: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+#
+# ============================================================================
