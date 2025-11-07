@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3.9] - 2025-11-07
+
+### Changed
+- **Repository Migration**: GitHub → GitLab
+  - Migrated from https://github.com/qws941/blacklist to https://gitlab.jclee.me/jclee/blacklist
+  - All branches, tags, and commit history preserved
+  - Git LFS configuration optimized for GitLab
+  - Performance optimizations applied (compression level 9, 2GB pack cache)
+  - GitHub repository marked as migrated with redirect notice
+
+### Added
+- **GitLab CI/CD Pipeline**: Release-only automation
+  - 4-stage pipeline: validate → build → release → notify
+  - Semantic version validation (`v[0-9]+\.[0-9]+\.[0-9]+`)
+  - Automated tarball artifact creation (90-day retention)
+  - GitLab release creation with artifacts
+  - Slack notification support
+  - Triggers only on tag push (no regular commit builds)
+
+### Fixed
+- **Version Management**: VERSION file synchronized
+  - Updated to 3.3.9 to match release tag
+  - Resolved version mismatch between VERSION, CHANGELOG, and git tags
+
+---
+
 ## [3.3.8] - 2025-10-30
 
 ### Fixed
