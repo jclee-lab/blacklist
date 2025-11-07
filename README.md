@@ -1,5 +1,15 @@
 # 🛡️ REGTECH Blacklist Intelligence Platform
 
+> **⚠️ REPOSITORY MIGRATED**
+>
+> This repository has been migrated to **GitLab**: https://gitlab.jclee.me/jclee/blacklist
+>
+> Please update your remotes and use the GitLab repository for all future work.
+>
+> ```bash
+> git remote set-url origin git@gitlab.jclee.me:jclee/blacklist.git
+> ```
+
 [![🚀 Deploy Pipeline](https://github.com/qws941/blacklist/actions/workflows/deploy.yml/badge.svg)](https://github.com/qws941/blacklist/actions/workflows/deploy.yml)
 [![🔍 Operational Analysis](https://github.com/qws941/blacklist/actions/workflows/operational-log-analysis.yml/badge.svg)](https://github.com/qws941/blacklist/actions/workflows/operational-log-analysis.yml)
 [![🤖 Claude AI Integration](https://img.shields.io/badge/Claude%20AI-Automated-blue)](https://claude.ai/code)
