@@ -36,12 +36,12 @@ validate:environment:
   stage: validate
   image: alpine:latest
   script:
-    - echo "✅ GitLab CI/CD environment validation"
-    - echo "📋 CI_COMMIT_BRANCH: $CI_COMMIT_BRANCH"
-    - echo "📋 CI_REGISTRY: $CI_REGISTRY"
-    - echo "📋 CI_REGISTRY_IMAGE: $CI_REGISTRY_IMAGE"
-    - echo "📋 CI_COMMIT_SHA: $CI_COMMIT_SHA"
-    - echo "✅ Validation passed"
+    - echo "[OK] GitLab CI/CD environment validation"
+    - echo "CI_COMMIT_BRANCH=$CI_COMMIT_BRANCH"
+    - echo "CI_REGISTRY=$CI_REGISTRY"
+    - echo "CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE"
+    - echo "CI_COMMIT_SHA=$CI_COMMIT_SHA"
+    - echo "[OK] Validation passed"
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -57,25 +57,25 @@ security:python-scan:
   before_script:
     - pip install safety
   script:
-    - echo "🔍 Scanning Python dependencies for vulnerabilities..."
+    - echo "[SECURITY] Scanning Python dependencies for vulnerabilities..."
 
     # Scan app dependencies
     - |
       if [ -f app/requirements.txt ]; then
-        echo "📦 Scanning app/requirements.txt..."
+        echo "[SCAN] Checking app/requirements.txt..."
         safety check --file=app/requirements.txt --json > app-safety-report.json || true
-        safety check --file=app/requirements.txt || echo "⚠️ Vulnerabilities found in app dependencies"
+        safety check --file=app/requirements.txt || echo "[WARN] Vulnerabilities found in app dependencies"
       fi
 
     # Scan collector dependencies
     - |
       if [ -f collector/requirements.txt ]; then
-        echo "📦 Scanning collector/requirements.txt..."
+        echo "[SCAN] Checking collector/requirements.txt..."
         safety check --file=collector/requirements.txt --json > collector-safety-report.json || true
-        safety check --file=collector/requirements.txt || echo "⚠️ Vulnerabilities found in collector dependencies"
+        safety check --file=collector/requirements.txt || echo "[WARN] Vulnerabilities found in collector dependencies"
       fi
 
-    - echo "✅ Python security scan completed"
+    - echo "[OK] Python security scan completed"
 
   artifacts:
     paths:
@@ -94,19 +94,19 @@ security:javascript-scan:
   stage: security
   image: node:20-slim
   script:
-    - echo "🔍 Scanning JavaScript dependencies for vulnerabilities..."
+    - echo "[SECURITY] Scanning JavaScript dependencies for vulnerabilities..."
 
     # Scan frontend dependencies
     - |
       if [ -f frontend/package.json ]; then
         cd frontend
-        echo "📦 Scanning frontend dependencies..."
+        echo "[SCAN] Checking frontend dependencies..."
         npm audit --json > ../frontend-audit-report.json || true
-        npm audit --audit-level=moderate || echo "⚠️ Vulnerabilities found in frontend dependencies"
+        npm audit --audit-level=moderate || echo "[WARN] Vulnerabilities found in frontend dependencies"
         cd ..
       fi
 
-    - echo "✅ JavaScript security scan completed"
+    - echo "[OK] JavaScript security scan completed"
 
   artifacts:
     paths:
@@ -128,9 +128,9 @@ security:run-tests:
     - cd app
     - pip install -r requirements.txt
   script:
-    - echo "🧪 Running test suite..."
-    - pytest --cov=core --cov-report=term-missing --cov-report=xml || echo "⚠️ Some tests failed"
-    - echo "✅ Tests completed"
+    - echo "[TEST] Running test suite..."
+    - pytest --cov=core --cov-report=term-missing --cov-report=xml || echo "[WARN] Some tests failed"
+    - echo "[OK] Tests completed"
 
   artifacts:
     paths:
@@ -165,7 +165,7 @@ security:run-tests:
     DOCKER_TLS_VERIFY: 1
     DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
   before_script:
-    - echo "🔐 Logging into GitLab Container Registry..."
+    - echo "[AUTH] Logging into GitLab Container Registry..."
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   after_script:
     - docker logout $CI_REGISTRY || true
@@ -187,10 +187,10 @@ security:run-tests:
 build:postgres:
   <<: *build-template
   script:
-    - echo "🏗️ Building PostgreSQL image..."
-    - echo "🔍 Debug: Docker version"
+    - echo "[BUILD] Building PostgreSQL image..."
+    - echo "[DEBUG] Docker version"
     - docker version
-    - echo "🔍 Debug: Docker info"
+    - echo "[DEBUG] Docker info"
     - docker info
 
     - export VERSION_TAG="latest"
@@ -208,15 +208,15 @@ build:postgres:
         --file ./postgres/Dockerfile \
         ./postgres
 
-    - echo "📤 Pushing PostgreSQL image to registry..."
+    - echo "[PUSH] Pushing PostgreSQL image to registry..."
     - docker push ${IMAGE_POSTGRES}:${VERSION_TAG}
     - docker push ${IMAGE_POSTGRES}:${COMMIT_SHORT}
-    - echo "✅ PostgreSQL build completed"
+    - echo "[OK] PostgreSQL build completed"
 
 build:redis:
   <<: *build-template
   script:
-    - echo "🏗️ Building Redis image..."
+    - echo "[BUILD] Building Redis image..."
     - export VERSION_TAG="latest"
     - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
     - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -232,15 +232,15 @@ build:redis:
         --file ./redis/Dockerfile \
         ./redis
 
-    - echo "📤 Pushing Redis image to registry..."
+    - echo "[PUSH] Pushing Redis image to registry..."
     - docker push ${IMAGE_REDIS}:${VERSION_TAG}
     - docker push ${IMAGE_REDIS}:${COMMIT_SHORT}
-    - echo "✅ Redis build completed"
+    - echo "[OK] Redis build completed"
 
 build:collector:
   <<: *build-template
   script:
-    - echo "🏗️ Building Collector image..."
+    - echo "[BUILD] Building Collector image..."
     - export VERSION_TAG="latest"
     - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
     - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -256,15 +256,15 @@ build:collector:
         --file ./collector/Dockerfile \
         ./collector
 
-    - echo "📤 Pushing Collector image to registry..."
+    - echo "[PUSH] Pushing Collector image to registry..."
     - docker push ${IMAGE_COLLECTOR}:${VERSION_TAG}
     - docker push ${IMAGE_COLLECTOR}:${COMMIT_SHORT}
-    - echo "✅ Collector build completed"
+    - echo "[OK] Collector build completed"
 
 build:app:
   <<: *build-template
   script:
-    - echo "🏗️ Building Flask App image..."
+    - echo "[BUILD] Building Flask App image..."
     - export VERSION_TAG="latest"
     - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
     - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -280,15 +280,15 @@ build:app:
         --file ./app/Dockerfile \
         ./app
 
-    - echo "📤 Pushing Flask App image to registry..."
+    - echo "[PUSH] Pushing Flask App image to registry..."
     - docker push ${IMAGE_APP}:${VERSION_TAG}
     - docker push ${IMAGE_APP}:${COMMIT_SHORT}
-    - echo "✅ Flask App build completed"
+    - echo "[OK] Flask App build completed"
 
 build:frontend:
   <<: *build-template
   script:
-    - echo "🏗️ Building Frontend image..."
+    - echo "[BUILD] Building Frontend image..."
     - export VERSION_TAG="latest"
     - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
     - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -304,10 +304,10 @@ build:frontend:
         --file ./frontend/Dockerfile \
         ./frontend
 
-    - echo "📤 Pushing Frontend image to registry..."
+    - echo "[PUSH] Pushing Frontend image to registry..."
     - docker push ${IMAGE_FRONTEND}:${VERSION_TAG}
     - docker push ${IMAGE_FRONTEND}:${COMMIT_SHORT}
-    - echo "✅ Frontend build completed"
+    - echo "[OK] Frontend build completed"
 
 # ============================================================================
 # DEPLOY STAGE - Portainer webhook deployment
@@ -323,12 +323,12 @@ deploy:portainer-webhook:
     - build:app
     - build:frontend
   script:
-    - echo "🚀 Triggering Portainer deployment..."
+    - echo "[DEPLOY] Triggering Portainer deployment..."
 
     - |
       if [ -z "${PORTAINER_WEBHOOK_URL}" ]; then
-        echo "❌ PORTAINER_WEBHOOK_URL not configured"
-        echo "📝 Please set the webhook URL in GitLab CI/CD variables:"
+        echo "[ERROR] PORTAINER_WEBHOOK_URL not configured"
+        echo "[INFO] Please set the webhook URL in GitLab CI/CD variables:"
         echo "   Settings > CI/CD > Variables > Add variable"
         echo "   Key: PORTAINER_WEBHOOK_URL"
         echo "   Value: https://portainer.jclee.me/api/stacks/webhooks/YOUR_WEBHOOK_ID"
@@ -338,7 +338,7 @@ deploy:portainer-webhook:
     # Retry logic (3 attempts)
     - |
       for i in 1 2 3; do
-        echo "🔄 Webhook attempt $i/3..."
+        echo "[DEPLOY] Webhook attempt $i/3..."
 
         WEBHOOK_RESPONSE=$(curl -s -X POST "${PORTAINER_WEBHOOK_URL}" \
           --connect-timeout 30 \
@@ -349,18 +349,18 @@ deploy:portainer-webhook:
         RESPONSE_BODY=$(echo "$WEBHOOK_RESPONSE" | head -n -1)
 
         if [ "$HTTP_CODE" == "204" ] || [ "$HTTP_CODE" == "200" ]; then
-          echo "✅ Webhook deployment triggered successfully (HTTP $HTTP_CODE)"
+          echo "[OK] Webhook deployment triggered successfully (HTTP $HTTP_CODE)"
           if [ -n "$RESPONSE_BODY" ]; then
-            echo "📝 Response: $RESPONSE_BODY"
+            echo "[INFO] Response: $RESPONSE_BODY"
           fi
           break
         else
-          echo "⚠️ Webhook attempt $i failed (HTTP $HTTP_CODE)"
+          echo "[DEPLOY] Webhook attempt $i failed (HTTP $HTTP_CODE)"
           if [ $i -lt 3 ]; then
-            echo "🔄 Retrying in 10 seconds..."
+            echo "[INFO] Retrying in 10 seconds..."
             sleep 10
           else
-            echo "❌ Webhook deployment failed after 3 attempts"
+            echo "[ERROR] Webhook deployment failed after 3 attempts"
             exit 1
           fi
         fi
@@ -380,46 +380,46 @@ verify:health-check:
   needs:
     - deploy:portainer-webhook
   script:
-    - echo "⏳ Waiting for containers to start (60 seconds)..."
+    - echo "[WAIT] Waiting for containers to start (60 seconds)..."
     - sleep 60
 
-    - echo "🏥 Performing health checks..."
+    - echo "[VERIFY] Performing health checks..."
     - export MAX_RETRIES=10
     - export RETRY_DELAY=15
 
     - |
       for i in $(seq 1 $MAX_RETRIES); do
-        echo "🔍 Health check attempt $i/$MAX_RETRIES..."
+        echo "[VERIFY] Health check attempt $i/$MAX_RETRIES..."
 
         if curl -s --connect-timeout 10 --max-time 30 "${PRD_URL}/health" | grep -q '"status":"healthy"'; then
-          echo "✅ Production health check passed!"
+          echo "[OK] Production health check passed!"
 
           # API functionality verification
           if curl -s "${PRD_URL}/api/stats" | grep -q '"success":true'; then
-            echo "✅ API functionality verified"
+            echo "[OK] API functionality verified"
           else
-            echo "⚠️ API check failed but service is running"
+            echo "[WARN] API check failed but service is running"
           fi
           break
         else
-          echo "⚠️ Health check attempt $i failed"
+          echo "[VERIFY] Health check attempt $i failed"
           if [ $i -lt $MAX_RETRIES ]; then
-            echo "🔄 Retrying in ${RETRY_DELAY} seconds..."
+            echo "[INFO] Retrying in ${RETRY_DELAY} seconds..."
             sleep $RETRY_DELAY
           else
-            echo "❌ Health check failed after $MAX_RETRIES attempts"
-            echo "🔍 Final diagnostics:"
+            echo "[ERROR] Health check failed after $MAX_RETRIES attempts"
+            echo "[DEBUG] Final diagnostics:"
             curl -s -I "${PRD_URL}/health" || echo "Connection failed"
             exit 1
           fi
         fi
       done
 
-    - echo "🎉 === DEPLOYMENT SUCCESSFUL ==="
-    - echo "✅ All 5 components built & deployed!"
-    - echo "📦 Registry: ${CI_REGISTRY}"
-    - echo "🔗 Production URL: ${PRD_URL}"
-    - echo "🚀 Deployment Method: Portainer Webhook"
+    - echo "[SUCCESS] === DEPLOYMENT SUCCESSFUL ==="
+    - echo "[OK] All 5 components built & deployed!"
+    - echo "[INFO] Registry: ${CI_REGISTRY}"
+    - echo "[INFO] Production URL: ${PRD_URL}"
+    - echo "[INFO] Deployment Method: Portainer Webhook"
 
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
