@@ -17,6 +17,8 @@ config/
 docs/*
 !docs/release/
 !docs/xwiki-sections/
+!docs/CICD-INFRASTRUCTURE.md
+!docs/IMAGE-PACKAGING-COMPLETE.md
 reports/
 # scripts - Now tracked for deployment automation
 src/
