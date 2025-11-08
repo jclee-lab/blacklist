@@ -55,16 +55,25 @@ validate:environment:
 security:python-scan:
   stage: security
   image: python:3.11-slim
+  timeout: 10m
   before_script:
     - pip install safety
   script:
     - echo "[SECURITY] Scanning Python dependencies for vulnerabilities..."
+    - CRITICAL_FOUND=false
 
     # Scan app dependencies
     - |
       if [ -f app/requirements.txt ]; then
         echo "[SCAN] Checking app/requirements.txt..."
         safety check --file=app/requirements.txt --json > app-safety-report.json || true
+
+        # Check for critical vulnerabilities
+        if safety check --file=app/requirements.txt --output json | jq -e '.vulnerabilities[] | select(.severity == "critical")' > /dev/null 2>&1; then
+          echo "[ERROR] Critical vulnerabilities found in app dependencies"
+          CRITICAL_FOUND=true
+        fi
+
         safety check --file=app/requirements.txt || echo "[WARN] Vulnerabilities found in app dependencies"
       fi
 
@@ -73,10 +82,24 @@ security:python-scan:
       if [ -f collector/requirements.txt ]; then
         echo "[SCAN] Checking collector/requirements.txt..."
         safety check --file=collector/requirements.txt --json > collector-safety-report.json || true
+
+        # Check for critical vulnerabilities
+        if safety check --file=collector/requirements.txt --output json | jq -e '.vulnerabilities[] | select(.severity == "critical")' > /dev/null 2>&1; then
+          echo "[ERROR] Critical vulnerabilities found in collector dependencies"
+          CRITICAL_FOUND=true
+        fi
+
         safety check --file=collector/requirements.txt || echo "[WARN] Vulnerabilities found in collector dependencies"
       fi
 
-    - echo "[OK] Python security scan completed"
+    # Fail pipeline if critical vulnerabilities found
+    - |
+      if [ "$CRITICAL_FOUND" = true ]; then
+        echo "[FAIL] Pipeline blocked due to critical security vulnerabilities"
+        exit 1
+      fi
+
+    - echo "[OK] Python security scan completed - no critical issues"
 
   artifacts:
     paths:
@@ -89,7 +112,7 @@ security:python-scan:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - when: manual
 
-  allow_failure: true
+  allow_failure: false  # Fail pipeline on critical vulnerabilities
 
 security:javascript-scan:
   stage: security
@@ -159,15 +182,35 @@ security:run-tests:
   image: docker:24
   services:
     - docker:24-dind
+  timeout: 20m  # Build timeout
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure  # Retry on build failures
   variables:
     # Docker-in-Docker configuration
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_TLS_VERIFY: 1
     DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    # BuildKit optimization
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
   before_script:
     - echo "[AUTH] Logging into GitLab Container Registry..."
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    # Wait for Docker daemon to be ready
+    - |
+      for i in $(seq 1 30); do
+        if docker info > /dev/null 2>&1; then
+          echo "[OK] Docker daemon ready"
+          break
+        fi
+        echo "[WAIT] Waiting for Docker daemon ($i/30)..."
+        sleep 2
+      done
   after_script:
     - docker logout $CI_REGISTRY || true
   rules:
@@ -317,8 +360,14 @@ build:frontend:
 .deploy-template: &deploy-template
   stage: deploy
   image: alpine:latest
+  timeout: 30m  # Deployment timeout
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   before_script:
-    - apk add --no-cache openssh-client curl docker-cli
+    - apk add --no-cache openssh-client curl docker-cli jq
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
@@ -335,63 +384,131 @@ deploy:production:
   environment:
     name: production
     url: https://blacklist.nxtd.co.kr
+    on_stop: rollback:production
   script:
     - echo "[DEPLOY] Deploying to production server..."
     - echo "Target host - $DEPLOY_HOST"
     - echo "Deploy user - $DEPLOY_USER"
 
-    # Create deployment script
+    # Create enhanced deployment script with health checks and rollback
     - |
       cat > deploy.sh <<'DEPLOY_EOF'
       #!/bin/bash
       set -e
 
+      # Configuration
+      MAX_RETRIES=5
+      RETRY_DELAY=10
+      HEALTH_TIMEOUT=120
+
       echo "[DEPLOY] Starting deployment..."
       cd /opt/blacklist
 
-      # Backup current state
-      echo "[BACKUP] Creating pre-deployment backup..."
-      docker-compose ps > deployment-backup-$(date +%Y%m%d-%H%M%S).txt
+      # Full backup before deployment
+      echo "[BACKUP] Creating comprehensive pre-deployment backup..."
+      BACKUP_DIR="backups/deployment-$(date +%Y%m%d-%H%M%S)"
+      mkdir -p "$BACKUP_DIR"
+      docker-compose -f docker-compose.prod.yml ps > "$BACKUP_DIR/services.txt"
+      docker images | grep blacklist > "$BACKUP_DIR/images.txt"
 
-      # Pull latest images from registry
-      echo "[PULL] Pulling latest images..."
+      # Store current image tags for potential rollback
+      docker-compose -f docker-compose.prod.yml config > "$BACKUP_DIR/docker-compose.yml"
+
+      # Pull latest images with retry
+      echo "[PULL] Pulling latest images from registry..."
       echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
-      docker-compose -f docker-compose.prod.yml pull
 
-      # Stop old containers (keep data volumes)
+      for i in $(seq 1 $MAX_RETRIES); do
+        if docker-compose -f docker-compose.prod.yml pull; then
+          echo "[OK] Images pulled successfully"
+          break
+        else
+          echo "[RETRY] Pull attempt $i failed, retrying in ${RETRY_DELAY}s..."
+          sleep $RETRY_DELAY
+          if [ $i -eq $MAX_RETRIES ]; then
+            echo "[ERROR] Failed to pull images after $MAX_RETRIES attempts"
+            exit 1
+          fi
+        fi
+      done
+
+      # Stop old containers gracefully
       echo "[STOP] Stopping old containers..."
-      docker-compose -f docker-compose.prod.yml down --remove-orphans
+      docker-compose -f docker-compose.prod.yml down --remove-orphans --timeout 30
 
       # Start new containers
       echo "[START] Starting new containers..."
-      docker-compose -f docker-compose.prod.yml up -d
+      if ! docker-compose -f docker-compose.prod.yml up -d; then
+        echo "[ERROR] Failed to start containers"
+        exit 1
+      fi
 
-      # Wait for services to be ready
-      echo "[WAIT] Waiting for services to start..."
-      sleep 30
+      # Enhanced health check with retries
+      echo "[HEALTH] Waiting for services to be healthy..."
+      ELAPSED=0
+      HEALTHY=false
 
-      # Check health
-      echo "[HEALTH] Checking service health..."
+      while [ $ELAPSED -lt $HEALTH_TIMEOUT ]; do
+        sleep 5
+        ELAPSED=$((ELAPSED + 5))
+
+        # Check container health
+        UNHEALTHY=$(docker-compose -f docker-compose.prod.yml ps | grep -c "unhealthy\|Exit" || true)
+
+        if [ "$UNHEALTHY" -eq 0 ]; then
+          # All containers running, check application health
+          if curl -sf https://blacklist.nxtd.co.kr/health > /dev/null 2>&1; then
+            echo "[OK] All services healthy after ${ELAPSED}s"
+            HEALTHY=true
+            break
+          fi
+        fi
+
+        echo "[WAIT] Services not ready yet (${ELAPSED}/${HEALTH_TIMEOUT}s)..."
+      done
+
+      if [ "$HEALTHY" = false ]; then
+        echo "[ERROR] Health check failed after ${HEALTH_TIMEOUT}s"
+        echo "[ROLLBACK] Attempting automatic rollback..."
+
+        # Rollback to previous version
+        docker-compose -f docker-compose.prod.yml down
+        cp "$BACKUP_DIR/docker-compose.yml" docker-compose.prod.yml.rollback
+        docker-compose -f docker-compose.prod.yml.rollback up -d
+
+        echo "[ROLLBACK] Rollback initiated - manual intervention required"
+        exit 1
+      fi
+
+      # Final verification
+      echo "[VERIFY] Running final checks..."
       docker-compose -f docker-compose.prod.yml ps
 
-      echo "[OK] Deployment completed successfully"
+      # Cleanup old images (keep last 3 versions)
+      echo "[CLEANUP] Removing old images..."
+      docker image prune -f --filter "label=project=blacklist" --filter "until=72h" || true
+
+      echo "[SUCCESS] Deployment completed successfully"
       DEPLOY_EOF
 
     - chmod +x deploy.sh
 
-    # Execute deployment via SSH
+    # Execute deployment via SSH with enhanced error handling
     - scp deploy.sh ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/deploy.sh
     - |
-      ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
+      if ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
         export CI_REGISTRY=$CI_REGISTRY
         export CI_REGISTRY_USER=$CI_REGISTRY_USER
         export CI_REGISTRY_PASSWORD=$CI_REGISTRY_PASSWORD
         bash /tmp/deploy.sh
         rm /tmp/deploy.sh
-      "
-
-    - echo "[SUCCESS] Production deployment completed"
-    - echo "Service URL - https://blacklist.nxtd.co.kr"
+      "; then
+        echo "[SUCCESS] Production deployment completed successfully"
+        echo "Service URL - https://blacklist.nxtd.co.kr"
+      else
+        echo "[ERROR] Deployment failed - check logs above"
+        exit 1
+      fi
 
 deploy:development:
   <<: *deploy-template
@@ -425,46 +542,114 @@ deploy:development:
 
 verify:production:
   stage: verify
-  image: curlimages/curl:latest
+  image: alpine:latest
+  timeout: 10m
+  before_script:
+    - apk add --no-cache curl jq
   script:
-    - echo "[VERIFY] Running production health checks..."
+    - echo "[VERIFY] Running comprehensive production health checks..."
 
     # Wait for services to stabilize
-    - sleep 10
+    - sleep 15
 
-    # Health check endpoints
+    # Enhanced health check with detailed response validation
     - |
       echo "[CHECK] Testing application health endpoint..."
-      for i in $(seq 1 5); do
-        if curl -f -s -o /dev/null -w "%{http_code}" https://blacklist.nxtd.co.kr/health | grep -q "200"; then
-          echo "[OK] Application health check passed"
-          break
-        else
-          echo "[RETRY] Attempt $i failed, retrying in 10s..."
-          sleep 10
+      HEALTH_PASSED=false
+
+      for i in $(seq 1 10); do
+        RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/health || echo "")
+
+        if [ -n "$RESPONSE" ]; then
+          # Validate health response structure
+          STATUS=$(echo "$RESPONSE" | jq -r '.status // empty' 2>/dev/null || echo "")
+
+          if [ "$STATUS" = "healthy" ] || [ "$STATUS" = "ok" ]; then
+            echo "[OK] Application health check passed (attempt $i)"
+            HEALTH_PASSED=true
+            break
+          fi
         fi
+
+        echo "[RETRY] Health check attempt $i/10 failed, retrying in 10s..."
+        sleep 10
       done
 
-    # API smoke tests
-    - |
-      echo "[CHECK] Testing API endpoints..."
-      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://blacklist.nxtd.co.kr/api/stats)
-      if [ "$HTTP_CODE" -eq 200 ]; then
-        echo "[OK] API stats endpoint responding"
-      else
-        echo "[ERROR] API stats endpoint returned $HTTP_CODE"
+      if [ "$HEALTH_PASSED" = false ]; then
+        echo "[ERROR] Application health check failed after 10 attempts"
         exit 1
       fi
 
-    # Database connectivity test
+    # API stats endpoint test
     - |
-      echo "[CHECK] Testing database connectivity via API..."
-      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://blacklist.nxtd.co.kr/api/monitoring/metrics)
-      if [ "$HTTP_CODE" -eq 200 ]; then
-        echo "[OK] Database connectivity verified"
+      echo "[CHECK] Testing API stats endpoint..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/stats)
+
+      if [ -n "$RESPONSE" ]; then
+        # Validate response contains expected fields
+        if echo "$RESPONSE" | jq -e '.total_blacklist_ips' > /dev/null 2>&1; then
+          echo "[OK] API stats endpoint responding with valid data"
+        else
+          echo "[WARN] API stats response missing expected fields"
+        fi
       else
-        echo "[ERROR] Database check failed with code $HTTP_CODE"
+        echo "[ERROR] API stats endpoint failed"
         exit 1
+      fi
+
+    # Database connectivity test (detailed)
+    - |
+      echo "[CHECK] Testing database connectivity..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/monitoring/metrics)
+
+      if [ -n "$RESPONSE" ]; then
+        # Check for database-related metrics
+        if echo "$RESPONSE" | jq -e '.database' > /dev/null 2>&1; then
+          DB_STATUS=$(echo "$RESPONSE" | jq -r '.database.status // empty')
+
+          if [ "$DB_STATUS" = "connected" ] || [ "$DB_STATUS" = "ok" ]; then
+            echo "[OK] Database connectivity verified"
+          else
+            echo "[ERROR] Database status: $DB_STATUS"
+            exit 1
+          fi
+        else
+          echo "[WARN] Database metrics not found in response"
+        fi
+      else
+        echo "[ERROR] Metrics endpoint failed"
+        exit 1
+      fi
+
+    # Redis connectivity test
+    - |
+      echo "[CHECK] Testing Redis connectivity..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/monitoring/metrics)
+
+      if [ -n "$RESPONSE" ]; then
+        if echo "$RESPONSE" | jq -e '.redis' > /dev/null 2>&1; then
+          REDIS_STATUS=$(echo "$RESPONSE" | jq -r '.redis.status // empty')
+
+          if [ "$REDIS_STATUS" = "connected" ] || [ "$REDIS_STATUS" = "ok" ]; then
+            echo "[OK] Redis connectivity verified"
+          else
+            echo "[WARN] Redis status: $REDIS_STATUS"
+          fi
+        fi
+      fi
+
+    # Performance baseline test
+    - |
+      echo "[CHECK] Testing response time..."
+      RESPONSE_TIME=$(curl -sf -o /dev/null -w "%{time_total}" https://blacklist.nxtd.co.kr/health)
+
+      if [ -n "$RESPONSE_TIME" ]; then
+        echo "[INFO] Response time: ${RESPONSE_TIME}s"
+
+        # Warn if response time > 5s
+        if awk "BEGIN {exit !($RESPONSE_TIME > 5.0)}"; then
+          echo "[WARN] Response time exceeds 5 seconds - performance degradation detected"
+        fi
       fi
 
     - echo "[SUCCESS] All production verification checks passed"

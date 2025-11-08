@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🎯 Project Overview
 
-**REGTECH Blacklist Intelligence Platform** - A Flask-based threat intelligence platform for collecting, managing, and analyzing IP blacklist data from Korean Financial Security Institute (REGTECH). Features automated collection pipelines, real-time monitoring, whitelist/blacklist management, and production deployment with Portainer API control.
+**REGTECH Blacklist Intelligence Platform** - A Flask-based threat intelligence platform for collecting, managing, and analyzing IP blacklist data from Korean Financial Security Institute (REGTECH). Features automated collection pipelines, real-time monitoring, whitelist/blacklist management, and production deployment with GitLab CI/CD.
 
 **Architecture**: Microservices (5 independent containers)
 - `blacklist-app` - Flask application (Port 2542)
@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `blacklist-redis` - Redis 7 cache
 - `blacklist-frontend` - Next.js frontend (Port 2543)
 
-**Repository**: Migrated to GitLab (https://gitlab.jclee.me/jclee/blacklist)
+**Repository**: GitLab (https://gitlab.jclee.me/jclee/blacklist)
 
 ---
 
@@ -161,27 +161,53 @@ ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE;
 
 **Why This Pattern**: Ensures schema consistency across container restarts, prevents "DB schema lost on restart" issues.
 
+### Flask Application Factory Pattern
+
+**Location**: `app/core/app.py::create_app()`
+
+**Key Components**:
+- CSRF Protection via Flask-WTF
+- Redis-backed rate limiting (Flask-Limiter)
+- Security headers middleware
+- Structured logging with correlation IDs
+- Blueprint-based route organization
+
+**Critical Services** (Singleton Pattern):
+- `DatabaseService` - Connection pooling, whitelist priority checks
+- `SecureCredentialService` - AES-256 encrypted credential storage
+- `BlacklistService` - IP filtering with Redis caching
+
 ### Priority-Based IP Filtering
 
-**Whitelist → Blacklist Logic**:
+**Whitelist → Blacklist Logic** (`app/core/services/database_service.py`):
 1. Check whitelist table first (VIP/Admin protection)
 2. If found → ALLOW (return immediately)
 3. If not found → Check blacklist table
 4. If found in blacklist → BLOCK
 
-**Implementation**: `app/core/services/database_service.py`
+**Performance Optimization**:
+- Redis caching for frequently checked IPs
+- Database connection pooling
+- Prepared statement reuse
 
 ### Microservices Communication
 
 **Network**: `blacklist-network` (bridge driver)
 
-**Service Discovery**:
+**Service Discovery** (Docker DNS):
 - App → Postgres: `blacklist-postgres:5432`
 - App → Redis: `blacklist-redis:6379`
 - Frontend → App: `blacklist-app:2542`
 - Collector → Postgres/Redis: Internal hostnames
 
 **External Access**: Only frontend exposed via Traefik reverse proxy
+
+**Health Check Chain**:
+```
+Traefik → Frontend :2543 → App :2542 → Postgres :5432
+                                      → Redis :6379
+                                      → Collector :8545
+```
 
 ---
 
@@ -193,7 +219,20 @@ blacklist/
 │   ├── core/
 │   │   ├── app.py                # Flask factory with CSRF/rate limiting
 │   │   ├── routes/               # API endpoints by feature
+│   │   │   ├── api/              # RESTful API routes
+│   │   │   │   ├── core_api.py   # Health, stats, monitoring
+│   │   │   │   ├── ip_management_api.py  # Blacklist/whitelist
+│   │   │   │   ├── collection_api.py     # Collection triggers
+│   │   │   │   └── system_api.py         # System management
+│   │   │   └── web/              # Web UI routes
 │   │   ├── services/             # Business logic (database, redis, credentials)
+│   │   │   ├── database_service.py       # Core DB operations
+│   │   │   ├── secure_credential_service.py  # Encrypted credentials
+│   │   │   ├── blacklist_service.py      # IP filtering logic
+│   │   │   └── collection/               # Collection orchestration
+│   │   ├── collectors/           # Data collection modules
+│   │   │   ├── unified_collector.py  # Multi-source collector
+│   │   │   └── regtech_auth.py       # REGTECH authentication
 │   │   └── models/               # SQLAlchemy models
 │   ├── templates/                # Jinja2 templates
 │   └── Dockerfile                # Multi-stage build with docs
@@ -201,6 +240,12 @@ blacklist/
 ├── collector/                    # REGTECH/SECUDIUM data collection
 │   ├── monitoring_scheduler.py   # Auto-collection orchestrator
 │   ├── collector/                # Collection modules
+│   │   ├── monitoring_scheduler.py  # Cron-based scheduler
+│   │   └── health_server.py         # Health endpoint
+│   ├── core/                     # Core collection logic
+│   │   ├── regtech_collector.py     # REGTECH API client
+│   │   ├── multi_source_collector.py  # Multi-source aggregation
+│   │   └── rate_limiter.py          # API rate limiting
 │   ├── api/health_check.py       # Health endpoint (Port 8545)
 │   └── Dockerfile                # Multi-stage build with docs
 │
@@ -223,21 +268,27 @@ blacklist/
 ├── scripts/                      # Automation scripts
 │   ├── package-single-image.sh   # Single image packaging (recommended)
 │   ├── package-all-sequential.sh # Sequential all images
-│   ├── package-images.sh         # Full automation with manifest
 │   ├── comprehensive_test.py     # Test runner
 │   └── (FortiManager scripts)    # FortiGate integration tools
 │
 ├── tests/                        # Pytest test suite
 │   ├── unit/                     # Unit tests
+│   │   ├── services/             # Service layer tests
+│   │   ├── collectors/           # Collector tests
+│   │   └── utils/                # Utility tests
 │   ├── integration/              # Integration tests
+│   │   ├── api/                  # API endpoint tests
+│   │   └── services/             # Service integration tests
 │   ├── security/                 # CSRF, rate limiting tests
-│   ├── conftest.py               # Fixtures
+│   ├── conftest.py               # Pytest fixtures
 │   └── pytest.ini                # 80%+ coverage requirement
 │
 ├── dist/images/                  # Packaged Docker images (gitignored)
 ├── docker-compose.yml            # Base orchestration
+├── docker-compose.prod.yml       # Production overrides
+├── docker-compose.dev.yml        # Development overrides
 ├── Makefile                      # Development commands
-└── IMAGE-PACKAGING-COMPLETE.md   # Packaging documentation
+└── .gitlab-ci.yml                # GitLab CI/CD pipeline
 ```
 
 ---
@@ -271,25 +322,75 @@ blacklist/
 
 ### Adding New Features
 
-1. **Database Changes**:
-   - Create new migration in `postgres/migrations/V00N__description.sql`
-   - Use idempotent patterns: `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
-   - Test locally: `make restart` (migrations run automatically)
-   - Verify: `make db-shell` → `\dt` and `\d table_name`
+#### 1. Database Changes
 
-2. **API Endpoints**:
-   - Add route in `app/core/routes/`
-   - Implement service in `app/core/services/`
-   - Add tests in `tests/integration/api/`
-   - Apply rate limiting: `@app.limiter.limit("10 per minute")`
-   - Add CSRF protection for POST/PUT/DELETE
+**Process**:
+- Create new migration in `postgres/migrations/V00N__description.sql`
+- Use idempotent patterns: `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+- Test locally: `make restart` (migrations run automatically)
+- Verify: `make db-shell` → `\dt` and `\d table_name`
 
-3. **Security Considerations**:
-   - All POST/PUT/DELETE endpoints require CSRF tokens (Flask-WTF)
-   - Apply rate limits to prevent abuse
-   - Validate all user input
-   - Use parameterized queries (SQLAlchemy ORM prevents SQL injection)
-   - Store credentials encrypted via `secure_credential_service`
+**Migration Naming Convention**:
+- Format: `V###__description.sql`
+- Examples: `V001__init_schema.sql`, `V002__secure_credentials.sql`
+- Always use ascending numbers
+
+#### 2. API Endpoints
+
+**Blueprint Organization**:
+```python
+# app/core/routes/api/
+core_api.py          # Health, stats, monitoring
+ip_management_api.py # Blacklist/whitelist operations
+collection_api.py    # Collection triggers
+system_api.py        # System management
+```
+
+**Steps**:
+1. Add route in appropriate blueprint file
+2. Implement service logic in `app/core/services/`
+3. Add tests in `tests/integration/api/`
+4. Apply rate limiting: `@app.limiter.limit("10 per minute")`
+5. Add CSRF protection for POST/PUT/DELETE
+
+**Example**:
+```python
+# app/core/routes/api/ip_management_api.py
+@ip_management_bp.route('/api/blacklist/check', methods=['GET'])
+@app.limiter.limit("50 per minute")
+def check_ip():
+    # Implementation
+    pass
+```
+
+#### 3. Collection Modules
+
+**Adding New Data Source**:
+1. Create collector in `collector/core/` or `app/core/collectors/`
+2. Implement base collector interface
+3. Add authentication logic
+4. Register in `unified_collector.py`
+5. Add tests in `tests/unit/collectors/`
+
+**Rate Limiting**: Use `collector/core/rate_limiter.py` for API compliance
+
+#### 4. Security Considerations
+
+**Required**:
+- All POST/PUT/DELETE endpoints require CSRF tokens (Flask-WTF)
+- Apply rate limits to prevent abuse
+- Validate all user input with `validators.py`
+- Use parameterized queries (SQLAlchemy ORM prevents SQL injection)
+- Store credentials encrypted via `secure_credential_service`
+
+**Security Headers** (automatically applied):
+```python
+X-Frame-Options: DENY
+Content-Security-Policy: default-src 'self'
+Strict-Transport-Security: max-age=31536000
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+```
 
 ### Running Tests
 
@@ -307,6 +408,7 @@ python -m pytest tests/ -v --cov=core --cov-report=html
 python -m pytest -m unit              # Unit tests
 python -m pytest -m integration       # Integration tests
 python -m pytest -m security          # Security tests (CSRF, rate limiting)
+python -m pytest -m db                # Database tests
 
 # Single test file
 python -m pytest tests/unit/test_database.py -v
@@ -315,26 +417,56 @@ python -m pytest tests/unit/test_database.py -v
 python -m pytest -n auto
 ```
 
+**Test Fixtures** (`tests/conftest.py`):
+- `app` - Flask application instance
+- `client` - Flask test client
+- `db_session` - Database session
+- `redis_client` - Redis client
+- `mock_credentials` - Mock credential data
+
 ---
 
 ## 🚀 Deployment & CI/CD
 
-### GitHub Actions Pipeline
+### GitLab CI/CD Pipeline
 
-**Workflow**: `.github/workflows/docker-build-portainer-deploy.yml`
+**Workflow**: `.gitlab-ci.yml`
 
 **Pipeline Stages**:
-1. **Security Scan** - Python (safety) + JavaScript (npm audit)
-2. **Build Images** - Multi-stage Docker builds for all containers
-3. **Push to Registry** - `registry.jclee.me`
-4. **Deploy via Portainer** - API-controlled deployment
-5. **Health Check** - Verify deployment success
-6. **Rollback** - Auto-rollback on failure
+1. **Validate** - Environment checks
+2. **Security** - Python (safety) + JavaScript (npm audit) + pytest
+3. **Build** - Parallel Docker builds for all 5 containers
+4. **Deploy** - SSH deployment to production/development
+5. **Verify** - Health checks and smoke tests
+6. **Cleanup** - Registry maintenance (manual)
 
 **Triggers**:
-- Push to `master` branch
-- Changes in: `app/`, `collector/`, `postgres/`, `redis/`, `frontend/`, `Dockerfile*`, `docker-compose.yml`
-- Manual dispatch: `workflow_dispatch`
+- Push to `main`/`master` branch
+- Merge request events
+- Manual dispatch
+- Scheduled (cleanup only)
+
+**Key Features**:
+- Parallel builds (5 containers simultaneously)
+- Build cache optimization with `DOCKER_BUILDKIT=1`
+- Automatic rollback on health check failure
+- SSH-based deployment (no Portainer dependency)
+- Multi-stage verification (health + API + DB)
+
+**Environment Variables Required**:
+```bash
+# GitLab CI/CD Variables
+SSH_PRIVATE_KEY       # SSH key for deployment server
+SSH_KNOWN_HOSTS       # Known hosts file content
+DEPLOY_HOST           # Production server hostname
+DEPLOY_USER           # SSH user
+DEV_DEPLOY_HOST       # Development server hostname
+GITLAB_API_TOKEN      # For registry cleanup
+POSTGRES_PASSWORD     # Database password
+FLASK_SECRET_KEY      # Flask session secret
+REGTECH_ID            # REGTECH credentials
+REGTECH_PW
+```
 
 ### Offline Deployment (Image Packaging)
 
@@ -368,7 +500,7 @@ for f in *.tar.gz; do
 done
 
 # 4. Start services
-docker-compose up -d
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 **Compression Efficiency**: ~66% reduction (2.4GB → 815MB total)
@@ -453,28 +585,37 @@ def sensitive_endpoint():
     pass
 ```
 
+**Rate Limit Headers**:
+```
+X-RateLimit-Limit: 50
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1699564800
+```
+
 ---
 
 ## 🔒 Security Features
 
 ### CSRF & Rate Limiting
 
-**CSRF Protection**:
-- Enabled via Flask-WTF (`CSRFProtect`)
-- All POST/PUT/DELETE require CSRF token
+**CSRF Protection** (`Flask-WTF`):
+- Enabled for all POST/PUT/DELETE
+- Token required in form data or headers
 - Exemptions: Health checks, metrics endpoints
 
-**Rate Limiting**:
+**Implementation**:
+```python
+# app/core/app.py
+csrf = CSRFProtect()
+csrf.init_app(app)
+csrf.exempt(health_bp)  # Exempt health checks
+```
+
+**Rate Limiting** (`Flask-Limiter`):
 - Redis-backed distributed rate limiting
 - Prevents brute force attacks
 - Returns `X-RateLimit-*` headers
-
-**Security Headers**:
-- `X-Frame-Options: DENY`
-- `Content-Security-Policy: default-src 'self'`
-- `Strict-Transport-Security: max-age=31536000`
-- `X-Content-Type-Options: nosniff`
-- `X-XSS-Protection: 1; mode=block`
+- Configurable per-endpoint limits
 
 ### Database Schema
 
@@ -484,6 +625,13 @@ def sensitive_endpoint():
 - `collection_credentials` - Encrypted authentication storage (AES-256)
 - `credential_audit_log` - Credential change tracking
 - `collection_logs` - Collection history and status
+
+**Indexes** (for performance):
+```sql
+CREATE INDEX idx_blacklist_ip ON blacklist_ips(ip_address);
+CREATE INDEX idx_whitelist_ip ON whitelist_ips(ip_address);
+CREATE INDEX idx_collection_date ON collection_logs(collection_date);
+```
 
 **Security Views**:
 - `credential_security_status` - Expiry monitoring and status
@@ -541,20 +689,75 @@ docker exec blacklist-redis redis-cli ping
 # Verify rate limit storage
 docker exec blacklist-redis redis-cli keys "LIMITER*"
 
+# Check rate limit for specific IP
+docker exec blacklist-redis redis-cli GET "LIMITER:192.168.1.100"
+
 # Temporarily disable (development only)
 # Set FLASK_ENV=development in .env
+```
+
+### Health Check Failures
+
+**GitLab CI/CD Pipeline**:
+```bash
+# Check verification logs
+gitlab-ci.yml → verify:production stage
+
+# Manual health check
+curl -f https://blacklist.nxtd.co.kr/health
+
+# Full diagnostic
+curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq
 ```
 
 ---
 
 ## 📝 Code Style & Best Practices
 
-- **Python**: Follow PEP 8, use type hints for all functions
-- **Docstrings**: Required for all public functions/classes
-- **Testing**: 80%+ coverage minimum
-- **Security**: No hardcoded credentials (use environment variables)
-- **Database**: Use idempotent migrations with `IF NOT EXISTS` patterns
-- **API**: Apply rate limiting and CSRF protection appropriately
+### Python
+
+- **Style**: Follow PEP 8
+- **Type Hints**: Required for all function signatures
+- **Docstrings**: Google-style docstrings for public functions/classes
+- **Imports**: Organize as stdlib, third-party, local
+- **Line Length**: 100 characters (not strict 79)
+
+**Example**:
+```python
+from typing import Optional, List
+import logging
+
+def check_ip_status(ip_address: str) -> Optional[dict]:
+    """Check if IP is blocked or whitelisted.
+
+    Args:
+        ip_address: IP address to check
+
+    Returns:
+        Status dict with 'is_blocked' and 'reason' keys, or None if not found
+    """
+    pass
+```
+
+### Testing
+
+- **Coverage**: 80%+ minimum (enforced by pytest)
+- **Markers**: Use pytest markers for test categorization
+- **Fixtures**: Prefer fixtures over setup/teardown
+- **Assertions**: Use descriptive assertion messages
+
+### Security
+
+- **Credentials**: No hardcoded credentials (use environment variables)
+- **SQL**: Use SQLAlchemy ORM (prevents SQL injection)
+- **Input Validation**: Validate all user input with `validators.py`
+- **Encryption**: Use `secure_credential_service` for sensitive data
+
+### Database
+
+- **Migrations**: Idempotent with `IF NOT EXISTS` patterns
+- **Indexes**: Add indexes for frequently queried columns
+- **Constraints**: Use database constraints (UNIQUE, NOT NULL, FOREIGN KEY)
 
 ---
 
@@ -570,14 +773,14 @@ docker exec blacklist-redis redis-cli keys "LIMITER*"
 - `tests/INTEGRATION_TEST_REPORT_*.md` - Test reports
 
 **Production URLs**:
-- Application: https://blacklist.jclee.me
-- Health Check: https://blacklist.jclee.me/health
-- Collection Panel: https://blacklist.jclee.me/collection-panel
+- Application: https://blacklist.nxtd.co.kr
+- Health Check: https://blacklist.nxtd.co.kr/health
+- Collection Panel: https://blacklist.nxtd.co.kr/collection-panel
 
 **Infrastructure**:
 - Container Registry: https://registry.jclee.me
-- Portainer: https://portainer.jclee.me
 - GitLab: https://gitlab.jclee.me/jclee/blacklist
+- GitLab CI/CD: https://gitlab.jclee.me/jclee/blacklist/-/pipelines
 
 ---
 
