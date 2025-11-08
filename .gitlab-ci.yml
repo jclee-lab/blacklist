@@ -384,7 +384,6 @@ deploy:production:
   environment:
     name: production
     url: https://blacklist.nxtd.co.kr
-    on_stop: rollback:production
   script:
     - echo "[DEPLOY] Deploying to production server..."
     - echo "Target host - $DEPLOY_HOST"
@@ -773,6 +772,7 @@ rollback:production:
   environment:
     name: production
     url: https://blacklist.nxtd.co.kr
+    action: stop
 
   when: manual
   needs: []
