@@ -3,7 +3,7 @@ name: 🚀 Docker Build Portainer Deploy Pipeline
 # Docker 빌드 및 Portainer 배포 파이프라인: git push -> 이미지 빌드 -> 도커 레지스트리 푸시 -> Portainer 웹훅
 on:
   push:
-    branches: [master]
+    branches: [main, master]  # Support both main and master
     paths:
       - 'app/**'
       - 'collector/**'
@@ -192,12 +192,12 @@ jobs:
         if: steps.changes.outputs.build == 'true'
         run: |
           echo "🏗️ Building ${{ matrix.component }} image in parallel..."
-          
+
           # 버전 태그 생성
           VERSION_TAG="latest"
           COMMIT_SHORT=$(echo ${{ github.sha }} | cut -c1-8)
           BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          
+
           # 병렬 빌드 최적화: 캐시 활용 및 멀티스테이지
           docker build \
             --platform linux/amd64 \
@@ -209,33 +209,33 @@ jobs:
             --tag ${{ env.REGISTRY_HOST }}/${{ matrix.image }}:${COMMIT_SHORT} \
             --file ${{ matrix.dockerfile }} \
             ${{ matrix.context }}
-          
+
           echo "✅ Parallel build completed: ${{ matrix.image }}:${VERSION_TAG}"
 
       - name: 📤 Push to Registry (Parallel)
         if: steps.changes.outputs.build == 'true'
         run: |
           echo "📤 Pushing ${{ matrix.component }} to registry in parallel..."
-          
+
           VERSION_TAG="latest"
           COMMIT_SHORT=$(echo ${{ github.sha }} | cut -c1-8)
-          
+
           # 병렬 푸시: 백그라운드에서 동시 실행
           echo "🚀 Starting parallel push for ${{ matrix.component }}..."
-          
+
           # latest 태그 푸시 (백그라운드)
           docker push ${{ env.REGISTRY_HOST }}/${{ matrix.image }}:${VERSION_TAG} &
           PUSH_LATEST_PID=$!
-          
-          # commit 태그 푸시 (백그라운드)  
+
+          # commit 태그 푸시 (백그라운드)
           docker push ${{ env.REGISTRY_HOST }}/${{ matrix.image }}:${COMMIT_SHORT} &
           PUSH_COMMIT_PID=$!
-          
+
           # 모든 푸시 완료 대기
           echo "⏳ Waiting for parallel pushes to complete..."
           wait $PUSH_LATEST_PID
           wait $PUSH_COMMIT_PID
-          
+
           echo "✅ Parallel push completed: ${{ matrix.image }}"
 
       - name: 📊 Build Summary
@@ -272,7 +272,7 @@ jobs:
       - name: 📡 Trigger Portainer Webhook
         run: |
           echo "🚀 Triggering Portainer deployment..."
-          
+
           if [ -z "${{ secrets.PORTAINER_WEBHOOK_URL }}" ]; then
             echo "❌ PORTAINER_WEBHOOK_URL not configured"
             echo "📝 Please set the webhook URL in GitHub Secrets:"
@@ -280,19 +280,19 @@ jobs:
             echo "   Value: https://portainer.jclee.me/api/stacks/webhooks/d05ec9bc-d49b-4b1f-9d01-7377f36abd2c"
             exit 1
           fi
-          
+
           # 웹훅 호출 (최대 3회 재시도)
           for i in {1..3}; do
             echo "🔄 Webhook attempt $i/3..."
-            
+
             WEBHOOK_RESPONSE=$(curl -s -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" \
               --connect-timeout 30 \
               --max-time 60 \
               -w "\n%{http_code}")
-            
+
             HTTP_CODE=$(echo "$WEBHOOK_RESPONSE" | tail -1)
             RESPONSE_BODY=$(echo "$WEBHOOK_RESPONSE" | head -n -1)
-            
+
             if [ "$HTTP_CODE" == "204" ] || [ "$HTTP_CODE" == "200" ]; then
               echo "✅ Webhook deployment triggered successfully (HTTP $HTTP_CODE)"
               if [ -n "$RESPONSE_BODY" ]; then
@@ -319,16 +319,16 @@ jobs:
       - name: 🏥 Health Check
         run: |
           echo "🏥 Performing health checks..."
-          
+
           MAX_RETRIES=10
           RETRY_DELAY=15
-          
+
           for i in $(seq 1 $MAX_RETRIES); do
             echo "🔍 Health check attempt $i/$MAX_RETRIES..."
-            
+
             if curl -s --connect-timeout 10 --max-time 30 "${{ env.PRD_URL }}/health" | grep -q '"status":"healthy"'; then
               echo "✅ Production health check passed!"
-              
+
               # API 기능 검증
               if curl -s "${{ env.PRD_URL }}/api/stats" | jq -e '.success == true' > /dev/null 2>&1; then
                 echo "✅ API functionality verified"

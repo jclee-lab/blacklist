@@ -3,11 +3,10 @@ name: Build Offline Package
 on:
   push:
     branches:
-      - main
-      - 'release/**'
+      - 'release/**'  # Only trigger on release branches
     tags:
-      - 'v*'
-  workflow_dispatch:  # 수동 실행 지원
+      - 'v*'  # Or on version tags
+  workflow_dispatch:  # Manual execution supported
 
 env:
   PACKAGE_DIR: offline-packages
