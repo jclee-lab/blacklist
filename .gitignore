@@ -18,13 +18,8 @@ dist/
 # Ignore non-essential files
 config/
 docs/*
-!docs/CICD-INFRASTRUCTURE.md
-!docs/CICD-STABILIZATION-REPORT.md
-!docs/FORTIMANAGER-INTEGRATION.md
-!docs/IMAGE-PACKAGING-COMPLETE.md
-!docs/DOCKER-COMPOSE-GUIDE.md
-!docs/GITLAB-CICD-AUTODEVOPS.md
-!docs/CICD-QUICK-REFERENCE.md
+!docs/0*-*.md
+!docs/GITLAB-CI-SETUP-GUIDE.md
 reports/
 # scripts - Now tracked for deployment automation
 src/
