@@ -129,6 +129,28 @@ make info
 
 ## 🏗️ Architecture & Key Patterns
 
+### Common Utilities (NEW - 2025-11-08)
+
+**Location**: `app/core/utils/`
+
+**Database Utilities** (`db_utils.py`):
+- Context manager for database connections
+- Query execution helpers (`execute_query`, `execute_write`)
+- Table existence checker
+- Centralized DB configuration
+
+**Cache Utilities** (`cache_utils.py`):
+- `CacheManager` class for Redis operations
+- `@cached` decorator for function result caching
+- Pattern-based cache clearing
+- JSON serialization/deserialization
+
+**Benefits**:
+- Eliminates code duplication across services
+- Standardizes database connection handling
+- Centralizes error handling patterns
+- Improves maintainability and testability
+
 ### Auto-Migrating Database System
 
 **Critical Pattern**: PostgreSQL runs migrations on EVERY container restart (not just first time).
@@ -428,16 +450,31 @@ python -m pytest -n auto
 
 ## 🚀 Deployment & CI/CD
 
-### GitLab CI/CD Pipeline
+### GitLab CI/CD Pipeline (Enhanced - 2025-11-08)
 
 **Workflow**: `.gitlab-ci.yml`
 
 **Pipeline Stages**:
 1. **Validate** - Environment checks
 2. **Security** - Python (safety) + JavaScript (npm audit) + pytest
+   - **NEW**: Blocks pipeline on critical vulnerabilities
+   - **NEW**: jq-based severity filtering
 3. **Build** - Parallel Docker builds for all 5 containers
-4. **Deploy** - SSH deployment to production/development
-5. **Verify** - Health checks and smoke tests
+   - **NEW**: 20m timeout with retry (max 2)
+   - **NEW**: Docker daemon readiness check
+   - **NEW**: BuildKit optimization
+4. **Deploy** - SSH deployment with enhanced safety
+   - **NEW**: 30m timeout with retry mechanism
+   - **NEW**: Comprehensive pre-deployment backup
+   - **NEW**: Image pull retry (max 5 attempts)
+   - **NEW**: Automatic rollback on failure
+   - **NEW**: 120s health check timeout
+   - **NEW**: Old image cleanup (keep last 3)
+5. **Verify** - Comprehensive health checks
+   - **NEW**: DB/Redis connectivity verification
+   - **NEW**: Response validation with jq
+   - **NEW**: Performance baseline testing (5s threshold)
+   - **NEW**: 10 retry attempts with detailed logging
 6. **Cleanup** - Registry maintenance (manual)
 
 **Triggers**:
@@ -446,12 +483,13 @@ python -m pytest -n auto
 - Manual dispatch
 - Scheduled (cleanup only)
 
-**Key Features**:
+**Key Safety Features**:
 - Parallel builds (5 containers simultaneously)
 - Build cache optimization with `DOCKER_BUILDKIT=1`
-- Automatic rollback on health check failure
+- **Automatic rollback** on deployment/health check failure
 - SSH-based deployment (no Portainer dependency)
-- Multi-stage verification (health + API + DB)
+- Multi-stage verification (health + API + DB + Redis)
+- **Critical vulnerability blocking**
 
 **Environment Variables Required**:
 ```bash

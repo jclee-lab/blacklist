@@ -1,95 +1,65 @@
-# Basic Python ignores
+# ============================================================================
+# Python
+# ============================================================================
 __pycache__/
 *.py[cod]
+*.so
 .venv/
-*.log
-.env
-
-# Docker data
-data/
-
-# Docker image packages (offline deployment)
-dist/
-
-# Basedir cleanup - tracking selected directories
-# Tracked: app/, postgres/, redis/, collector/
-# Not tracked: src/, config/, docs/, etc.
-
-# Ignore non-essential files
-config/
-docs/*
-!docs/0*-*.md
-!docs/GITLAB-CI-SETUP-GUIDE.md
-reports/
-# scripts - Now tracked for deployment automation
-src/
-# tests/ - Now tracked for pytest test suite
-tools/
-GITHUB_SECRETS.md
-# VERSION - Now tracked for semantic versioning (Phase 1)
-portainer_deploy.py
-
-# Keep migrations organized
-!migrations/
-# Cloudflare Workers environment files
-worker/.env
-worker/.env.*
-!worker/.env.example
-
-# Coverage reports
+venv/
+ENV/
 .coverage
-
-# Wrangler generated files
-worker/worker-configuration.d.ts
-worker/.wrangler/
-
-# Logs
+coverage.xml
+htmlcov/
 *.log
 
-# Claude Code conversations and MCP tools
-.claude/
-.serena/
-.playwright-mcp/
+# ============================================================================
+# Environment & Secrets
+# ============================================================================
+.env
+.env.*
+!.env.example
+*.key
 
-# Offline package artifacts
-# *.tar.gz  # Now tracked via Git LFS
-*.tar.gz.sha256
-
-# Exception: Multi-environment compose files (dev/prod/offline)
-# This project uses environment-specific compose files by design
-!docker-compose.dev.yml
-!docker-compose.prod.yml
-!docker-compose.offline.yml
+# ============================================================================
+# Docker & Deployment
+# ============================================================================
+data/
+dist/
 offline-docker-centos8/
 offline-package/
 production-install/
 offline-deploy/
-export-clean-images.sh
-offline-package-temp.sh
-history_backup/offline-packages/
+offline-packages/backup-*/
 
-# Node modules
-worker/node_modules/
+# Docker image packages
+*.tar.gz
+*.tar.gz.sha256
+!offline-packages/*.tar.gz  # Git LFS tracked
+offline-packages/*.zip
+
+# ============================================================================
+# Node.js & Frontend
+# ============================================================================
+node_modules/
 frontend/node_modules/
 frontend/.next/
-node_modules/
+worker/node_modules/
+worker/.wrangler/
+worker/worker-configuration.d.ts
 
-# Analysis and temporary documents
-ANALYSIS*.md
-GEMINI*.md
-*_SUMMARY*.md
-*_SUMMARY*.txt
-*_REPORT.md
-*_GUIDE.md
-!docs/release/*_GUIDE.md
-!docs/GITLAB-CI-SETUP-GUIDE.md
-*_STATUS.md
-IMPROVEMENT_ROADMAP.md
-OFFLINE-PACKAGE-INSTRUCTIONS.md
-docker-offline-package-summary.md
-offline-package-final-report.md
+# ============================================================================
+# IDE & Tools
+# ============================================================================
+.claude/
+.serena/
+.playwright-mcp/
+.DS_Store
+.vscode/
+.idea/
 
-# Constitutional Violation - Backup files (v11.10)
+# ============================================================================
+# Build Artifacts & Temporary Files
+# ============================================================================
 *.bak
 *.backup
 *.old
@@ -97,51 +67,61 @@ offline-package-final-report.md
 docker-compose.override.yml
 history_backup/
 
-# Offline packages temporary files
+# ============================================================================
+# Documentation (selective tracking)
+# ============================================================================
+docs/*
+!docs/0*-*.md
+!docs/GITLAB-CI-SETUP-GUIDE.md
+!docs/release/*_GUIDE.md
+
+# Analysis documents
+ANALYSIS*.md
+GEMINI*.md
+*_SUMMARY*.md
+*_SUMMARY*.txt
+*_REPORT.md
+*_GUIDE.md
+!docs/GITLAB-CI-SETUP-GUIDE.md
+*_STATUS.md
+IMPROVEMENT_ROADMAP.md
+OFFLINE-PACKAGE-INSTRUCTIONS.md
+docker-offline-package-summary.md
+offline-package-final-report.md
+CREDENTIAL_SETUP_GUIDE.md
+SOLUTION_SUMMARY.txt
+
+# ============================================================================
+# Ignored Directories
+# ============================================================================
+config/
+reports/
+src/
+tools/
+app/core/middleware/
+docs/xwiki-sections/
+
+# ============================================================================
+# Offline Packages Metadata
+# ============================================================================
 offline-packages/*.txt
 offline-packages/*.md5
 offline-packages/INSPECTION_REPORT.md
 offline-packages/COLLECTION_DAILY_REPORT.md
 offline-packages/PACKAGE_STATUS.md
 offline-packages/FINAL_SUMMARY.md
-
-# Large offline package archives - Now using Git LFS (CloudFlare bypass via /etc/hosts)
-offline-packages/*.zip
-# offline-packages/*.tar.gz  # Now tracked via Git LFS
-!offline-packages/*.tar.gz
-
-# Root directory cleanup
-CREDENTIAL_SETUP_GUIDE.md
-SOLUTION_SUMMARY.txt
-
-# Development/test files (not for repository)
-app/core/error_handlers.py
-app/core/exceptions.py
-app/core/middleware/
-coverage.xml
-htmlcov/
-
-# Offline package metadata files (allow)
 !offline-packages/*_summary.txt
 !offline-packages/*.sha256
 !offline-packages/GIT_LFS_SETUP_GUIDE.md
 
-# Private SSL keys
-*.key
-
-# Requirements lock files
+# ============================================================================
+# Specific Files
+# ============================================================================
+GITHUB_SECRETS.md
+portainer_deploy.py
+export-clean-images.sh
+offline-package-temp.sh
 app/requirements.in
 collector/requirements.in
-
-# XWiki utility scripts
-docs/xwiki-sections/*.sh
-docs/xwiki-sections/*.py
-docs/xwiki-sections/*.ps1
-
-# Note: All essential scripts are now tracked for deployment automation
-offline-packages/backup-*/
-
-# Large offline packages (build with scripts/create-dual-package.sh)
-offline-packages/*.tar.gz
-offline-packages/*.tar.gz.sha256
-offline-packages/packages/*.tar.gz
+app/core/error_handlers.py
+app/core/exceptions.py
