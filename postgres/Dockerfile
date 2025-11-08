@@ -62,17 +62,51 @@ RUN echo "# Performance and Data Integrity Settings" >> /usr/local/share/postgre
     echo "log_lock_waits = on" >> /usr/local/share/postgresql/postgresql.conf.sample && \
     echo "log_temp_files = 0" >> /usr/local/share/postgresql/postgresql.conf.sample
 
+# ============================================================================
+# SCHEMA INITIALIZATION (v3.0.0)
+# ============================================================================
 # Copy initialization scripts (executed in alphabetical order)
+# Execution order:
+#   1. 00-complete-schema.sql       - Full schema definition (10 tables)
+#   2. 00-schema-check.sql          - Auto-fix missing columns
+#   3. 01-credentials.sql           - Default credentials
+#   4. 02-migrate-pipeline-metrics.sql - Pipeline metrics
+#   5. 03-fix-collection-metrics.sql   - Collection metrics
+#   6. 04-fix-schema-patch.sql         - Schema patches
+#   7. 08_collection_credentials_extended.sql - Extended credentials
+#   8. 09_add_data_source_columns.sql  - Data source columns
+# ============================================================================
+
 COPY init-scripts/ /docker-entrypoint-initdb.d/
 
-# Ensure migration scripts have proper permissions and naming
-RUN chmod +x /docker-entrypoint-initdb.d/*.sql && \
-    ls -la /docker-entrypoint-initdb.d/ && \
-    echo "📋 초기화 스크립트 목록:" && \
-    ls -1 /docker-entrypoint-initdb.d/*.sql && \
-    echo "✅ 스키마 v3.0.0 이미지에 포함됨" && \
-    # 스키마 파일 크기 확인
-    stat -c "📊 완전한 스키마 크기: %s bytes" /docker-entrypoint-initdb.d/00-complete-schema.sql 2>/dev/null || echo "⚠️ 스키마 파일이 이미 init-scripts에 포함됨"
+# ============================================================================
+# Custom Entrypoint for Always-Run Migrations
+# ============================================================================
+# Copy custom entrypoint that runs migrations on every restart
+COPY docker-entrypoint-custom.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint-custom.sh
+
+# Validate schema files and set permissions
+RUN set -e && \
+    echo "🔍 Validating schema files..." && \
+    # Check required schema files exist
+    test -f /docker-entrypoint-initdb.d/00-complete-schema.sql || (echo "❌ Missing 00-complete-schema.sql" && exit 1) && \
+    test -f /docker-entrypoint-initdb.d/00-schema-check.sql || (echo "❌ Missing 00-schema-check.sql" && exit 1) && \
+    # Set execute permissions
+    chmod +x /docker-entrypoint-initdb.d/*.sql && \
+    # Display schema summary
+    echo "" && \
+    echo "📋 Schema Initialization Scripts:" && \
+    ls -1 /docker-entrypoint-initdb.d/*.sql | nl && \
+    echo "" && \
+    echo "✅ Schema v3.0.0 embedded in image" && \
+    echo "📊 Main schema size: $(stat -c %s /docker-entrypoint-initdb.d/00-complete-schema.sql) bytes" && \
+    echo "🔢 Total tables: 10 (blacklist_ips, whitelist_ips, collection_*, monitoring_*, etc.)" && \
+    echo "📇 Total indexes: 33+" && \
+    echo "👁️  Total views: 7" && \
+    echo "⚙️  Auto-migration: Enabled (runs on every restart)" && \
+    echo "🔄 Custom entrypoint: /usr/local/bin/docker-entrypoint-custom.sh" && \
+    echo ""
 
 # Data directory volume configuration
 VOLUME ["/var/lib/postgresql/data"]
@@ -83,3 +117,13 @@ EXPOSE 5432
 # Health check configuration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD pg_isready -U $POSTGRES_USER -d $POSTGRES_DB || exit 1
+
+# ============================================================================
+# Entrypoint Configuration
+# ============================================================================
+# Use custom entrypoint that wraps official postgres entrypoint
+# - Runs migrations from /migrations directory on every start
+# - Then starts PostgreSQL normally
+# ============================================================================
+ENTRYPOINT ["docker-entrypoint-custom.sh"]
+CMD ["postgres"]

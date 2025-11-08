@@ -1,40 +1,117 @@
-# Multi-stage build for Next.js frontend with embedded nginx
+# ============================================================================
+# Blacklist Next.js Frontend - Container Image
+# ============================================================================
+# Purpose: React-based modern frontend for IP blacklist/whitelist management
+# Version: 3.3.9
+# Architecture: Multi-stage build for production optimization
+# Framework: Next.js 14 (App Router), React 18, Tailwind CSS
+# Dependencies: Flask API (blacklist-app:2542)
+# ============================================================================
 
-# Stage 1: Dependencies
+# ============================================================================
+# STAGE 1: Production Dependencies Only
+# ============================================================================
+# Install only production dependencies (no devDependencies)
+# Optimizes final image size by excluding build tools
+# ============================================================================
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
 
-# Stage 2: Builder
+COPY package*.json ./
+
+# Install production dependencies only
+RUN set -e && \
+    echo "🔍 Installing production dependencies..." && \
+    npm ci --only=production && \
+    echo "✅ Production dependencies installed"
+
+# ============================================================================
+# STAGE 2: Build Stage
+# ============================================================================
+# Install all dependencies (including devDependencies for building)
+# Build Next.js application with optimizations
+# ============================================================================
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
 
-# Stage 3: Runner (Next.js standalone only)
+COPY package*.json ./
+
+# Install all dependencies (dev + prod)
+RUN set -e && \
+    echo "🔍 Installing build dependencies..." && \
+    npm ci && \
+    echo "✅ Build dependencies installed"
+
+# Copy source code
+COPY . .
+
+# Disable Next.js telemetry (privacy)
+ENV NEXT_TELEMETRY_DISABLED 1
+
+# Build Next.js application
+RUN set -e && \
+    echo "🔍 Building Next.js application..." && \
+    npm run build && \
+    echo "✅ Next.js build completed"
+
+# ============================================================================
+# STAGE 3: Production Runtime
+# ============================================================================
+# Minimal production image with only runtime artifacts
+# Security: Non-root user (nextjs:nodejs)
+# ============================================================================
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Production environment settings
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# ============================================================================
+# Security: Non-Root User Creation
+# ============================================================================
+# Create nodejs group (GID 1001) and nextjs user (UID 1001)
+# Principle of least privilege: Application runs as non-root
+# ============================================================================
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
+# ============================================================================
+# Copy Build Artifacts from Builder Stage
+# ============================================================================
+# Copy order:
+# 1. public/ - Static assets (images, fonts, favicon)
+# 2. .next/standalone/ - Next.js standalone server
+# 3. .next/static/ - Built JavaScript/CSS bundles
+# ============================================================================
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Switch to non-root user
 USER nextjs
 
-# Expose Next.js port
+# ============================================================================
+# Network Port Configuration
+# ============================================================================
+# Port 2543: Next.js application server
+# ============================================================================
 EXPOSE 2543
 
+# ============================================================================
+# Environment Variables Configuration
+# ============================================================================
+# Port: 2543 (frontend service)
+# Hostname: 0.0.0.0 (listen on all network interfaces)
+# Backend API: http://blacklist-app:2542 (Flask API, via Docker network)
+# ============================================================================
 ENV PORT=2543
 ENV HOSTNAME="0.0.0.0"
 
+# ============================================================================
+# Default Command: Start Next.js Server
+# ============================================================================
+# server.js: Next.js standalone server (generated by build)
+# Handles SSR (Server-Side Rendering) and API routes
+# ============================================================================
 CMD ["node", "server.js"]
