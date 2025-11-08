@@ -1,6 +1,7 @@
 name: 🚀 Docker Build Portainer Deploy Pipeline
 
 # Docker 빌드 및 Portainer 배포 파이프라인: git push -> 이미지 빌드 -> 도커 레지스트리 푸시 -> Portainer 웹훅
+# Updated: 2025-11-08 - Workflow trigger fix verified
 on:
   push:
     branches: [main, master]  # Support both main and master
