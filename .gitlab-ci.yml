@@ -3,6 +3,7 @@
 # Features: Security scan, parallel builds, Portainer deployment, health checks
 
 stages:
+  - validate
   - security
   - build
   - deploy
@@ -26,6 +27,25 @@ variables:
   IMAGE_COLLECTOR: "${CI_REGISTRY_IMAGE}/blacklist-collector"
   IMAGE_APP: "${CI_REGISTRY_IMAGE}/blacklist-app"
   IMAGE_FRONTEND: "${CI_REGISTRY_IMAGE}/blacklist-frontend"
+
+# ============================================================================
+# VALIDATE STAGE - Quick environment checks
+# ============================================================================
+
+validate:environment:
+  stage: validate
+  image: alpine:latest
+  script:
+    - echo "✅ GitLab CI/CD environment validation"
+    - echo "📋 CI_COMMIT_BRANCH: $CI_COMMIT_BRANCH"
+    - echo "📋 CI_REGISTRY: $CI_REGISTRY"
+    - echo "📋 CI_REGISTRY_IMAGE: $CI_REGISTRY_IMAGE"
+    - echo "📋 CI_COMMIT_SHA: $CI_COMMIT_SHA"
+    - echo "✅ Validation passed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
 
 # ============================================================================
 # SECURITY STAGE - Dependency scanning
@@ -135,9 +155,15 @@ security:run-tests:
 
 .build-template: &build-template
   stage: build
-  image: docker:24-dind
+  image: docker:24
   services:
     - docker:24-dind
+  variables:
+    # Docker-in-Docker configuration
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
   before_script:
     - echo "🔐 Logging into GitLab Container Registry..."
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
@@ -162,6 +188,11 @@ build:postgres:
   <<: *build-template
   script:
     - echo "🏗️ Building PostgreSQL image..."
+    - echo "🔍 Debug: Docker version"
+    - docker version
+    - echo "🔍 Debug: Docker info"
+    - docker info
+
     - export VERSION_TAG="latest"
     - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
     - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
