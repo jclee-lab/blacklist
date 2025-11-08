@@ -1,0 +1,145 @@
+# Production Environment - blacklist.nxtd.co.kr
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+# Note: Uses pre-built images from registry.jclee.me
+
+networks:
+  blacklist-network:
+    name: blacklist-network
+    driver: bridge
+  traefik-public:
+    external: true
+    name: traefik-public
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  collector_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_uploads:
+    driver: local
+
+services:
+  blacklist-postgres:
+    image: registry.jclee.me/jclee/blacklist/blacklist-postgres:latest
+    container_name: blacklist-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Seoul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/migrations:/migrations:ro
+    networks:
+      - blacklist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d blacklist"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  blacklist-redis:
+    image: registry.jclee.me/jclee/blacklist/blacklist-redis:latest
+    container_name: blacklist-redis
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - redis_data:/data
+    networks:
+      - blacklist-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  blacklist-collector:
+    image: registry.jclee.me/jclee/blacklist/blacklist-collector:latest
+    container_name: blacklist-collector
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: blacklist-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: blacklist-redis
+      REDIS_PORT: 6379
+      HEALTH_CHECK_PORT: 8545
+      COLLECTION_INTERVAL: 86400
+      TZ: Asia/Seoul
+      # Production credentials (from environment or Portainer secrets)
+      REGTECH_ID: ${REGTECH_ID}
+      REGTECH_PW: ${REGTECH_PW}
+      SECUDIUM_ID: ${SECUDIUM_ID}
+      SECUDIUM_PW: ${SECUDIUM_PW}
+    volumes:
+      - collector_data:/app/data
+      - app_logs:/app/logs
+    networks:
+      - blacklist-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  blacklist-app:
+    image: registry.jclee.me/jclee/blacklist/blacklist-app:latest
+    container_name: blacklist-app
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: production
+      FLASK_DEBUG: "false"
+      PORT: 2542
+      SSL_ENABLED: "false"
+      POSTGRES_HOST: blacklist-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: blacklist-redis
+      REDIS_PORT: 6379
+      TZ: Asia/Seoul
+      # Production secret key (MUST be set in environment)
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
+    volumes:
+      - app_logs:/app/logs
+      - app_uploads:/app/uploads
+    networks:
+      - blacklist-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2542/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  blacklist-frontend:
+    image: registry.jclee.me/jclee/blacklist/blacklist-frontend:latest
+    container_name: blacklist-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://blacklist-app:2542
+      TZ: Asia/Seoul
+    networks:
+      - blacklist-network
+      - traefik-public
+    labels:
+      # Traefik - Production (blacklist.nxtd.co.kr)
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.blacklist-prod.rule=Host(`blacklist.nxtd.co.kr`)"
+      - "traefik.http.routers.blacklist-prod.entrypoints=websecure"
+      - "traefik.http.routers.blacklist-prod.tls=true"
+      - "traefik.http.services.blacklist-frontend-prod.loadbalancer.server.port=2543"
