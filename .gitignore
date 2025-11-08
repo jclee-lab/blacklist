@@ -15,10 +15,11 @@ data/
 # Ignore non-essential files
 config/
 docs/*
-!docs/release/
-!docs/xwiki-sections/
 !docs/CICD-INFRASTRUCTURE.md
+!docs/CICD-STABILIZATION-REPORT.md
+!docs/FORTIMANAGER-INTEGRATION.md
 !docs/IMAGE-PACKAGING-COMPLETE.md
+!docs/DOCKER-COMPOSE-GUIDE.md
 reports/
 # scripts - Now tracked for deployment automation
 src/
@@ -53,6 +54,12 @@ worker/.wrangler/
 # Offline package artifacts
 # *.tar.gz  # Now tracked via Git LFS
 *.tar.gz.sha256
+
+# Exception: Multi-environment compose files (dev/prod/offline)
+# This project uses environment-specific compose files by design
+!docker-compose.dev.yml
+!docker-compose.prod.yml
+!docker-compose.offline.yml
 offline-docker-centos8/
 offline-package/
 production-install/

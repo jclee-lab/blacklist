@@ -1,19 +1,24 @@
-name: 🚀 Docker Build Portainer Deploy Pipeline
+name: 🚀 Docker Build Portainer Deploy Pipeline (BACKUP)
 
-# Docker 빌드 및 Portainer 배포 파이프라인: git push -> 이미지 빌드 -> 도커 레지스트리 푸시 -> Portainer 웹훅
-# Updated: 2025-11-08 - Workflow trigger fix verified
+# BACKUP WORKFLOW - GitLab CI/CD is now the primary pipeline
+# This workflow is kept for emergency/manual deployments only
+# To use: Go to Actions > Select workflow > Run workflow (manual trigger only)
+# Updated: 2025-11-08 - Disabled auto-triggers, manual only
+
 on:
-  push:
-    branches: [main, master]  # Support both main and master
-    paths:
-      - 'app/**'
-      - 'collector/**'
-      - 'postgres/**'
-      - 'redis/**'
-      - 'Dockerfile*'
-      - 'requirements.txt'
-      - 'docker-compose.yml'
-      - '.github/workflows/**'
+  # Auto-triggers DISABLED - GitLab CI/CD is primary
+  # push:
+  #   branches: [main, master]
+  #   paths:
+  #     - 'app/**'
+  #     - 'collector/**'
+  #     - 'postgres/**'
+  #     - 'redis/**'
+  #     - 'Dockerfile*'
+  #     - 'requirements.txt'
+  #     - 'docker-compose.yml'
+
+  # Manual trigger ONLY
   workflow_dispatch:
     inputs:
       force_deploy:

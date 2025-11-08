@@ -73,7 +73,6 @@ RUN set -e && \
 # 2. Templates (Jinja2 HTML templates)
 # 3. Static assets (CSS, JavaScript, images)
 # 4. Entrypoint script (container initialization)
-# 5. Runtime patches (auto-applied on start)
 # ============================================================================
 COPY . .
 
@@ -83,10 +82,6 @@ COPY templates /app/templates
 # Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-
-# Copy runtime patches (auto-applied on container start)
-COPY ../offline-packages/patches /app/patches
-RUN chmod +x /app/patches/*.sh
 
 # Create required directories
 RUN mkdir -p logs
@@ -198,11 +193,7 @@ COPY --from=python-base /app .
 
 # Copy entrypoint script and set permissions (before switching to app user)
 COPY --from=python-base /app/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-# Copy runtime patches from build stage
-COPY --from=python-base /app/patches /app/patches
-RUN chmod +x /app/patches/*.sh && chown -R app:app /app
+RUN chmod +x /app/entrypoint.sh && chown app:app /app/entrypoint.sh
 
 # ============================================================================
 # Environment Variables Configuration
@@ -317,12 +308,10 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 EXPOSE 2542
 
 # ============================================================================
-# Entrypoint: Auto-Patching on Container Start
+# Entrypoint: Container Initialization
 # ============================================================================
 # entrypoint.sh responsibilities:
-# - Apply runtime patches from /app/patches/
 # - Wait for PostgreSQL and Redis availability
 # - Initialize database schema if needed
 # - Start Flask application (run_app.py)
-# ============================================================================
 ENTRYPOINT ["/app/entrypoint.sh"]

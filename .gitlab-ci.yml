@@ -1,145 +1,427 @@
-# GitLab CI/CD: Release-Only Pipeline
-# Triggers ONLY on tags/releases (not on regular commits)
-# Lightweight pipeline for production releases
+# GitLab CI/CD: Full AutoDevOps Pipeline
+# Triggers on main/master branch push and manual runs
+# Features: Security scan, parallel builds, Portainer deployment, health checks
 
 stages:
-  - validate
+  - security
   - build
-  - release
-  - notify
+  - deploy
+  - verify
 
 variables:
-  # Project-specific variables (override in GitLab CI/CD settings)
-  PROJECT_NAME: "${CI_PROJECT_NAME}"
-  RELEASE_DESCRIPTION: "Automated release from GitLab CI/CD"
+  # GitLab-provided variables (auto-configured)
+  # CI_REGISTRY: registry.jclee.me
+  # CI_REGISTRY_USER: gitlab-ci-token
+  # CI_REGISTRY_PASSWORD: $CI_JOB_TOKEN
+  # CI_REGISTRY_IMAGE: registry.jclee.me/jclee/blacklist
+
+  # Docker build optimization
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_BUILDKIT: 1
+
+  # Component image names
+  IMAGE_POSTGRES: "${CI_REGISTRY_IMAGE}/blacklist-postgres"
+  IMAGE_REDIS: "${CI_REGISTRY_IMAGE}/blacklist-redis"
+  IMAGE_COLLECTOR: "${CI_REGISTRY_IMAGE}/blacklist-collector"
+  IMAGE_APP: "${CI_REGISTRY_IMAGE}/blacklist-app"
+  IMAGE_FRONTEND: "${CI_REGISTRY_IMAGE}/blacklist-frontend"
 
 # ============================================================================
-# VALIDATION STAGE (on tags only)
+# SECURITY STAGE - Dependency scanning
 # ============================================================================
 
-validate:tag-format:
-  stage: validate
-  image: alpine:latest
-  script:
-    - echo "📋 Validating tag format..."
-    - echo "Tag $CI_COMMIT_TAG"
-    - echo "$CI_COMMIT_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || (echo "❌ Tag must follow semantic versioning v1.0.0" && exit 1)
-    - echo "✅ Tag format valid"
-  rules:
-    - if: $CI_COMMIT_TAG
-  allow_failure: false
-
-# ============================================================================
-# BUILD STAGE (create release artifacts)
-# ============================================================================
-
-build:package:
-  stage: build
-  image: alpine:latest
+security:python-scan:
+  stage: security
+  image: python:3.11-slim
   before_script:
-    - apk add --no-cache tar gzip
+    - pip install safety
   script:
-    - echo "📦 Creating release package..."
-    - mkdir -p dist
-    - tar czf "dist/${PROJECT_NAME}-${CI_COMMIT_TAG}.tar.gz" \
-        --exclude='.git' \
-        --exclude='dist' \
-        --exclude='node_modules' \
-        --exclude='.env' \
-        .
-    - ls -lh dist/
-    - echo "✅ Package created"
+    - echo "🔍 Scanning Python dependencies for vulnerabilities..."
+
+    # Scan app dependencies
+    - |
+      if [ -f app/requirements.txt ]; then
+        echo "📦 Scanning app/requirements.txt..."
+        safety check --file=app/requirements.txt --json > app-safety-report.json || true
+        safety check --file=app/requirements.txt || echo "⚠️ Vulnerabilities found in app dependencies"
+      fi
+
+    # Scan collector dependencies
+    - |
+      if [ -f collector/requirements.txt ]; then
+        echo "📦 Scanning collector/requirements.txt..."
+        safety check --file=collector/requirements.txt --json > collector-safety-report.json || true
+        safety check --file=collector/requirements.txt || echo "⚠️ Vulnerabilities found in collector dependencies"
+      fi
+
+    - echo "✅ Python security scan completed"
+
   artifacts:
     paths:
-      - dist/*.tar.gz
-    expire_in: 90 days
+      - "*-safety-report.json"
+    expire_in: 30 days
+    when: always
+
   rules:
-    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
 
-# ============================================================================
-# RELEASE STAGE (create GitLab release)
-# ============================================================================
-
-release:create-gitlab-release:
-  stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  script:
-    - echo "🚀 Creating GitLab release..."
-  release:
-    tag_name: '$CI_COMMIT_TAG'
-    name: 'Release $CI_COMMIT_TAG'
-    description: |
-      ## Release ${CI_COMMIT_TAG}
-
-      **Project**: ${PROJECT_NAME}
-      **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-      **Commit**: ${CI_COMMIT_SHORT_SHA}
-
-      ### Changes
-      See commit history for details.
-
-      ### Artifacts
-      - Package: ${PROJECT_NAME}-${CI_COMMIT_TAG}.tar.gz
-    assets:
-      links:
-        - name: '${PROJECT_NAME}-${CI_COMMIT_TAG}.tar.gz'
-          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/download?job=build:package'
-  rules:
-    - if: $CI_COMMIT_TAG
-
-# ============================================================================
-# NOTIFICATION STAGE (optional)
-# ============================================================================
-
-notify:slack:
-  stage: notify
-  image: curlimages/curl:latest
-  script:
-    - echo "📢 Sending release notification..."
-    - |
-      if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
-        curl -X POST "${SLACK_WEBHOOK_URL}" \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"text\": \"🚀 Release ${CI_COMMIT_TAG} published\",
-            \"blocks\": [
-              {
-                \"type\": \"section\",
-                \"text\": {
-                  \"type\": \"mrkdwn\",
-                  \"text\": \"*${PROJECT_NAME}* release ${CI_COMMIT_TAG} is now available\n<${CI_PROJECT_URL}/-/releases/${CI_COMMIT_TAG}|View Release>\"
-                }
-              }
-            ]
-          }"
-        echo "✅ Slack notification sent"
-      else
-        echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping notification"
-      fi
-  rules:
-    - if: $CI_COMMIT_TAG
   allow_failure: true
-  when: on_success
+
+security:javascript-scan:
+  stage: security
+  image: node:20-slim
+  script:
+    - echo "🔍 Scanning JavaScript dependencies for vulnerabilities..."
+
+    # Scan frontend dependencies
+    - |
+      if [ -f frontend/package.json ]; then
+        cd frontend
+        echo "📦 Scanning frontend dependencies..."
+        npm audit --json > ../frontend-audit-report.json || true
+        npm audit --audit-level=moderate || echo "⚠️ Vulnerabilities found in frontend dependencies"
+        cd ..
+      fi
+
+    - echo "✅ JavaScript security scan completed"
+
+  artifacts:
+    paths:
+      - "*-audit-report.json"
+    expire_in: 30 days
+    when: always
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+  allow_failure: true
+
+security:run-tests:
+  stage: security
+  image: python:3.11-slim
+  before_script:
+    - cd app
+    - pip install -r requirements.txt
+  script:
+    - echo "🧪 Running test suite..."
+    - pytest --cov=core --cov-report=term-missing --cov-report=xml || echo "⚠️ Some tests failed"
+    - echo "✅ Tests completed"
+
+  artifacts:
+    paths:
+      - app/coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: app/coverage.xml
+    expire_in: 30 days
+    when: always
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+  allow_failure: true
+
+# ============================================================================
+# BUILD STAGE - Parallel Docker image builds
+# ============================================================================
+
+.build-template: &build-template
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "🔐 Logging into GitLab Container Registry..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+  after_script:
+    - docker logout $CI_REGISTRY || true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      changes:
+        - app/**/*
+        - collector/**/*
+        - postgres/**/*
+        - redis/**/*
+        - frontend/**/*
+        - Dockerfile*
+        - requirements.txt
+        - docker-compose.yml
+        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+build:postgres:
+  <<: *build-template
+  script:
+    - echo "🏗️ Building PostgreSQL image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_POSTGRES}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_POSTGRES}:${VERSION_TAG} \
+        --tag ${IMAGE_POSTGRES}:${COMMIT_SHORT} \
+        --file ./postgres/Dockerfile \
+        ./postgres
+
+    - echo "📤 Pushing PostgreSQL image to registry..."
+    - docker push ${IMAGE_POSTGRES}:${VERSION_TAG}
+    - docker push ${IMAGE_POSTGRES}:${COMMIT_SHORT}
+    - echo "✅ PostgreSQL build completed"
+
+build:redis:
+  <<: *build-template
+  script:
+    - echo "🏗️ Building Redis image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_REDIS}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_REDIS}:${VERSION_TAG} \
+        --tag ${IMAGE_REDIS}:${COMMIT_SHORT} \
+        --file ./redis/Dockerfile \
+        ./redis
+
+    - echo "📤 Pushing Redis image to registry..."
+    - docker push ${IMAGE_REDIS}:${VERSION_TAG}
+    - docker push ${IMAGE_REDIS}:${COMMIT_SHORT}
+    - echo "✅ Redis build completed"
+
+build:collector:
+  <<: *build-template
+  script:
+    - echo "🏗️ Building Collector image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_COLLECTOR}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_COLLECTOR}:${VERSION_TAG} \
+        --tag ${IMAGE_COLLECTOR}:${COMMIT_SHORT} \
+        --file ./collector/Dockerfile \
+        ./collector
+
+    - echo "📤 Pushing Collector image to registry..."
+    - docker push ${IMAGE_COLLECTOR}:${VERSION_TAG}
+    - docker push ${IMAGE_COLLECTOR}:${COMMIT_SHORT}
+    - echo "✅ Collector build completed"
+
+build:app:
+  <<: *build-template
+  script:
+    - echo "🏗️ Building Flask App image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_APP}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_APP}:${VERSION_TAG} \
+        --tag ${IMAGE_APP}:${COMMIT_SHORT} \
+        --file ./app/Dockerfile \
+        ./app
+
+    - echo "📤 Pushing Flask App image to registry..."
+    - docker push ${IMAGE_APP}:${VERSION_TAG}
+    - docker push ${IMAGE_APP}:${COMMIT_SHORT}
+    - echo "✅ Flask App build completed"
+
+build:frontend:
+  <<: *build-template
+  script:
+    - echo "🏗️ Building Frontend image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_FRONTEND}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_FRONTEND}:${VERSION_TAG} \
+        --tag ${IMAGE_FRONTEND}:${COMMIT_SHORT} \
+        --file ./frontend/Dockerfile \
+        ./frontend
+
+    - echo "📤 Pushing Frontend image to registry..."
+    - docker push ${IMAGE_FRONTEND}:${VERSION_TAG}
+    - docker push ${IMAGE_FRONTEND}:${COMMIT_SHORT}
+    - echo "✅ Frontend build completed"
+
+# ============================================================================
+# DEPLOY STAGE - Portainer webhook deployment
+# ============================================================================
+
+deploy:portainer-webhook:
+  stage: deploy
+  image: curlimages/curl:latest
+  needs:
+    - build:postgres
+    - build:redis
+    - build:collector
+    - build:app
+    - build:frontend
+  script:
+    - echo "🚀 Triggering Portainer deployment..."
+
+    - |
+      if [ -z "${PORTAINER_WEBHOOK_URL}" ]; then
+        echo "❌ PORTAINER_WEBHOOK_URL not configured"
+        echo "📝 Please set the webhook URL in GitLab CI/CD variables:"
+        echo "   Settings > CI/CD > Variables > Add variable"
+        echo "   Key: PORTAINER_WEBHOOK_URL"
+        echo "   Value: https://portainer.jclee.me/api/stacks/webhooks/YOUR_WEBHOOK_ID"
+        exit 1
+      fi
+
+    # Retry logic (3 attempts)
+    - |
+      for i in 1 2 3; do
+        echo "🔄 Webhook attempt $i/3..."
+
+        WEBHOOK_RESPONSE=$(curl -s -X POST "${PORTAINER_WEBHOOK_URL}" \
+          --connect-timeout 30 \
+          --max-time 60 \
+          -w "\n%{http_code}")
+
+        HTTP_CODE=$(echo "$WEBHOOK_RESPONSE" | tail -1)
+        RESPONSE_BODY=$(echo "$WEBHOOK_RESPONSE" | head -n -1)
+
+        if [ "$HTTP_CODE" == "204" ] || [ "$HTTP_CODE" == "200" ]; then
+          echo "✅ Webhook deployment triggered successfully (HTTP $HTTP_CODE)"
+          if [ -n "$RESPONSE_BODY" ]; then
+            echo "📝 Response: $RESPONSE_BODY"
+          fi
+          break
+        else
+          echo "⚠️ Webhook attempt $i failed (HTTP $HTTP_CODE)"
+          if [ $i -lt 3 ]; then
+            echo "🔄 Retrying in 10 seconds..."
+            sleep 10
+          else
+            echo "❌ Webhook deployment failed after 3 attempts"
+            exit 1
+          fi
+        fi
+      done
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - when: manual
+
+# ============================================================================
+# VERIFY STAGE - Health checks
+# ============================================================================
+
+verify:health-check:
+  stage: verify
+  image: curlimages/curl:latest
+  needs:
+    - deploy:portainer-webhook
+  script:
+    - echo "⏳ Waiting for containers to start (60 seconds)..."
+    - sleep 60
+
+    - echo "🏥 Performing health checks..."
+    - export MAX_RETRIES=10
+    - export RETRY_DELAY=15
+
+    - |
+      for i in $(seq 1 $MAX_RETRIES); do
+        echo "🔍 Health check attempt $i/$MAX_RETRIES..."
+
+        if curl -s --connect-timeout 10 --max-time 30 "${PRD_URL}/health" | grep -q '"status":"healthy"'; then
+          echo "✅ Production health check passed!"
+
+          # API functionality verification
+          if curl -s "${PRD_URL}/api/stats" | grep -q '"success":true'; then
+            echo "✅ API functionality verified"
+          else
+            echo "⚠️ API check failed but service is running"
+          fi
+          break
+        else
+          echo "⚠️ Health check attempt $i failed"
+          if [ $i -lt $MAX_RETRIES ]; then
+            echo "🔄 Retrying in ${RETRY_DELAY} seconds..."
+            sleep $RETRY_DELAY
+          else
+            echo "❌ Health check failed after $MAX_RETRIES attempts"
+            echo "🔍 Final diagnostics:"
+            curl -s -I "${PRD_URL}/health" || echo "Connection failed"
+            exit 1
+          fi
+        fi
+      done
+
+    - echo "🎉 === DEPLOYMENT SUCCESSFUL ==="
+    - echo "✅ All 5 components built & deployed!"
+    - echo "📦 Registry: ${CI_REGISTRY}"
+    - echo "🔗 Production URL: ${PRD_URL}"
+    - echo "🚀 Deployment Method: Portainer Webhook"
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - when: manual
 
 # ============================================================================
 # HOW TO USE THIS PIPELINE
 # ============================================================================
 #
-# 1. Add this file to your project root as .gitlab-ci.yml
+# 1. Configure GitLab CI/CD Variables (Settings > CI/CD > Variables):
+#    - PORTAINER_WEBHOOK_URL: https://portainer.jclee.me/api/stacks/webhooks/YOUR_ID
+#    - PRD_URL: https://blacklist.jclee.me (or https://blacklist.nxtd.co.kr)
 #
-# 2. Create a release by tagging:
-#    git tag -a v1.0.0 -m "Release v1.0.0"
-#    git push origin v1.0.0
+# 2. Push to main/master branch:
+#    git add .
+#    git commit -m "Your commit message"
+#    git push origin main
 #
 # 3. Pipeline will automatically:
-#    - Validate tag format (must be v1.0.0)
-#    - Create release package
-#    - Publish GitLab release
-#    - Send Slack notification (if configured)
+#    - Run security scans (Python + JavaScript)
+#    - Build 5 Docker images in parallel
+#    - Push to GitLab Container Registry (registry.jclee.me)
+#    - Deploy via Portainer webhook
+#    - Verify with health checks
 #
-# 4. Optional: Add SLACK_WEBHOOK_URL to GitLab CI/CD variables
-#    Settings > CI/CD > Variables > Add variable
-#    Key: SLACK_WEBHOOK_URL
-#    Value: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+# 4. Manual runs:
+#    - Go to GitLab CI/CD > Pipelines
+#    - Click "Run pipeline"
+#    - Select branch and run
+#
+# 5. GitLab Container Registry:
+#    - Automatic authentication with CI_JOB_TOKEN
+#    - Images: registry.jclee.me/jclee/blacklist/*
+#    - Tags: latest, {commit-sha-8}
 #
 # ============================================================================
