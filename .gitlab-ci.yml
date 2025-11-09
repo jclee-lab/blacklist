@@ -2,6 +2,7 @@
 # Triggers on main/master branch push and manual runs
 # Features: Security scan, parallel Docker builds, registry push
 # Deployment: Manual offline transfer (see scripts/package-single-image.sh)
+# Test trigger: 2025-11-09
 
 stages:
   - validate
