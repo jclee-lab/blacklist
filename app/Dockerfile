@@ -10,7 +10,7 @@
 # ============================================================================
 # STAGE 1: Python Dependencies and Application Build
 # ============================================================================
-FROM python:3.11-slim-bullseye as python-base
+FROM python:3.11-slim-bullseye AS python-base
 
 # Python optimization settings
 ENV PYTHONUNBUFFERED=1 \
@@ -57,13 +57,24 @@ WORKDIR /app
 # ============================================================================
 COPY requirements.txt .
 
-# Install Python dependencies with progress logging
+# Install Python dependencies with retry mechanism
 RUN set -e && \
     echo "🔍 Installing Python dependencies..." && \
-    pip install --no-cache-dir -r requirements.txt && \
-    echo "✅ Python dependencies installed" && \
-    echo "📦 Installed packages:" && \
-    pip list | head -20
+    for i in 1 2 3; do \
+        if pip install --no-cache-dir -r requirements.txt; then \
+            echo "✅ Python dependencies installed" && \
+            echo "📦 Installed packages:" && \
+            pip list | head -20 && \
+            break; \
+        else \
+            echo "⚠️ Installation attempt $i failed, retrying in 10s..." && \
+            sleep 10; \
+        fi; \
+        if [ $i -eq 3 ]; then \
+            echo "❌ Failed to install dependencies after 3 attempts" && \
+            exit 1; \
+        fi; \
+    done
 
 # ============================================================================
 # Application Source Code

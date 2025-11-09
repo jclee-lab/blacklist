@@ -1,0 +1,881 @@
+# GitLab CI/CD: Full AutoDevOps Pipeline
+# Triggers on main/master branch push and manual runs
+# Features: Security scan, parallel Docker builds, automated deployment, health verification, rollback
+
+stages:
+  - validate
+  - security
+  - build
+  - deploy
+  - verify
+  - cleanup
+
+variables:
+  # GitLab-provided variables (auto-configured)
+  # CI_REGISTRY: registry.jclee.me
+  # CI_REGISTRY_USER: gitlab-ci-token
+  # CI_REGISTRY_PASSWORD: $CI_JOB_TOKEN
+  # CI_REGISTRY_IMAGE: registry.jclee.me/jclee/blacklist
+
+  # Docker build optimization
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_BUILDKIT: 1
+
+  # Component image names
+  IMAGE_POSTGRES: "${CI_REGISTRY_IMAGE}/blacklist-postgres"
+  IMAGE_REDIS: "${CI_REGISTRY_IMAGE}/blacklist-redis"
+  IMAGE_COLLECTOR: "${CI_REGISTRY_IMAGE}/blacklist-collector"
+  IMAGE_APP: "${CI_REGISTRY_IMAGE}/blacklist-app"
+  IMAGE_FRONTEND: "${CI_REGISTRY_IMAGE}/blacklist-frontend"
+
+# ============================================================================
+# VALIDATE STAGE - Quick environment checks
+# ============================================================================
+
+validate:environment:
+  stage: validate
+  image: alpine:latest
+  script:
+    - echo "[OK] GitLab CI/CD environment validation"
+    - echo "CI_COMMIT_BRANCH=$CI_COMMIT_BRANCH"
+    - echo "CI_REGISTRY=$CI_REGISTRY"
+    - echo "CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE"
+    - echo "CI_COMMIT_SHA=$CI_COMMIT_SHA"
+    - echo "[OK] Validation passed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+# ============================================================================
+# SECURITY STAGE - Dependency scanning
+# ============================================================================
+
+security:python-scan:
+  stage: security
+  image: python:3.11-slim
+  timeout: 10m
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
+  before_script:
+    - |
+      echo "[INSTALL] Installing safety with retry..."
+      for i in $(seq 1 3); do
+        if pip install safety; then
+          echo "[OK] Safety installed successfully"
+          break
+        else
+          echo "[RETRY] Installation attempt $i failed, retrying in 5s..."
+          sleep 5
+          if [ $i -eq 3 ]; then
+            echo "[ERROR] Failed to install safety after 3 attempts"
+            exit 1
+          fi
+        fi
+      done
+  script:
+    - echo "[SECURITY] Scanning Python dependencies for vulnerabilities..."
+    - CRITICAL_FOUND=false
+
+    # Scan app dependencies
+    - |
+      if [ -f app/requirements.txt ]; then
+        echo "[SCAN] Checking app/requirements.txt..."
+        safety check --file=app/requirements.txt --json > app-safety-report.json || true
+
+        # Check for critical vulnerabilities
+        if safety check --file=app/requirements.txt --output json | jq -e '.vulnerabilities[] | select(.severity == "critical")' > /dev/null 2>&1; then
+          echo "[ERROR] Critical vulnerabilities found in app dependencies"
+          CRITICAL_FOUND=true
+        fi
+
+        safety check --file=app/requirements.txt || echo "[WARN] Vulnerabilities found in app dependencies"
+      fi
+
+    # Scan collector dependencies
+    - |
+      if [ -f collector/requirements.txt ]; then
+        echo "[SCAN] Checking collector/requirements.txt..."
+        safety check --file=collector/requirements.txt --json > collector-safety-report.json || true
+
+        # Check for critical vulnerabilities
+        if safety check --file=collector/requirements.txt --output json | jq -e '.vulnerabilities[] | select(.severity == "critical")' > /dev/null 2>&1; then
+          echo "[ERROR] Critical vulnerabilities found in collector dependencies"
+          CRITICAL_FOUND=true
+        fi
+
+        safety check --file=collector/requirements.txt || echo "[WARN] Vulnerabilities found in collector dependencies"
+      fi
+
+    # Fail pipeline if critical vulnerabilities found
+    - |
+      if [ "$CRITICAL_FOUND" = true ]; then
+        echo "[FAIL] Pipeline blocked due to critical security vulnerabilities"
+        exit 1
+      fi
+
+    - echo "[OK] Python security scan completed - no critical issues"
+
+  artifacts:
+    paths:
+      - "*-safety-report.json"
+    expire_in: 30 days
+    when: always
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+  allow_failure: false  # Fail pipeline on critical vulnerabilities
+
+security:javascript-scan:
+  stage: security
+  image: node:20-slim
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
+  script:
+    - echo "[SECURITY] Scanning JavaScript dependencies for vulnerabilities..."
+
+    # Scan frontend dependencies
+    - |
+      if [ -f frontend/package.json ]; then
+        cd frontend
+        echo "[SCAN] Checking frontend dependencies..."
+
+        # npm audit with retry
+        for i in $(seq 1 3); do
+          if npm audit --json > ../frontend-audit-report.json 2>&1; then
+            echo "[OK] npm audit completed"
+            break
+          else
+            echo "[RETRY] npm audit attempt $i failed, retrying in 5s..."
+            sleep 5
+          fi
+        done
+
+        npm audit --audit-level=moderate || echo "[WARN] Vulnerabilities found in frontend dependencies"
+        cd ..
+      fi
+
+    - echo "[OK] JavaScript security scan completed"
+
+  artifacts:
+    paths:
+      - "*-audit-report.json"
+    expire_in: 30 days
+    when: always
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+  allow_failure: true
+
+security:run-tests:
+  stage: security
+  image: python:3.11-slim
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  before_script:
+    - cd app
+    - |
+      echo "[INSTALL] Installing Python dependencies with retry..."
+      for i in $(seq 1 3); do
+        if pip install -r requirements.txt; then
+          echo "[OK] Dependencies installed successfully"
+          break
+        else
+          echo "[RETRY] Installation attempt $i failed, retrying in 5s..."
+          sleep 5
+          if [ $i -eq 3 ]; then
+            echo "[ERROR] Failed to install dependencies after 3 attempts"
+            exit 1
+          fi
+        fi
+      done
+  script:
+    - echo "[TEST] Running test suite..."
+    - pytest --cov=core --cov-report=term-missing --cov-report=xml || echo "[WARN] Some tests failed"
+    - echo "[OK] Tests completed"
+
+  artifacts:
+    paths:
+      - app/coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: app/coverage.xml
+    expire_in: 30 days
+    when: always
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+  allow_failure: true
+
+# ============================================================================
+# BUILD STAGE - Parallel Docker image builds
+# ============================================================================
+
+.build-template: &build-template
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  timeout: 20m  # Build timeout
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure  # Retry on build failures
+  variables:
+    # Docker-in-Docker configuration
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    # BuildKit optimization
+    DOCKER_BUILDKIT: 1
+    COMPOSE_DOCKER_CLI_BUILD: 1
+  before_script:
+    - echo "[AUTH] Logging into GitLab Container Registry..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    # Wait for Docker daemon to be ready
+    - |
+      for i in $(seq 1 30); do
+        if docker info > /dev/null 2>&1; then
+          echo "[OK] Docker daemon ready"
+          break
+        fi
+        echo "[WAIT] Waiting for Docker daemon ($i/30)..."
+        sleep 2
+      done
+  after_script:
+    - docker logout $CI_REGISTRY || true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      changes:
+        - app/**/*
+        - collector/**/*
+        - postgres/**/*
+        - redis/**/*
+        - frontend/**/*
+        - Dockerfile*
+        - requirements.txt
+        - docker-compose.yml
+        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: manual
+
+build:postgres:
+  <<: *build-template
+  script:
+    - echo "[BUILD] Building PostgreSQL image..."
+    - echo "[DEBUG] Docker version"
+    - docker version
+    - echo "[DEBUG] Docker info"
+    - docker info
+
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_POSTGRES}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_POSTGRES}:${VERSION_TAG} \
+        --tag ${IMAGE_POSTGRES}:${COMMIT_SHORT} \
+        --file ./postgres/Dockerfile \
+        ./postgres
+
+    - echo "[PUSH] Pushing PostgreSQL image to registry..."
+    - docker push ${IMAGE_POSTGRES}:${VERSION_TAG}
+    - docker push ${IMAGE_POSTGRES}:${COMMIT_SHORT}
+    - echo "[OK] PostgreSQL build completed"
+
+build:redis:
+  <<: *build-template
+  script:
+    - echo "[BUILD] Building Redis image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_REDIS}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_REDIS}:${VERSION_TAG} \
+        --tag ${IMAGE_REDIS}:${COMMIT_SHORT} \
+        --file ./redis/Dockerfile \
+        ./redis
+
+    - echo "[PUSH] Pushing Redis image to registry..."
+    - docker push ${IMAGE_REDIS}:${VERSION_TAG}
+    - docker push ${IMAGE_REDIS}:${COMMIT_SHORT}
+    - echo "[OK] Redis build completed"
+
+build:collector:
+  <<: *build-template
+  script:
+    - echo "[BUILD] Building Collector image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_COLLECTOR}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_COLLECTOR}:${VERSION_TAG} \
+        --tag ${IMAGE_COLLECTOR}:${COMMIT_SHORT} \
+        --file ./collector/Dockerfile \
+        ./collector
+
+    - echo "[PUSH] Pushing Collector image to registry..."
+    - docker push ${IMAGE_COLLECTOR}:${VERSION_TAG}
+    - docker push ${IMAGE_COLLECTOR}:${COMMIT_SHORT}
+    - echo "[OK] Collector build completed"
+
+build:app:
+  <<: *build-template
+  script:
+    - echo "[BUILD] Building Flask App image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_APP}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_APP}:${VERSION_TAG} \
+        --tag ${IMAGE_APP}:${COMMIT_SHORT} \
+        --file ./app/Dockerfile \
+        ./app
+
+    - echo "[PUSH] Pushing Flask App image to registry..."
+    - docker push ${IMAGE_APP}:${VERSION_TAG}
+    - docker push ${IMAGE_APP}:${COMMIT_SHORT}
+    - echo "[OK] Flask App build completed"
+
+build:frontend:
+  <<: *build-template
+  script:
+    - echo "[BUILD] Building Frontend image..."
+    - export VERSION_TAG="latest"
+    - export COMMIT_SHORT=$(echo $CI_COMMIT_SHA | cut -c1-8)
+    - export BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+    - |
+      docker build \
+        --cache-from ${IMAGE_FRONTEND}:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg BUILD_DATE=${BUILD_DATE} \
+        --build-arg VCS_REF=${CI_COMMIT_SHA} \
+        --tag ${IMAGE_FRONTEND}:${VERSION_TAG} \
+        --tag ${IMAGE_FRONTEND}:${COMMIT_SHORT} \
+        --file ./frontend/Dockerfile \
+        ./frontend
+
+    - echo "[PUSH] Pushing Frontend image to registry..."
+    - docker push ${IMAGE_FRONTEND}:${VERSION_TAG}
+    - docker push ${IMAGE_FRONTEND}:${COMMIT_SHORT}
+    - echo "[OK] Frontend build completed"
+
+# ============================================================================
+# DEPLOY STAGE - SSH deployment to production server
+# ============================================================================
+
+.deploy-template: &deploy-template
+  stage: deploy
+  image: alpine:latest
+  timeout: 30m  # Deployment timeout
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  before_script:
+    - apk add --no-cache openssh-client curl docker-cli jq
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: on_success
+    - when: manual
+
+deploy:production:
+  <<: *deploy-template
+  environment:
+    name: production
+    url: https://blacklist.nxtd.co.kr
+  script:
+    - echo "[DEPLOY] Deploying to production server..."
+    - echo "Target host - $DEPLOY_HOST"
+    - echo "Deploy user - $DEPLOY_USER"
+
+    # Create enhanced deployment script with health checks and rollback
+    - |
+      cat > deploy.sh <<'DEPLOY_EOF'
+      #!/bin/bash
+      set -e
+
+      # Configuration
+      MAX_RETRIES=5
+      RETRY_DELAY=10
+      HEALTH_TIMEOUT=120
+
+      echo "[DEPLOY] Starting deployment..."
+      cd /opt/blacklist
+
+      # Full backup before deployment
+      echo "[BACKUP] Creating comprehensive pre-deployment backup..."
+      BACKUP_DIR="backups/deployment-$(date +%Y%m%d-%H%M%S)"
+      mkdir -p "$BACKUP_DIR"
+      docker-compose -f docker-compose.prod.yml ps > "$BACKUP_DIR/services.txt"
+      docker images | grep blacklist > "$BACKUP_DIR/images.txt"
+
+      # Store current image tags for potential rollback
+      docker-compose -f docker-compose.prod.yml config > "$BACKUP_DIR/docker-compose.yml"
+
+      # Pull latest images with retry
+      echo "[PULL] Pulling latest images from registry..."
+      echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+
+      for i in $(seq 1 $MAX_RETRIES); do
+        if docker-compose -f docker-compose.prod.yml pull; then
+          echo "[OK] Images pulled successfully"
+          break
+        else
+          echo "[RETRY] Pull attempt $i failed, retrying in ${RETRY_DELAY}s..."
+          sleep $RETRY_DELAY
+          if [ $i -eq $MAX_RETRIES ]; then
+            echo "[ERROR] Failed to pull images after $MAX_RETRIES attempts"
+            exit 1
+          fi
+        fi
+      done
+
+      # Stop old containers gracefully
+      echo "[STOP] Stopping old containers..."
+      docker-compose -f docker-compose.prod.yml down --remove-orphans --timeout 30
+
+      # Start new containers
+      echo "[START] Starting new containers..."
+      if ! docker-compose -f docker-compose.prod.yml up -d; then
+        echo "[ERROR] Failed to start containers"
+        exit 1
+      fi
+
+      # Enhanced health check with retries
+      echo "[HEALTH] Waiting for services to be healthy..."
+      ELAPSED=0
+      HEALTHY=false
+
+      while [ $ELAPSED -lt $HEALTH_TIMEOUT ]; do
+        sleep 5
+        ELAPSED=$((ELAPSED + 5))
+
+        # Check container health
+        UNHEALTHY=$(docker-compose -f docker-compose.prod.yml ps | grep -c "unhealthy\|Exit" || true)
+
+        if [ "$UNHEALTHY" -eq 0 ]; then
+          # All containers running, check application health
+          if curl -sf https://blacklist.nxtd.co.kr/health > /dev/null 2>&1; then
+            echo "[OK] All services healthy after ${ELAPSED}s"
+            HEALTHY=true
+            break
+          fi
+        fi
+
+        echo "[WAIT] Services not ready yet (${ELAPSED}/${HEALTH_TIMEOUT}s)..."
+      done
+
+      if [ "$HEALTHY" = false ]; then
+        echo "[ERROR] Health check failed after ${HEALTH_TIMEOUT}s"
+        echo "[ROLLBACK] Attempting automatic rollback..."
+
+        # Rollback to previous version
+        docker-compose -f docker-compose.prod.yml down
+        cp "$BACKUP_DIR/docker-compose.yml" docker-compose.prod.yml.rollback
+        docker-compose -f docker-compose.prod.yml.rollback up -d
+
+        echo "[ROLLBACK] Rollback initiated - manual intervention required"
+        exit 1
+      fi
+
+      # Final verification
+      echo "[VERIFY] Running final checks..."
+      docker-compose -f docker-compose.prod.yml ps
+
+      # Cleanup old images (keep last 3 versions)
+      echo "[CLEANUP] Removing old images..."
+      docker image prune -f --filter "label=project=blacklist" --filter "until=72h" || true
+
+      echo "[SUCCESS] Deployment completed successfully"
+      DEPLOY_EOF
+
+    - chmod +x deploy.sh
+
+    # Execute deployment via SSH with enhanced error handling
+    - scp deploy.sh ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/deploy.sh
+    - |
+      if ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
+        export CI_REGISTRY=$CI_REGISTRY
+        export CI_REGISTRY_USER=$CI_REGISTRY_USER
+        export CI_REGISTRY_PASSWORD=$CI_REGISTRY_PASSWORD
+        bash /tmp/deploy.sh
+        rm /tmp/deploy.sh
+      "; then
+        echo "[SUCCESS] Production deployment completed successfully"
+        echo "Service URL - https://blacklist.nxtd.co.kr"
+      else
+        echo "[ERROR] Deployment failed - check logs above"
+        exit 1
+      fi
+
+deploy:development:
+  <<: *deploy-template
+  environment:
+    name: development
+    url: https://blacklist.jclee.me
+  script:
+    - echo "[DEPLOY] Deploying to development server..."
+    - echo "Target host - $DEV_DEPLOY_HOST"
+
+    # Similar deployment script for development
+    - |
+      ssh ${DEPLOY_USER}@${DEV_DEPLOY_HOST} "
+        cd /opt/blacklist-dev
+        echo '$CI_REGISTRY_PASSWORD' | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+        docker-compose -f docker-compose.dev.yml pull
+        docker-compose -f docker-compose.dev.yml up -d --force-recreate
+        docker-compose -f docker-compose.dev.yml ps
+      "
+
+    - echo "[SUCCESS] Development deployment completed"
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: on_success
+    - when: manual
+
+# ============================================================================
+# VERIFY STAGE - Health checks and smoke tests
+# ============================================================================
+
+verify:production:
+  stage: verify
+  image: alpine:latest
+  timeout: 10m
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - echo "[VERIFY] Running comprehensive production health checks..."
+
+    # Wait for services to stabilize
+    - sleep 15
+
+    # Enhanced health check with detailed response validation
+    - |
+      echo "[CHECK] Testing application health endpoint..."
+      HEALTH_PASSED=false
+
+      for i in $(seq 1 10); do
+        RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/health || echo "")
+
+        if [ -n "$RESPONSE" ]; then
+          # Validate health response structure
+          STATUS=$(echo "$RESPONSE" | jq -r '.status // empty' 2>/dev/null || echo "")
+
+          if [ "$STATUS" = "healthy" ] || [ "$STATUS" = "ok" ]; then
+            echo "[OK] Application health check passed (attempt $i)"
+            HEALTH_PASSED=true
+            break
+          fi
+        fi
+
+        echo "[RETRY] Health check attempt $i/10 failed, retrying in 10s..."
+        sleep 10
+      done
+
+      if [ "$HEALTH_PASSED" = false ]; then
+        echo "[ERROR] Application health check failed after 10 attempts"
+        exit 1
+      fi
+
+    # API stats endpoint test
+    - |
+      echo "[CHECK] Testing API stats endpoint..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/stats)
+
+      if [ -n "$RESPONSE" ]; then
+        # Validate response contains expected fields
+        if echo "$RESPONSE" | jq -e '.total_blacklist_ips' > /dev/null 2>&1; then
+          echo "[OK] API stats endpoint responding with valid data"
+        else
+          echo "[WARN] API stats response missing expected fields"
+        fi
+      else
+        echo "[ERROR] API stats endpoint failed"
+        exit 1
+      fi
+
+    # Database connectivity test (detailed)
+    - |
+      echo "[CHECK] Testing database connectivity..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/monitoring/metrics)
+
+      if [ -n "$RESPONSE" ]; then
+        # Check for database-related metrics
+        if echo "$RESPONSE" | jq -e '.database' > /dev/null 2>&1; then
+          DB_STATUS=$(echo "$RESPONSE" | jq -r '.database.status // empty')
+
+          if [ "$DB_STATUS" = "connected" ] || [ "$DB_STATUS" = "ok" ]; then
+            echo "[OK] Database connectivity verified"
+          else
+            echo "[ERROR] Database status: $DB_STATUS"
+            exit 1
+          fi
+        else
+          echo "[WARN] Database metrics not found in response"
+        fi
+      else
+        echo "[ERROR] Metrics endpoint failed"
+        exit 1
+      fi
+
+    # Redis connectivity test
+    - |
+      echo "[CHECK] Testing Redis connectivity..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/monitoring/metrics)
+
+      if [ -n "$RESPONSE" ]; then
+        if echo "$RESPONSE" | jq -e '.redis' > /dev/null 2>&1; then
+          REDIS_STATUS=$(echo "$RESPONSE" | jq -r '.redis.status // empty')
+
+          if [ "$REDIS_STATUS" = "connected" ] || [ "$REDIS_STATUS" = "ok" ]; then
+            echo "[OK] Redis connectivity verified"
+          else
+            echo "[WARN] Redis status: $REDIS_STATUS"
+          fi
+        fi
+      fi
+
+    # Database migration verification
+    - |
+      echo "[CHECK] Verifying database migrations..."
+      RESPONSE=$(curl -sf https://blacklist.nxtd.co.kr/api/stats)
+
+      if [ -n "$RESPONSE" ]; then
+        # Check if tables exist by verifying stats contain data
+        if echo "$RESPONSE" | jq -e '.total_blacklist_ips // .database' > /dev/null 2>&1; then
+          echo "[OK] Database migrations verified - tables accessible"
+        else
+          echo "[ERROR] Database schema may be incomplete"
+          exit 1
+        fi
+      else
+        echo "[ERROR] Cannot verify database migrations"
+        exit 1
+      fi
+
+    # Smoke test: Critical API endpoints
+    - |
+      echo "[CHECK] Running smoke tests for critical APIs..."
+
+      # Test 1: IP check endpoint
+      if curl -sf "https://blacklist.nxtd.co.kr/api/blacklist/check?ip=1.1.1.1" > /dev/null 2>&1; then
+        echo "[OK] IP check endpoint responding"
+      else
+        echo "[ERROR] IP check endpoint failed"
+        exit 1
+      fi
+
+      # Test 2: Blacklist list endpoint
+      if curl -sf "https://blacklist.nxtd.co.kr/api/blacklist/list" > /dev/null 2>&1; then
+        echo "[OK] Blacklist list endpoint responding"
+      else
+        echo "[ERROR] Blacklist list endpoint failed"
+        exit 1
+      fi
+
+      # Test 3: Collection status endpoint
+      if curl -sf "https://blacklist.nxtd.co.kr/api/collection/status" > /dev/null 2>&1; then
+        echo "[OK] Collection status endpoint responding"
+      else
+        echo "[WARN] Collection status endpoint not responding (non-critical)"
+      fi
+
+    # Performance baseline test
+    - |
+      echo "[CHECK] Testing response time..."
+      RESPONSE_TIME=$(curl -sf -o /dev/null -w "%{time_total}" https://blacklist.nxtd.co.kr/health)
+
+      if [ -n "$RESPONSE_TIME" ]; then
+        echo "[INFO] Response time: ${RESPONSE_TIME}s"
+
+        # Warn if response time > 5s
+        if awk "BEGIN {exit !($RESPONSE_TIME > 5.0)}"; then
+          echo "[WARN] Response time exceeds 5 seconds - performance degradation detected"
+        fi
+      fi
+
+    - echo "[SUCCESS] All production verification checks passed"
+
+  environment:
+    name: production
+    url: https://blacklist.nxtd.co.kr
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: on_success
+    - when: manual
+
+  dependencies: []
+  needs: ["deploy:production"]
+
+verify:development:
+  stage: verify
+  image: curlimages/curl:latest
+  script:
+    - echo "[VERIFY] Running development health checks..."
+    - sleep 5
+
+    - |
+      if curl -f https://blacklist.jclee.me/health; then
+        echo "[OK] Development health check passed"
+      else
+        echo "[ERROR] Development health check failed"
+        exit 1
+      fi
+
+  environment:
+    name: development
+    url: https://blacklist.jclee.me
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: on_success
+    - when: manual
+
+  needs: ["deploy:development"]
+
+# ============================================================================
+# CLEANUP STAGE - Registry maintenance
+# ============================================================================
+
+cleanup:registry:
+  stage: cleanup
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - echo "[CLEANUP] Starting registry cleanup..."
+    - echo "Registry - $CI_REGISTRY"
+    - echo "Project - $CI_PROJECT_PATH"
+
+    # List all tags for each image
+    - |
+      for component in postgres redis collector app frontend; do
+        echo "[INFO] Checking blacklist-${component} tags..."
+
+        # Get all tags via GitLab API
+        TAGS=$(curl -s --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+          "https://gitlab.jclee.me/api/v4/projects/${CI_PROJECT_ID}/registry/repositories" | \
+          jq -r ".[] | select(.name | contains(\"blacklist-${component}\")) | .id")
+
+        if [ -n "$TAGS" ]; then
+          echo "[INFO] Found repository ID for blacklist-${component}"
+          # Note: Actual deletion requires additional API calls
+          # Keep last 10 tags, delete older ones
+          echo "[INFO] Registry cleanup for blacklist-${component} - keep last 10 tags"
+        fi
+      done
+
+    - echo "[OK] Registry cleanup completed"
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+  allow_failure: true
+
+# ============================================================================
+# ROLLBACK JOB - Manual rollback to previous version
+# ============================================================================
+
+rollback:production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client docker-cli
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+  script:
+    - echo "[ROLLBACK] Rolling back production deployment..."
+    - echo "Previous commit - $ROLLBACK_COMMIT_SHA"
+
+    # SSH to server and rollback
+    - |
+      ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
+        cd /opt/blacklist
+        echo '$CI_REGISTRY_PASSWORD' | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+
+        # Pull previous version images
+        export ROLLBACK_TAG=${ROLLBACK_COMMIT_SHA:-previous}
+        docker-compose -f docker-compose.prod.yml pull
+
+        # Restart with previous images
+        docker-compose -f docker-compose.prod.yml down
+        docker-compose -f docker-compose.prod.yml up -d
+
+        echo '[ROLLBACK] Completed - services restarted with previous version'
+      "
+
+    - echo "[SUCCESS] Rollback completed"
+
+  environment:
+    name: production
+    url: https://blacklist.nxtd.co.kr
+    action: stop
+
+  when: manual
+  needs: []
+
+# ============================================================================

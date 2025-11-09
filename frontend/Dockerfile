@@ -19,11 +19,22 @@ WORKDIR /app
 
 COPY package*.json ./
 
-# Install production dependencies only
+# Install production dependencies with retry mechanism
 RUN set -e && \
     echo "🔍 Installing production dependencies..." && \
-    npm ci --only=production && \
-    echo "✅ Production dependencies installed"
+    for i in 1 2 3; do \
+        if npm ci --only=production; then \
+            echo "✅ Production dependencies installed" && \
+            break; \
+        else \
+            echo "⚠️ Installation attempt $i failed, retrying in 10s..." && \
+            sleep 10; \
+        fi; \
+        if [ $i -eq 3 ]; then \
+            echo "❌ Failed to install dependencies after 3 attempts" && \
+            exit 1; \
+        fi; \
+    done
 
 # ============================================================================
 # STAGE 2: Build Stage
@@ -36,17 +47,28 @@ WORKDIR /app
 
 COPY package*.json ./
 
-# Install all dependencies (dev + prod)
+# Install all dependencies with retry mechanism
 RUN set -e && \
     echo "🔍 Installing build dependencies..." && \
-    npm ci && \
-    echo "✅ Build dependencies installed"
+    for i in 1 2 3; do \
+        if npm ci; then \
+            echo "✅ Build dependencies installed" && \
+            break; \
+        else \
+            echo "⚠️ Installation attempt $i failed, retrying in 10s..." && \
+            sleep 10; \
+        fi; \
+        if [ $i -eq 3 ]; then \
+            echo "❌ Failed to install dependencies after 3 attempts" && \
+            exit 1; \
+        fi; \
+    done
 
 # Copy source code
 COPY . .
 
 # Disable Next.js telemetry (privacy)
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build Next.js application
 RUN set -e && \
@@ -64,8 +86,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Production environment settings
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # ============================================================================
 # Security: Non-Root User Creation

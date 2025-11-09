@@ -454,56 +454,431 @@ python -m pytest -n auto
 
 **Workflow**: `.gitlab-ci.yml`
 
+**Pipeline Visualization**:
+```
+┌─────────────┐
+│  VALIDATE   │ ← Environment checks (alpine:latest)
+└──────┬──────┘
+       │
+┌──────▼──────────────────────────────────────────┐
+│  SECURITY (Parallel)                            │
+├─────────────┬─────────────┬─────────────────────┤
+│ Python Scan │  JS Scan    │  Run Tests         │
+│ (safety)    │ (npm audit) │ (pytest + coverage)│
+└──────┬──────┴──────┬──────┴──────┬──────────────┘
+       │             │             │
+       │      ┌──────▼─────────────────────────────┐
+       │      │  BUILD (Parallel - 5 containers)   │
+       │      ├──────┬──────┬──────┬──────┬────────┤
+       │      │ Post │ Redis│ Coll │ App  │ Front  │
+       │      │ gres │      │ ector│      │ end    │
+       │      └──┬───┴───┬──┴───┬──┴───┬──┴───┬────┘
+       │         │       │      │      │      │
+       │         └───────┴──────┴──────┴──────┘
+       │                     │
+       │              ┌──────▼──────┐
+       │              │   DEPLOY    │
+       │              │ (SSH-based) │
+       │              └──────┬──────┘
+       │                     │
+       │              ┌──────▼──────┐
+       │              │   VERIFY    │
+       │              │ (Health +   │
+       │              │  API + DB)  │
+       │              └──────┬──────┘
+       │                     │
+       └─────────────────────┼─────── Success
+                             │
+                      ┌──────▼──────┐
+                      │   CLEANUP   │
+                      │  (Manual)   │
+                      └─────────────┘
+```
+
 **Pipeline Stages**:
 1. **Validate** - Environment checks
 2. **Security** - Python (safety) + JavaScript (npm audit) + pytest
-   - **NEW**: Blocks pipeline on critical vulnerabilities
-   - **NEW**: jq-based severity filtering
+   - Blocks pipeline on **critical** vulnerabilities
+   - jq-based severity filtering
+   - Coverage reports (Cobertura format)
 3. **Build** - Parallel Docker builds for all 5 containers
-   - **NEW**: 20m timeout with retry (max 2)
-   - **NEW**: Docker daemon readiness check
-   - **NEW**: BuildKit optimization
+   - 20m timeout with retry (max 2)
+   - Docker daemon readiness check
+   - BuildKit optimization (`DOCKER_BUILDKIT=1`)
+   - Cache from previous builds
 4. **Deploy** - SSH deployment with enhanced safety
-   - **NEW**: 30m timeout with retry mechanism
-   - **NEW**: Comprehensive pre-deployment backup
-   - **NEW**: Image pull retry (max 5 attempts)
-   - **NEW**: Automatic rollback on failure
-   - **NEW**: 120s health check timeout
-   - **NEW**: Old image cleanup (keep last 3)
+   - 30m timeout with retry mechanism
+   - Comprehensive pre-deployment backup
+   - Image pull retry (max 5 attempts)
+   - **Automatic rollback** on failure
+   - 120s health check timeout
+   - Old image cleanup (keep last 3)
 5. **Verify** - Comprehensive health checks
-   - **NEW**: DB/Redis connectivity verification
-   - **NEW**: Response validation with jq
-   - **NEW**: Performance baseline testing (5s threshold)
-   - **NEW**: 10 retry attempts with detailed logging
+   - DB/Redis connectivity verification
+   - Response validation with jq
+   - Performance baseline testing (5s threshold)
+   - 10 retry attempts with detailed logging
 6. **Cleanup** - Registry maintenance (manual)
 
 **Triggers**:
-- Push to `main`/`master` branch
-- Merge request events
-- Manual dispatch
-- Scheduled (cleanup only)
+- Auto: Push to `main`/`master` branch
+- Auto: Merge request events
+- Manual: Anytime via GitLab UI
+- Scheduled: Cleanup only (manual trigger)
 
 **Key Safety Features**:
-- Parallel builds (5 containers simultaneously)
-- Build cache optimization with `DOCKER_BUILDKIT=1`
-- **Automatic rollback** on deployment/health check failure
-- SSH-based deployment (no Portainer dependency)
-- Multi-stage verification (health + API + DB + Redis)
-- **Critical vulnerability blocking**
+- ✅ Parallel builds (5 containers simultaneously)
+- ✅ Build cache optimization with `DOCKER_BUILDKIT=1`
+- ✅ **Automatic rollback** on deployment/health check failure
+- ✅ SSH-based deployment (no Portainer dependency)
+- ✅ Multi-stage verification (health + API + DB + Redis)
+- ✅ **Critical vulnerability blocking** (pipeline fails)
+- ✅ Pre-deployment backups (`backups/deployment-YYYYMMDD-HHMMSS/`)
+- ✅ Image pull retry with exponential backoff
 
-**Environment Variables Required**:
+**Stability Enhancements** (Added 2025-11-09):
+
+**Security Stage Resilience**:
+- Python scan: 3-attempt retry for `pip install safety` (5s delay)
+- JavaScript scan: 3-attempt retry for `npm audit` (5s delay)
+- Test stage: 3-attempt retry for `pip install -r requirements.txt` (5s delay)
+- Job-level retry: max 2 retries on `runner_system_failure`, `stuck_or_timeout_failure`, `script_failure`
+
+**Docker Build Resilience**:
+- App Dockerfile: 3-attempt retry for `pip install` (10s delay between attempts)
+- Frontend Dockerfile: 3-attempt retry for `npm ci` in both deps and builder stages (10s delay)
+- Prevents transient network failures from failing builds
+
+**Verification Enhancements**:
+- **Database Migration Verification**: Validates schema completeness via `/api/stats`
+- **Smoke Tests for Critical APIs**:
+  - IP check endpoint: `/api/blacklist/check?ip=1.1.1.1`
+  - Blacklist list endpoint: `/api/blacklist/list`
+  - Collection status endpoint: `/api/collection/status` (non-critical)
+- **Performance Baseline**: Response time monitoring (5s threshold warning)
+
+**Failure Recovery**:
+- All stages gracefully degrade on network issues
+- Retries use exponential backoff to avoid overwhelming services
+- Critical failures trigger pipeline failure (security vulnerabilities, health checks)
+- Non-critical failures log warnings but allow pipeline to continue
+
+---
+
+### CI/CD Common Operations
+
+#### 1. Trigger Pipeline Manually
+
 ```bash
-# GitLab CI/CD Variables
-SSH_PRIVATE_KEY       # SSH key for deployment server
-SSH_KNOWN_HOSTS       # Known hosts file content
-DEPLOY_HOST           # Production server hostname
-DEPLOY_USER           # SSH user
-DEV_DEPLOY_HOST       # Development server hostname
-GITLAB_API_TOKEN      # For registry cleanup
-POSTGRES_PASSWORD     # Database password
-FLASK_SECRET_KEY      # Flask session secret
-REGTECH_ID            # REGTECH credentials
-REGTECH_PW
+# Via GitLab UI
+# 1. Navigate to: https://gitlab.jclee.me/jclee/blacklist/-/pipelines
+# 2. Click "Run Pipeline" button
+# 3. Select branch: main/master
+# 4. Click "Run pipeline"
+
+# Via Git push
+git add -A
+git commit -m "feat: trigger deployment"
+git push origin main
+```
+
+#### 2. Trigger Specific Jobs
+
+**Manual jobs** (available after pipeline starts):
+```
+- cleanup:registry         # Clean old images from registry
+- rollback:production      # Rollback to previous version
+- deploy:development       # Deploy to dev environment
+- All build/* jobs         # Rebuild specific containers
+```
+
+**How to trigger**:
+1. Go to pipeline detail page
+2. Find the manual job (play button ▶️)
+3. Click to execute
+
+#### 3. Monitor Pipeline Progress
+
+```bash
+# Real-time pipeline monitoring
+https://gitlab.jclee.me/jclee/blacklist/-/pipelines
+
+# View specific job logs
+https://gitlab.jclee.me/jclee/blacklist/-/jobs/<job_id>
+
+# Check deployment status
+curl -f https://blacklist.nxtd.co.kr/health
+curl -s https://blacklist.nxtd.co.kr/api/stats | jq
+```
+
+#### 4. Rollback Deployment
+
+```bash
+# Automatic rollback (on health check failure)
+# - Pipeline automatically restores previous version
+# - No manual intervention needed
+
+# Manual rollback via GitLab
+# 1. Navigate to pipeline that needs rollback
+# 2. Find "rollback:production" job
+# 3. Click play button ▶️
+# 4. Provide ROLLBACK_COMMIT_SHA if needed
+
+# Manual rollback via SSH (emergency)
+ssh user@production-server
+cd /opt/blacklist
+docker-compose -f docker-compose.prod.yml down
+# Restore from backup
+cp backups/deployment-*/docker-compose.yml docker-compose.prod.yml
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+---
+
+### Environment Variables Setup
+
+**Required GitLab CI/CD Variables** (Settings → CI/CD → Variables):
+
+| Variable | Type | Protected | Masked | Value Example |
+|----------|------|-----------|--------|---------------|
+| `SSH_PRIVATE_KEY` | File | ✅ | ❌ | `-----BEGIN OPENSSH...` |
+| `SSH_KNOWN_HOSTS` | Variable | ✅ | ❌ | `192.168.50.100 ssh-ed25519...` |
+| `DEPLOY_HOST` | Variable | ✅ | ❌ | `192.168.50.100` |
+| `DEPLOY_USER` | Variable | ✅ | ❌ | `jclee` |
+| `DEV_DEPLOY_HOST` | Variable | ❌ | ❌ | `192.168.50.101` |
+| `GITLAB_API_TOKEN` | Variable | ✅ | ✅ | `glpat-xxxxxxxxxxxx` |
+| `POSTGRES_PASSWORD` | Variable | ✅ | ✅ | `<secure-password>` |
+| `FLASK_SECRET_KEY` | Variable | ✅ | ✅ | `<64-char-hex>` |
+| `REGTECH_ID` | Variable | ✅ | ❌ | `your-regtech-username` |
+| `REGTECH_PW` | Variable | ✅ | ✅ | `your-regtech-password` |
+
+**How to add variables**:
+```bash
+# Via GitLab UI
+# 1. Navigate to: https://gitlab.jclee.me/jclee/blacklist/-/settings/ci_cd
+# 2. Expand "Variables" section
+# 3. Click "Add variable"
+# 4. Fill in key, value, and flags
+# 5. Click "Add variable"
+
+# Generate SSH key for deployment
+ssh-keygen -t ed25519 -C "gitlab-ci@blacklist" -f gitlab-ci-key
+# Add gitlab-ci-key.pub to production server's ~/.ssh/authorized_keys
+# Add gitlab-ci-key (private key) to GitLab as SSH_PRIVATE_KEY variable
+```
+
+**Generate Secret Keys**:
+```bash
+# FLASK_SECRET_KEY (64-character hex)
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# SSH_KNOWN_HOSTS (from production server)
+ssh-keyscan -H 192.168.50.100 >> known_hosts
+cat known_hosts
+```
+
+---
+
+### Troubleshooting CI/CD
+
+#### Build Stage Failures
+
+**Problem**: Docker build timeout or failure
+```bash
+# Symptoms
+Error: failed to solve: executor failed running [/bin/sh -c pip install -r requirements.txt]
+ERROR: Job failed: exit code 1
+
+# Solutions
+1. Check Dockerfile syntax (app/Dockerfile, collector/Dockerfile)
+2. Verify requirements.txt has no broken dependencies
+3. Increase timeout in .gitlab-ci.yml (current: 20m)
+4. Check Docker daemon logs in job output
+5. Retry build (automatic retry max 2 times)
+```
+
+**Problem**: "No space left on device"
+```bash
+# Solutions
+# 1. SSH to GitLab runner
+ssh runner-host
+
+# 2. Clean Docker resources
+docker system prune -af --volumes
+docker builder prune -af
+
+# 3. Check disk usage
+df -h
+du -sh /var/lib/docker/*
+```
+
+#### Deploy Stage Failures
+
+**Problem**: SSH connection refused
+```bash
+# Check SSH_PRIVATE_KEY and SSH_KNOWN_HOSTS variables
+# Verify production server SSH access:
+ssh -i /path/to/key user@production-server
+
+# Test from GitLab runner
+docker run --rm -it alpine:latest sh
+apk add openssh-client
+# Paste SSH_PRIVATE_KEY and test connection
+```
+
+**Problem**: Image pull failure
+```bash
+# Symptoms
+Error response from daemon: pull access denied for registry.jclee.me/jclee/blacklist/blacklist-app
+
+# Solutions
+1. Check registry credentials (CI_REGISTRY_PASSWORD)
+2. Verify images were pushed successfully in build stage
+3. Check registry.jclee.me accessibility from production server
+4. Manual pull test:
+   echo "$CI_REGISTRY_PASSWORD" | docker login registry.jclee.me -u gitlab-ci-token --password-stdin
+   docker pull registry.jclee.me/jclee/blacklist/blacklist-app:latest
+```
+
+#### Verify Stage Failures
+
+**Problem**: Health check timeout (120s exceeded)
+```bash
+# Check container logs
+ssh production-server
+docker logs blacklist-app
+docker logs blacklist-postgres
+docker logs blacklist-redis
+
+# Check service status
+docker-compose -f docker-compose.prod.yml ps
+
+# Manual health check
+curl -v https://blacklist.nxtd.co.kr/health
+curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq
+```
+
+**Problem**: Database connectivity failure
+```bash
+# Symptoms
+verify:production job shows "Database status: disconnected"
+
+# Solutions
+1. Check POSTGRES_PASSWORD variable matches across services
+2. Verify postgres container is healthy:
+   docker exec blacklist-postgres pg_isready -U postgres -d blacklist
+3. Check network connectivity:
+   docker exec blacklist-app ping blacklist-postgres
+4. Review postgres logs:
+   docker logs blacklist-postgres | grep ERROR
+```
+
+#### Security Stage Failures
+
+**Problem**: Critical vulnerabilities block pipeline
+```bash
+# Symptoms
+[FAIL] Pipeline blocked due to critical security vulnerabilities
+
+# Solutions
+1. Review safety-report.json artifact
+2. Update vulnerable packages in requirements.txt:
+   pip install --upgrade <package>
+   pip freeze > requirements.txt
+3. If false positive, add to .safety-policy.yml (create if needed)
+4. Commit and push updated requirements.txt
+```
+
+---
+
+### CI/CD Best Practices
+
+#### 1. **Pre-commit Checks**
+```bash
+# Run local tests before pushing
+make test                          # Run full test suite
+python -m pytest tests/ -v         # Run pytest
+docker-compose build               # Test builds locally
+
+# Lint and format
+black app/core/**/*.py             # Python formatting
+flake8 app/core                    # Python linting
+```
+
+#### 2. **Branch Strategy**
+```bash
+# Development workflow
+git checkout -b feature/new-feature
+# ... make changes ...
+git add -A
+git commit -m "feat: add new feature"
+git push origin feature/new-feature
+# Create merge request → triggers pipeline
+
+# Production deployment
+git checkout main
+git merge feature/new-feature
+git push origin main              # Triggers auto-deployment
+```
+
+#### 3. **Monitoring Deployments**
+```bash
+# Watch deployment in real-time
+watch -n 5 'curl -sf https://blacklist.nxtd.co.kr/health | jq'
+
+# Check logs after deployment
+ssh production-server
+docker-compose -f docker-compose.prod.yml logs -f --tail=100
+
+# Verify metrics
+curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq '.database, .redis'
+```
+
+#### 4. **Emergency Procedures**
+```bash
+# If pipeline is stuck/frozen
+# 1. Cancel current pipeline:
+#    GitLab UI → Pipelines → Cancel
+
+# 2. Check runner status:
+#    Settings → CI/CD → Runners
+
+# 3. Retry failed job:
+#    Click retry button on failed job
+
+# If production is down after deployment
+# 1. Trigger manual rollback (see "Rollback Deployment" above)
+# 2. Contact DevOps team
+# 3. Check #alerts Slack channel
+```
+
+---
+
+### Pipeline Optimization Tips
+
+#### Reduce Build Time
+```yaml
+# Current optimizations in .gitlab-ci.yml
+- DOCKER_BUILDKIT=1              # BuildKit for faster builds
+- --cache-from ${IMAGE}:latest   # Layer caching
+- Parallel builds (5 jobs)       # Build all containers simultaneously
+
+# Additional improvements (optional)
+- Use multi-stage builds         # Already implemented
+- Pre-build base images          # Consider for future
+- Increase runner resources      # If available
+```
+
+#### Reduce Registry Size
+```bash
+# Schedule cleanup job weekly
+# Settings → CI/CD → Schedules
+# Add schedule: "0 2 * * 0" (Every Sunday 2 AM)
+# Target branch: main
+# Variables: PIPELINE_SCHEDULE=cleanup
+
+# Manual cleanup
+# Trigger cleanup:registry job from GitLab UI
 ```
 
 ### Offline Deployment (Image Packaging)
@@ -822,6 +1197,6 @@ def check_ip_status(ip_address: str) -> Optional[dict]:
 
 ---
 
-**Version**: 3.3.9
-**Last Updated**: 2025-11-08
+**Version**: 3.4.1 (CI/CD Stability Enhanced)
+**Last Updated**: 2025-11-09
 **Maintainer**: jclee
