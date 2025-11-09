@@ -11,11 +11,9 @@ stages:
   - cleanup
 
 variables:
-  # GitLab-provided variables (auto-configured)
-  # CI_REGISTRY: registry.jclee.me
-  # CI_REGISTRY_USER: gitlab-ci-token
-  # CI_REGISTRY_PASSWORD: $CI_JOB_TOKEN
-  # CI_REGISTRY_IMAGE: registry.jclee.me/jclee/blacklist
+  # GitLab Container Registry (override auto-config)
+  CI_REGISTRY: "registry.jclee.me"
+  CI_REGISTRY_IMAGE: "registry.jclee.me/jclee/blacklist"
 
   # Docker build optimization
   DOCKER_DRIVER: overlay2
