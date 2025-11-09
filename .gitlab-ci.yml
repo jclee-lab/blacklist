@@ -236,8 +236,7 @@ security:run-tests:
 .build-template: &build-template
   stage: build
   image: docker:24
-  services:
-    - docker:24-dind
+  # Note: Shell executor uses host Docker daemon (no DinD service needed)
   timeout: 20m  # Build timeout
   retry:
     max: 2
@@ -246,11 +245,8 @@ security:run-tests:
       - stuck_or_timeout_failure
       - script_failure  # Retry on build failures
   variables:
-    # Docker-in-Docker configuration
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    # Docker configuration for shell executor (no TLS)
+    DOCKER_TLS_CERTDIR: ""
     # BuildKit optimization
     DOCKER_BUILDKIT: 1
     COMPOSE_DOCKER_CLI_BUILD: 1
