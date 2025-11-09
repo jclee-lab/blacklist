@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🎯 Project Overview
 
-**REGTECH Blacklist Intelligence Platform** - A Flask-based threat intelligence platform for collecting, managing, and analyzing IP blacklist data from Korean Financial Security Institute (REGTECH). Features automated collection pipelines, real-time monitoring, whitelist/blacklist management, and production deployment with GitLab CI/CD.
+**REGTECH Blacklist Intelligence Platform** - A Flask-based threat intelligence platform for collecting, managing, and analyzing IP blacklist data from Korean Financial Security Institute (REGTECH). Features automated collection pipelines, real-time monitoring, whitelist/blacklist management, and **air-gapped deployment** with GitLab CI/CD build automation.
 
 **Architecture**: Microservices (5 independent containers)
 - `blacklist-app` - Flask application (Port 2542)
@@ -450,14 +450,19 @@ python -m pytest -n auto
 
 ## 🚀 Deployment & CI/CD
 
-### GitLab CI/CD Pipeline (Enhanced - 2025-11-08)
+### 🔒 Air-Gapped Deployment Model (2025-11-09)
+
+**Environment**: Air-gapped (offline deployment)
+**Workflow**: Build → Package → Transfer → Load → Deploy
+
+### GitLab CI/CD Pipeline (Air-Gapped Build)
 
 **Workflow**: `.gitlab-ci.yml`
 
 **Pipeline Visualization**:
 ```
 ┌─────────────┐
-│  VALIDATE   │ ← Environment checks (alpine:latest)
+│  VALIDATE   │ ← Environment checks
 └──────┬──────┘
        │
 ┌──────▼──────────────────────────────────────────┐
@@ -467,32 +472,29 @@ python -m pytest -n auto
 │ (safety)    │ (npm audit) │ (pytest + coverage)│
 └──────┬──────┴──────┬──────┴──────┬──────────────┘
        │             │             │
-       │      ┌──────▼─────────────────────────────┐
-       │      │  BUILD (Parallel - 5 containers)   │
-       │      ├──────┬──────┬──────┬──────┬────────┤
-       │      │ Post │ Redis│ Coll │ App  │ Front  │
-       │      │ gres │      │ ector│      │ end    │
-       │      └──┬───┴───┬──┴───┬──┴───┬──┴───┬────┘
-       │         │       │      │      │      │
-       │         └───────┴──────┴──────┴──────┘
-       │                     │
-       │              ┌──────▼──────┐
-       │              │   DEPLOY    │
-       │              │ (SSH-based) │
-       │              └──────┬──────┘
-       │                     │
-       │              ┌──────▼──────┐
-       │              │   VERIFY    │
-       │              │ (Health +   │
-       │              │  API + DB)  │
-       │              └──────┬──────┘
-       │                     │
-       └─────────────────────┼─────── Success
-                             │
-                      ┌──────▼──────┐
-                      │   CLEANUP   │
-                      │  (Manual)   │
-                      └─────────────┘
+       └──────┬──────┴──────┬──────┘
+              │             │
+       ┌──────▼─────────────▼──────────────────────┐
+       │  BUILD (Parallel - 5 containers)          │
+       ├──────┬──────┬──────┬──────┬───────────────┤
+       │ Post │ Redis│ Coll │ App  │ Frontend      │
+       │ gres │      │ ector│      │               │
+       └──┬───┴───┬──┴───┬──┴───┬──┴───┬───────────┘
+          │       │      │      │      │
+          └───────┴──────┴──────┴──────┘
+                      │
+               ┌──────▼──────┐
+               │ PUSH IMAGES │
+               │  (Registry) │
+               └──────┬──────┘
+                      │
+               ┌──────▼──────┐
+               │   CLEANUP   │
+               │  (Manual)   │
+               └─────────────┘
+
+⚠️  NO AUTOMATIC DEPLOYMENT
+Manual offline transfer required (see below)
 ```
 
 **Pipeline Stages**:
@@ -506,37 +508,118 @@ python -m pytest -n auto
    - Docker daemon readiness check
    - BuildKit optimization (`DOCKER_BUILDKIT=1`)
    - Cache from previous builds
-4. **Deploy** - SSH deployment with enhanced safety
-   - 30m timeout with retry mechanism
-   - Comprehensive pre-deployment backup
-   - Image pull retry (max 5 attempts)
-   - **Automatic rollback** on failure
-   - 120s health check timeout
-   - Old image cleanup (keep last 3)
-5. **Verify** - Comprehensive health checks
-   - DB/Redis connectivity verification
-   - Response validation with jq
-   - Performance baseline testing (5s threshold)
-   - 10 retry attempts with detailed logging
-6. **Cleanup** - Registry maintenance (manual)
+   - Push to GitLab Container Registry
+4. **Cleanup** - Registry maintenance (manual)
+   - Old image cleanup
+   - Scheduled cleanup jobs
 
 **Triggers**:
 - Auto: Push to `main`/`master` branch
 - Auto: Merge request events
 - Manual: Anytime via GitLab UI
-- Scheduled: Cleanup only (manual trigger)
 
-**Key Safety Features**:
+**Key Features**:
 - ✅ Parallel builds (5 containers simultaneously)
 - ✅ Build cache optimization with `DOCKER_BUILDKIT=1`
-- ✅ **Automatic rollback** on deployment/health check failure
-- ✅ SSH-based deployment (no Portainer dependency)
-- ✅ Multi-stage verification (health + API + DB + Redis)
-- ✅ **Critical vulnerability blocking** (pipeline fails)
-- ✅ Pre-deployment backups (`backups/deployment-YYYYMMDD-HHMMSS/`)
-- ✅ Image pull retry with exponential backoff
+- ✅ **Critical vulnerability blocking** (pipeline fails on critical CVEs)
+- ✅ Automatic registry push
+- ✅ No automatic deployment (air-gapped security)
 
-**Stability Enhancements** (Added 2025-11-09):
+### Air-Gapped Deployment Workflow
+
+**Step 1: Automated Build (Internet-Connected Server)**
+```bash
+# GitLab CI/CD automatically builds images on git push
+git add -A
+git commit -m "feat: update application"
+git push origin main
+
+# Pipeline runs:
+# - Validate environment
+# - Security scans (Python/JS)
+# - Build 5 containers in parallel
+# - Push to registry.jclee.me
+```
+
+**Step 2: Package Images (Internet-Connected Server)**
+```bash
+# Login to build server
+ssh builder-server
+
+# Package single image (1-7 minutes)
+cd /path/to/blacklist
+./scripts/package-single-image.sh blacklist-app
+
+# Or package all images (sequential, 10-15 minutes)
+./scripts/package-all-sequential.sh
+
+# Verify packages
+ls -lh dist/images/
+# Output:
+# blacklist-postgres_latest.tar.gz  (185MB)
+# blacklist-redis_latest.tar.gz     (28MB)
+# blacklist-collector_latest.tar.gz (156MB)
+# blacklist-app_latest.tar.gz       (311MB)
+# blacklist-frontend_latest.tar.gz  (135MB)
+# Total: ~815MB (66% compression from 2.4GB)
+```
+
+**Step 3: Transfer to Air-Gapped Server**
+```bash
+# Option A: Physical media (USB/external HDD)
+cp dist/images/*.tar.gz /media/usb/
+# → Physically transport to air-gapped server
+
+# Option B: Secure file transfer (if temporary connection allowed)
+scp dist/images/*.tar.gz airgap-server:/opt/blacklist/images/
+```
+
+**Step 4: Load Images (Air-Gapped Server)**
+```bash
+# SSH to air-gapped server
+ssh airgap-server
+
+cd /opt/blacklist/images
+
+# Load all images
+for f in *.tar.gz; do
+    echo "[LOAD] Loading $f..."
+    gunzip -c "$f" | docker load
+done
+
+# Verify loaded images
+docker images | grep blacklist
+```
+
+**Step 5: Deploy Services (Air-Gapped Server)**
+```bash
+cd /opt/blacklist
+
+# Pull is not needed (images already loaded locally)
+# Start services
+docker-compose -f docker-compose.prod.yml up -d
+
+# Health check
+docker-compose -f docker-compose.prod.yml ps
+curl http://localhost:2542/health
+```
+
+**Step 6: Verify Deployment**
+```bash
+# Check all services
+docker-compose -f docker-compose.prod.yml ps
+
+# Test database
+docker exec blacklist-postgres psql -U postgres -d blacklist -c "\dt"
+
+# Test API
+curl http://localhost:2542/api/stats | jq
+
+# Check logs
+docker-compose -f docker-compose.prod.yml logs -f --tail=50
+```
+
+**Build Stability Enhancements**:
 
 **Security Stage Resilience**:
 - Python scan: 3-attempt retry for `pip install safety` (5s delay)
@@ -549,25 +632,17 @@ python -m pytest -n auto
 - Frontend Dockerfile: 3-attempt retry for `npm ci` in both deps and builder stages (10s delay)
 - Prevents transient network failures from failing builds
 
-**Verification Enhancements**:
-- **Database Migration Verification**: Validates schema completeness via `/api/stats`
-- **Smoke Tests for Critical APIs**:
-  - IP check endpoint: `/api/blacklist/check?ip=1.1.1.1`
-  - Blacklist list endpoint: `/api/blacklist/list`
-  - Collection status endpoint: `/api/collection/status` (non-critical)
-- **Performance Baseline**: Response time monitoring (5s threshold warning)
-
 **Failure Recovery**:
 - All stages gracefully degrade on network issues
 - Retries use exponential backoff to avoid overwhelming services
-- Critical failures trigger pipeline failure (security vulnerabilities, health checks)
+- Critical failures trigger pipeline failure (security vulnerabilities)
 - Non-critical failures log warnings but allow pipeline to continue
 
 ---
 
-### CI/CD Common Operations
+### CI/CD Common Operations (Air-Gapped)
 
-#### 1. Trigger Pipeline Manually
+#### 1. Trigger Build Pipeline
 
 ```bash
 # Via GitLab UI
@@ -576,28 +651,13 @@ python -m pytest -n auto
 # 3. Select branch: main/master
 # 4. Click "Run pipeline"
 
-# Via Git push
+# Via Git push (automatic trigger)
 git add -A
-git commit -m "feat: trigger deployment"
+git commit -m "feat: update application"
 git push origin main
 ```
 
-#### 2. Trigger Specific Jobs
-
-**Manual jobs** (available after pipeline starts):
-```
-- cleanup:registry         # Clean old images from registry
-- rollback:production      # Rollback to previous version
-- deploy:development       # Deploy to dev environment
-- All build/* jobs         # Rebuild specific containers
-```
-
-**How to trigger**:
-1. Go to pipeline detail page
-2. Find the manual job (play button ▶️)
-3. Click to execute
-
-#### 3. Monitor Pipeline Progress
+#### 2. Monitor Build Progress
 
 ```bash
 # Real-time pipeline monitoring
@@ -606,31 +666,67 @@ https://gitlab.jclee.me/jclee/blacklist/-/pipelines
 # View specific job logs
 https://gitlab.jclee.me/jclee/blacklist/-/jobs/<job_id>
 
-# Check deployment status
-curl -f https://blacklist.nxtd.co.kr/health
-curl -s https://blacklist.nxtd.co.kr/api/stats | jq
+# Check build artifacts
+https://gitlab.jclee.me/jclee/blacklist/-/jobs/<job_id>/artifacts
 ```
 
-#### 4. Rollback Deployment
+#### 3. Package and Transfer Images
 
 ```bash
-# Automatic rollback (on health check failure)
-# - Pipeline automatically restores previous version
-# - No manual intervention needed
+# After successful build, package images
+ssh builder-server
+cd /path/to/blacklist
 
-# Manual rollback via GitLab
-# 1. Navigate to pipeline that needs rollback
-# 2. Find "rollback:production" job
-# 3. Click play button ▶️
-# 4. Provide ROLLBACK_COMMIT_SHA if needed
+# Package all images
+./scripts/package-all-sequential.sh
 
-# Manual rollback via SSH (emergency)
-ssh user@production-server
+# Transfer to air-gapped server
+# Option A: USB/external media
+cp dist/images/*.tar.gz /media/usb/
+
+# Option B: Temporary secure transfer
+scp dist/images/*.tar.gz airgap-server:/opt/blacklist/images/
+```
+
+#### 4. Deploy to Air-Gapped Server
+
+```bash
+# SSH to air-gapped server
+ssh airgap-server
+cd /opt/blacklist/images
+
+# Load images
+for f in *.tar.gz; do
+    gunzip -c "$f" | docker load
+done
+
+# Deploy
+cd /opt/blacklist
+docker-compose -f docker-compose.prod.yml up -d
+
+# Verify
+docker-compose ps
+curl http://localhost:2542/health
+```
+
+#### 5. Rollback on Air-Gapped Server
+
+```bash
+# List available images
+docker images | grep blacklist
+
+# Tag previous version as latest
+docker tag blacklist-app:<previous-commit-sha> blacklist-app:latest
+docker tag blacklist-postgres:<previous-commit-sha> blacklist-postgres:latest
+# ... repeat for all services
+
+# Restart services
 cd /opt/blacklist
 docker-compose -f docker-compose.prod.yml down
-# Restore from backup
-cp backups/deployment-*/docker-compose.yml docker-compose.prod.yml
 docker-compose -f docker-compose.prod.yml up -d
+
+# Verify rollback
+curl http://localhost:2542/health
 ```
 
 ---
@@ -639,18 +735,20 @@ docker-compose -f docker-compose.prod.yml up -d
 
 **Required GitLab CI/CD Variables** (Settings → CI/CD → Variables):
 
-| Variable | Type | Protected | Masked | Value Example |
-|----------|------|-----------|--------|---------------|
-| `SSH_PRIVATE_KEY` | File | ✅ | ❌ | `-----BEGIN OPENSSH...` |
-| `SSH_KNOWN_HOSTS` | Variable | ✅ | ❌ | `192.168.50.100 ssh-ed25519...` |
-| `DEPLOY_HOST` | Variable | ✅ | ❌ | `192.168.50.100` |
-| `DEPLOY_USER` | Variable | ✅ | ❌ | `jclee` |
-| `DEV_DEPLOY_HOST` | Variable | ❌ | ❌ | `192.168.50.101` |
-| `GITLAB_API_TOKEN` | Variable | ✅ | ✅ | `glpat-xxxxxxxxxxxx` |
-| `POSTGRES_PASSWORD` | Variable | ✅ | ✅ | `<secure-password>` |
-| `FLASK_SECRET_KEY` | Variable | ✅ | ✅ | `<64-char-hex>` |
-| `REGTECH_ID` | Variable | ✅ | ❌ | `your-regtech-username` |
-| `REGTECH_PW` | Variable | ✅ | ✅ | `your-regtech-password` |
+| Variable | Type | Protected | Masked | Value Example | Purpose |
+|----------|------|-----------|--------|---------------|---------|
+| `GITLAB_API_TOKEN` | Variable | ✅ | ✅ | `glpat-xxxxxxxxxxxx` | Registry cleanup |
+| `POSTGRES_PASSWORD` | Variable | ✅ | ✅ | `<secure-password>` | Database password |
+| `FLASK_SECRET_KEY` | Variable | ✅ | ✅ | `<64-char-hex>` | Flask session key |
+| `REGTECH_ID` | Variable | ✅ | ❌ | `your-regtech-username` | REGTECH auth |
+| `REGTECH_PW` | Variable | ✅ | ✅ | `your-regtech-password` | REGTECH auth |
+
+**Removed Variables** (no longer needed for air-gapped deployment):
+- ❌ `SSH_PRIVATE_KEY` - No SSH deployment
+- ❌ `SSH_KNOWN_HOSTS` - No SSH deployment
+- ❌ `DEPLOY_HOST` - No automatic deployment
+- ❌ `DEPLOY_USER` - No automatic deployment
+- ❌ `DEV_DEPLOY_HOST` - No automatic deployment
 
 **How to add variables**:
 ```bash
@@ -660,21 +758,12 @@ docker-compose -f docker-compose.prod.yml up -d
 # 3. Click "Add variable"
 # 4. Fill in key, value, and flags
 # 5. Click "Add variable"
-
-# Generate SSH key for deployment
-ssh-keygen -t ed25519 -C "gitlab-ci@blacklist" -f gitlab-ci-key
-# Add gitlab-ci-key.pub to production server's ~/.ssh/authorized_keys
-# Add gitlab-ci-key (private key) to GitLab as SSH_PRIVATE_KEY variable
 ```
 
 **Generate Secret Keys**:
 ```bash
 # FLASK_SECRET_KEY (64-character hex)
 python -c "import secrets; print(secrets.token_hex(32))"
-
-# SSH_KNOWN_HOSTS (from production server)
-ssh-keyscan -H 192.168.50.100 >> known_hosts
-cat known_hosts
 ```
 
 ---
@@ -712,65 +801,67 @@ df -h
 du -sh /var/lib/docker/*
 ```
 
-#### Deploy Stage Failures
+#### Registry/Build Failures
 
-**Problem**: SSH connection refused
-```bash
-# Check SSH_PRIVATE_KEY and SSH_KNOWN_HOSTS variables
-# Verify production server SSH access:
-ssh -i /path/to/key user@production-server
-
-# Test from GitLab runner
-docker run --rm -it alpine:latest sh
-apk add openssh-client
-# Paste SSH_PRIVATE_KEY and test connection
-```
-
-**Problem**: Image pull failure
+**Problem**: Registry push failure
 ```bash
 # Symptoms
-Error response from daemon: pull access denied for registry.jclee.me/jclee/blacklist/blacklist-app
+Error: failed to push registry.jclee.me/jclee/blacklist/blacklist-app:latest
 
 # Solutions
-1. Check registry credentials (CI_REGISTRY_PASSWORD)
-2. Verify images were pushed successfully in build stage
-3. Check registry.jclee.me accessibility from production server
-4. Manual pull test:
+1. Check GitLab Container Registry is enabled
+2. Verify CI_REGISTRY_PASSWORD is valid
+3. Check registry disk space:
+   ssh gitlab-server
+   df -h | grep registry
+4. Check registry logs:
+   docker logs gitlab-registry
+```
+
+**Problem**: Image packaging failure
+```bash
+# Symptoms
+./scripts/package-single-image.sh fails with "Image not found"
+
+# Solutions
+1. Verify images exist in registry:
+   docker images | grep blacklist
+2. Pull from registry first:
    echo "$CI_REGISTRY_PASSWORD" | docker login registry.jclee.me -u gitlab-ci-token --password-stdin
    docker pull registry.jclee.me/jclee/blacklist/blacklist-app:latest
+3. Check dist/images/ directory permissions:
+   mkdir -p dist/images
+   chmod 755 dist/images
 ```
 
-#### Verify Stage Failures
+#### Air-Gapped Deployment Failures
 
-**Problem**: Health check timeout (120s exceeded)
-```bash
-# Check container logs
-ssh production-server
-docker logs blacklist-app
-docker logs blacklist-postgres
-docker logs blacklist-redis
-
-# Check service status
-docker-compose -f docker-compose.prod.yml ps
-
-# Manual health check
-curl -v https://blacklist.nxtd.co.kr/health
-curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq
-```
-
-**Problem**: Database connectivity failure
+**Problem**: Image load failure on air-gapped server
 ```bash
 # Symptoms
-verify:production job shows "Database status: disconnected"
+Error loading image: invalid tar header
 
 # Solutions
-1. Check POSTGRES_PASSWORD variable matches across services
-2. Verify postgres container is healthy:
-   docker exec blacklist-postgres pg_isready -U postgres -d blacklist
-3. Check network connectivity:
-   docker exec blacklist-app ping blacklist-postgres
-4. Review postgres logs:
-   docker logs blacklist-postgres | grep ERROR
+1. Verify .tar.gz integrity:
+   gunzip -t blacklist-app_latest.tar.gz
+2. Check file corruption during transfer:
+   md5sum blacklist-app_latest.tar.gz  # Compare with source
+3. Re-package image with verification:
+   ./scripts/package-single-image.sh blacklist-app
+```
+
+**Problem**: Container startup failure after load
+```bash
+# Symptoms
+docker-compose up -d fails with "image not found"
+
+# Solutions
+1. List loaded images:
+   docker images | grep blacklist
+2. Check image tags match docker-compose.yml:
+   grep "image:" docker-compose.prod.yml
+3. Re-tag images if needed:
+   docker tag blacklist-app:latest registry.jclee.me/jclee/blacklist/blacklist-app:latest
 ```
 
 #### Security Stage Failures
@@ -813,30 +904,31 @@ git checkout -b feature/new-feature
 git add -A
 git commit -m "feat: add new feature"
 git push origin feature/new-feature
-# Create merge request → triggers pipeline
+# Create merge request → triggers build pipeline
 
-# Production deployment
+# Production build
 git checkout main
 git merge feature/new-feature
-git push origin main              # Triggers auto-deployment
+git push origin main              # Triggers auto-build (not deployment)
 ```
 
-#### 3. **Monitoring Deployments**
+#### 3. **Build Monitoring**
 ```bash
-# Watch deployment in real-time
-watch -n 5 'curl -sf https://blacklist.nxtd.co.kr/health | jq'
+# Monitor build pipeline
+watch -n 5 'curl -sf https://gitlab.jclee.me/api/v4/projects/<id>/pipelines?ref=main'
 
-# Check logs after deployment
-ssh production-server
-docker-compose -f docker-compose.prod.yml logs -f --tail=100
+# Check registry for built images
+curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+  https://gitlab.jclee.me/api/v4/projects/<id>/registry/repositories
 
-# Verify metrics
-curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq '.database, .redis'
+# Download build artifacts
+curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+  https://gitlab.jclee.me/api/v4/projects/<id>/jobs/<job_id>/artifacts
 ```
 
 #### 4. **Emergency Procedures**
 ```bash
-# If pipeline is stuck/frozen
+# If build pipeline is stuck/frozen
 # 1. Cancel current pipeline:
 #    GitLab UI → Pipelines → Cancel
 
@@ -846,10 +938,12 @@ curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq '.database, .re
 # 3. Retry failed job:
 #    Click retry button on failed job
 
-# If production is down after deployment
-# 1. Trigger manual rollback (see "Rollback Deployment" above)
-# 2. Contact DevOps team
-# 3. Check #alerts Slack channel
+# If air-gapped production is down
+# 1. SSH to air-gapped server
+# 2. Check container logs:
+#    docker-compose -f docker-compose.prod.yml logs -f
+# 3. Rollback to previous image version (see "Rollback" above)
+# 4. Restore from backups if needed
 ```
 
 ---
