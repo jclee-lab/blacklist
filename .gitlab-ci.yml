@@ -2,7 +2,7 @@
 # Triggers on main/master branch push and manual runs
 # Features: Security scan, parallel Docker builds, image packaging
 # Deployment: Build → Package (tar.gz) → Offline Transfer → Load → Deploy
-# Artifacts: dist/images/*.tar.gz (downloadable, 7-day retention)
+# Storage: dist/images/*.tar.gz (local runner storage only)
 
 stages:
   - validate
@@ -303,11 +303,7 @@ build:postgres:
     - docker save ${IMAGE_POSTGRES}:${VERSION_TAG} | gzip > dist/images/blacklist-postgres_${VERSION_TAG}.tar.gz
     - docker save ${IMAGE_POSTGRES}:${COMMIT_SHORT} | gzip > dist/images/blacklist-postgres_${COMMIT_SHORT}.tar.gz
     - echo "[OK] PostgreSQL build completed - $(du -h dist/images/blacklist-postgres_${VERSION_TAG}.tar.gz | cut -f1)"
-  artifacts:
-    paths:
-      - dist/images/blacklist-postgres_*.tar.gz
-    expire_in: 7 days
-    when: always
+    - echo "[INFO] Image stored locally in runner's dist/images/ directory"
 
 build:redis:
   <<: *build-template
@@ -333,11 +329,7 @@ build:redis:
     - docker save ${IMAGE_REDIS}:${VERSION_TAG} | gzip > dist/images/blacklist-redis_${VERSION_TAG}.tar.gz
     - docker save ${IMAGE_REDIS}:${COMMIT_SHORT} | gzip > dist/images/blacklist-redis_${COMMIT_SHORT}.tar.gz
     - echo "[OK] Redis build completed - $(du -h dist/images/blacklist-redis_${VERSION_TAG}.tar.gz | cut -f1)"
-  artifacts:
-    paths:
-      - dist/images/blacklist-redis_*.tar.gz
-    expire_in: 7 days
-    when: always
+    - echo "[INFO] Image stored locally in runner's dist/images/ directory"
 
 build:collector:
   <<: *build-template
@@ -363,11 +355,7 @@ build:collector:
     - docker save ${IMAGE_COLLECTOR}:${VERSION_TAG} | gzip > dist/images/blacklist-collector_${VERSION_TAG}.tar.gz
     - docker save ${IMAGE_COLLECTOR}:${COMMIT_SHORT} | gzip > dist/images/blacklist-collector_${COMMIT_SHORT}.tar.gz
     - echo "[OK] Collector build completed - $(du -h dist/images/blacklist-collector_${VERSION_TAG}.tar.gz | cut -f1)"
-  artifacts:
-    paths:
-      - dist/images/blacklist-collector_*.tar.gz
-    expire_in: 7 days
-    when: always
+    - echo "[INFO] Image stored locally in runner's dist/images/ directory"
 
 build:app:
   <<: *build-template
@@ -393,11 +381,7 @@ build:app:
     - docker save ${IMAGE_APP}:${VERSION_TAG} | gzip > dist/images/blacklist-app_${VERSION_TAG}.tar.gz
     - docker save ${IMAGE_APP}:${COMMIT_SHORT} | gzip > dist/images/blacklist-app_${COMMIT_SHORT}.tar.gz
     - echo "[OK] Flask App build completed - $(du -h dist/images/blacklist-app_${VERSION_TAG}.tar.gz | cut -f1)"
-  artifacts:
-    paths:
-      - dist/images/blacklist-app_*.tar.gz
-    expire_in: 7 days
-    when: always
+    - echo "[INFO] Image stored locally in runner's dist/images/ directory"
 
 build:frontend:
   <<: *build-template
@@ -423,11 +407,7 @@ build:frontend:
     - docker save ${IMAGE_FRONTEND}:${VERSION_TAG} | gzip > dist/images/blacklist-frontend_${VERSION_TAG}.tar.gz
     - docker save ${IMAGE_FRONTEND}:${COMMIT_SHORT} | gzip > dist/images/blacklist-frontend_${COMMIT_SHORT}.tar.gz
     - echo "[OK] Frontend build completed - $(du -h dist/images/blacklist-frontend_${VERSION_TAG}.tar.gz | cut -f1)"
-  artifacts:
-    paths:
-      - dist/images/blacklist-frontend_*.tar.gz
-    expire_in: 7 days
-    when: always
+    - echo "[INFO] Image stored locally in runner's dist/images/ directory"
 
 # ============================================================================
 # CLEANUP STAGE - Registry maintenance
