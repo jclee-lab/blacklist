@@ -55,6 +55,24 @@ make health
 make help
 ```
 
+### Quick Deploy to GitLab Registry
+
+```bash
+# Automated: Git push triggers CI/CD pipeline (builds + pushes to registry.jclee.me)
+git add -A
+git commit -m "feat: update application"
+git push origin main
+
+# Manual: Build and push all images to GitLab registry
+./scripts/build-and-push-gitlab.sh
+
+# Manual: Build and push to GitHub Container Registry
+./scripts/build-and-push-ghcr.sh
+
+# Check pipeline status
+# Visit: https://gitlab.jclee.me/jclee/blacklist/-/pipelines
+```
+
 ### Testing
 
 ```bash
@@ -91,6 +109,25 @@ make db-restore BACKUP_FILE=backups/blacklist_20251107_120000.sql
 # Container shell access
 make shell-app         # Flask app container
 make shell-db          # PostgreSQL container
+```
+
+### FortiGate/FortiManager Integration
+
+```bash
+# Update blacklist on FortiManager
+./scripts/fortimanager-update-blacklist.sh
+
+# Install policy to all managed devices
+./scripts/install-fmg-policy-to-all-devices.sh
+
+# Push to FortiGate firewalls
+./scripts/push-to-fortigates.sh
+
+# Manage credentials
+./scripts/manage-credentials.sh
+
+# Enable auto-upload
+./scripts/enable-fmg-auto-install.sh
 ```
 
 ### Image Packaging (Offline Deployment)
