@@ -1,8 +1,8 @@
 # GitLab CI/CD: Air-Gapped Build Pipeline
 # Triggers on main/master branch push and manual runs
-# Features: Security scan, parallel Docker builds, registry push
-# Deployment: Manual offline transfer (see scripts/package-single-image.sh)
-# Test trigger: 2025-11-09
+# Features: Security scan, parallel Docker builds, image packaging
+# Deployment: Build → Package (tar.gz) → Offline Transfer → Load → Deploy
+# Artifacts: dist/images/*.tar.gz (downloadable, 7-day retention)
 
 stages:
   - validate
@@ -249,8 +249,6 @@ security:run-tests:
     DOCKER_BUILDKIT: 1
     COMPOSE_DOCKER_CLI_BUILD: 1
   before_script:
-    - echo "[AUTH] Logging into GitLab Container Registry..."
-    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     # Wait for Docker daemon to be ready
     - |
       for i in $(seq 1 30); do
@@ -261,8 +259,6 @@ security:run-tests:
         echo "[WAIT] Waiting for Docker daemon ($i/30)..."
         sleep 2
       done
-  after_script:
-    - docker logout $CI_REGISTRY || true
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
       changes:
@@ -302,10 +298,16 @@ build:postgres:
         --file ./postgres/Dockerfile \
         ./postgres
 
-    - echo "[PUSH] Pushing PostgreSQL image to registry..."
-    - docker push ${IMAGE_POSTGRES}:${VERSION_TAG}
-    - docker push ${IMAGE_POSTGRES}:${COMMIT_SHORT}
-    - echo "[OK] PostgreSQL build completed"
+    - echo "[PACKAGE] Packaging PostgreSQL image for offline deployment..."
+    - mkdir -p dist/images
+    - docker save ${IMAGE_POSTGRES}:${VERSION_TAG} | gzip > dist/images/blacklist-postgres_${VERSION_TAG}.tar.gz
+    - docker save ${IMAGE_POSTGRES}:${COMMIT_SHORT} | gzip > dist/images/blacklist-postgres_${COMMIT_SHORT}.tar.gz
+    - echo "[OK] PostgreSQL build completed - $(du -h dist/images/blacklist-postgres_${VERSION_TAG}.tar.gz | cut -f1)"
+  artifacts:
+    paths:
+      - dist/images/blacklist-postgres_*.tar.gz
+    expire_in: 7 days
+    when: always
 
 build:redis:
   <<: *build-template
@@ -326,10 +328,16 @@ build:redis:
         --file ./redis/Dockerfile \
         ./redis
 
-    - echo "[PUSH] Pushing Redis image to registry..."
-    - docker push ${IMAGE_REDIS}:${VERSION_TAG}
-    - docker push ${IMAGE_REDIS}:${COMMIT_SHORT}
-    - echo "[OK] Redis build completed"
+    - echo "[PACKAGE] Packaging Redis image for offline deployment..."
+    - mkdir -p dist/images
+    - docker save ${IMAGE_REDIS}:${VERSION_TAG} | gzip > dist/images/blacklist-redis_${VERSION_TAG}.tar.gz
+    - docker save ${IMAGE_REDIS}:${COMMIT_SHORT} | gzip > dist/images/blacklist-redis_${COMMIT_SHORT}.tar.gz
+    - echo "[OK] Redis build completed - $(du -h dist/images/blacklist-redis_${VERSION_TAG}.tar.gz | cut -f1)"
+  artifacts:
+    paths:
+      - dist/images/blacklist-redis_*.tar.gz
+    expire_in: 7 days
+    when: always
 
 build:collector:
   <<: *build-template
@@ -350,10 +358,16 @@ build:collector:
         --file ./collector/Dockerfile \
         ./collector
 
-    - echo "[PUSH] Pushing Collector image to registry..."
-    - docker push ${IMAGE_COLLECTOR}:${VERSION_TAG}
-    - docker push ${IMAGE_COLLECTOR}:${COMMIT_SHORT}
-    - echo "[OK] Collector build completed"
+    - echo "[PACKAGE] Packaging Collector image for offline deployment..."
+    - mkdir -p dist/images
+    - docker save ${IMAGE_COLLECTOR}:${VERSION_TAG} | gzip > dist/images/blacklist-collector_${VERSION_TAG}.tar.gz
+    - docker save ${IMAGE_COLLECTOR}:${COMMIT_SHORT} | gzip > dist/images/blacklist-collector_${COMMIT_SHORT}.tar.gz
+    - echo "[OK] Collector build completed - $(du -h dist/images/blacklist-collector_${VERSION_TAG}.tar.gz | cut -f1)"
+  artifacts:
+    paths:
+      - dist/images/blacklist-collector_*.tar.gz
+    expire_in: 7 days
+    when: always
 
 build:app:
   <<: *build-template
@@ -374,10 +388,16 @@ build:app:
         --file ./app/Dockerfile \
         ./app
 
-    - echo "[PUSH] Pushing Flask App image to registry..."
-    - docker push ${IMAGE_APP}:${VERSION_TAG}
-    - docker push ${IMAGE_APP}:${COMMIT_SHORT}
-    - echo "[OK] Flask App build completed"
+    - echo "[PACKAGE] Packaging Flask App image for offline deployment..."
+    - mkdir -p dist/images
+    - docker save ${IMAGE_APP}:${VERSION_TAG} | gzip > dist/images/blacklist-app_${VERSION_TAG}.tar.gz
+    - docker save ${IMAGE_APP}:${COMMIT_SHORT} | gzip > dist/images/blacklist-app_${COMMIT_SHORT}.tar.gz
+    - echo "[OK] Flask App build completed - $(du -h dist/images/blacklist-app_${VERSION_TAG}.tar.gz | cut -f1)"
+  artifacts:
+    paths:
+      - dist/images/blacklist-app_*.tar.gz
+    expire_in: 7 days
+    when: always
 
 build:frontend:
   <<: *build-template
@@ -398,10 +418,16 @@ build:frontend:
         --file ./frontend/Dockerfile \
         ./frontend
 
-    - echo "[PUSH] Pushing Frontend image to registry..."
-    - docker push ${IMAGE_FRONTEND}:${VERSION_TAG}
-    - docker push ${IMAGE_FRONTEND}:${COMMIT_SHORT}
-    - echo "[OK] Frontend build completed"
+    - echo "[PACKAGE] Packaging Frontend image for offline deployment..."
+    - mkdir -p dist/images
+    - docker save ${IMAGE_FRONTEND}:${VERSION_TAG} | gzip > dist/images/blacklist-frontend_${VERSION_TAG}.tar.gz
+    - docker save ${IMAGE_FRONTEND}:${COMMIT_SHORT} | gzip > dist/images/blacklist-frontend_${COMMIT_SHORT}.tar.gz
+    - echo "[OK] Frontend build completed - $(du -h dist/images/blacklist-frontend_${VERSION_TAG}.tar.gz | cut -f1)"
+  artifacts:
+    paths:
+      - dist/images/blacklist-frontend_*.tar.gz
+    expire_in: 7 days
+    when: always
 
 # ============================================================================
 # CLEANUP STAGE - Registry maintenance
