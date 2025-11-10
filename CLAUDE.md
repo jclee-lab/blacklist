@@ -22,6 +22,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## ⚡ Quick Command Reference Card
 
 ```bash
+# Setup (first time only)
+make setup                            # Complete dev environment setup
+
 # Most Common Operations
 make dev                              # Start development environment
 make logs                             # View all logs
@@ -47,6 +50,30 @@ make db-restore BACKUP_FILE=...       # Restore from backup
 ---
 
 ## ⚡ Essential Commands
+
+### Setup & Installation (First Time Only)
+
+```bash
+# Complete automated setup (recommended for new developers)
+make setup
+# This will:
+# - Create Python virtual environment (.venv)
+# - Install Python dependencies (requirements.txt + requirements-dev.txt)
+# - Install Node.js dependencies (frontend/package.json)
+# - Install VSCode extensions (from .vscode/extensions.json)
+# - Setup Git hooks
+# - Create required directories (dist/images, backups, logs)
+# - Copy .env template (if not exists)
+
+# Or run setup script directly
+./scripts/setup-dev-environment.sh
+
+# Individual setup steps (if needed)
+python3 -m venv .venv                 # Create virtual environment
+source .venv/bin/activate             # Activate virtual environment
+pip install -r requirements.txt       # Install Python dependencies
+cd frontend && npm install            # Install frontend dependencies
+```
 
 ### Development
 

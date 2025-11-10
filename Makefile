@@ -1,9 +1,14 @@
 # Blacklist Service Management Makefile
 
-.PHONY: help build up down logs clean test deploy dev prod restart health
+.PHONY: help setup build up down logs clean test deploy dev prod restart health
 
 # Default environment
 ENV ?= development
+
+# Setup commands
+setup: ## Setup complete development environment (Python + Node.js + VSCode extensions)
+	@echo "🚀 Setting up development environment..."
+	@bash scripts/setup-dev-environment.sh
 
 # Help target
 help: ## Show this help message

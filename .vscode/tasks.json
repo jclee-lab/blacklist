@@ -179,6 +179,46 @@
       }
     },
     {
+      "label": "Setup: Development Environment",
+      "type": "shell",
+      "command": "./scripts/setup-dev-environment.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Setup: Install Python Dependencies",
+      "type": "shell",
+      "command": "source .venv/bin/activate && pip install -r requirements.txt && pip install -r requirements-dev.txt",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Setup: Install Frontend Dependencies",
+      "type": "shell",
+      "command": "cd frontend && npm install",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Setup: Install VSCode Extensions",
+      "type": "shell",
+      "command": "cat .vscode/extensions.json | grep -oP '\"[^\"]+\\.[^\"]+\"' | tr -d '\"' | xargs -I {} code --install-extension {} --force",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "Package: Single Image",
       "type": "shell",
       "command": "./scripts/package-single-image.sh ${input:serviceName}",

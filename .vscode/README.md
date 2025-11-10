@@ -49,6 +49,12 @@ Comprehensive automated tasks for development workflow.
 **Health & Monitoring**:
 - `Health: Check All Services` - Health check all containers
 
+**Setup & Installation**:
+- `Setup: Development Environment` - Complete dev environment setup (all-in-one)
+- `Setup: Install Python Dependencies` - Install Python packages only
+- `Setup: Install Frontend Dependencies` - Install Node.js packages only
+- `Setup: Install VSCode Extensions` - Install recommended extensions
+
 **Package & Deploy**:
 - `Package: Single Image` - Package one Docker image for offline deployment
 - `Package: All Images` - Package all images sequentially
