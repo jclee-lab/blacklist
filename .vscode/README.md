@@ -58,6 +58,8 @@ Comprehensive automated tasks for development workflow.
 **Package & Deploy**:
 - `Package: Single Image` - Package one Docker image for offline deployment
 - `Package: All Images` - Package all images sequentially
+- `Package: Offline Dependencies` - Package Python + Node.js dependencies for offline installation
+- `Setup: Offline Environment` - Install from offline dependency packages
 
 ### `launch.json`
 Debug configurations for Flask, Pytest, and Docker.

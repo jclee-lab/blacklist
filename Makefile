@@ -1,6 +1,6 @@
 # Blacklist Service Management Makefile
 
-.PHONY: help setup build up down logs clean test deploy dev prod restart health
+.PHONY: help setup setup-offline package-deps build up down logs clean test deploy dev prod restart health
 
 # Default environment
 ENV ?= development
@@ -9,6 +9,14 @@ ENV ?= development
 setup: ## Setup complete development environment (Python + Node.js + VSCode extensions)
 	@echo "🚀 Setting up development environment..."
 	@bash scripts/setup-dev-environment.sh
+
+setup-offline: ## Setup development environment from offline packages
+	@echo "🚀 Setting up from offline packages..."
+	@bash scripts/setup-offline.sh
+
+package-deps: ## Package all dependencies for offline installation
+	@echo "📦 Packaging dependencies for offline installation..."
+	@bash scripts/package-dependencies.sh
 
 # Help target
 help: ## Show this help message

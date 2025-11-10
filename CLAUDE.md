@@ -24,6 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Setup (first time only)
 make setup                            # Complete dev environment setup
+make setup-offline                    # Setup from offline packages
+make package-deps                     # Package dependencies for offline
 
 # Most Common Operations
 make dev                              # Start development environment
@@ -73,6 +75,38 @@ python3 -m venv .venv                 # Create virtual environment
 source .venv/bin/activate             # Activate virtual environment
 pip install -r requirements.txt       # Install Python dependencies
 cd frontend && npm install            # Install frontend dependencies
+```
+
+### Offline/Air-Gapped Setup
+
+**For deployment to servers without internet access:**
+
+```bash
+# Step 1: Package dependencies (on internet-connected server)
+make package-deps
+# This will:
+# - Download Python packages (pip download)
+# - Download Node.js packages (npm + tar.gz)
+# - Create offline installation script
+# - Create compressed archive: dist/blacklist-dependencies-YYYYMMDD-HHMMSS.tar.gz
+
+# Step 2: Transfer to offline server
+scp dist/blacklist-dependencies-*.tar.gz user@offline-server:/opt/blacklist/
+
+# Step 3: Install on offline server
+ssh offline-server
+cd /opt/blacklist
+tar -xzf blacklist-dependencies-*.tar.gz
+make setup-offline
+# This will:
+# - Install Python packages from local archive
+# - Install Node.js packages from local archive
+# - Setup Git hooks
+# - Create required directories
+# - Copy .env template
+
+# Or run setup script directly
+./scripts/setup-offline.sh
 ```
 
 ### Development

@@ -237,6 +237,26 @@
         "reveal": "always",
         "panel": "dedicated"
       }
+    },
+    {
+      "label": "Package: Offline Dependencies",
+      "type": "shell",
+      "command": "./scripts/package-dependencies.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Setup: Offline Environment",
+      "type": "shell",
+      "command": "./scripts/setup-offline.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
     }
   ],
   "inputs": [
