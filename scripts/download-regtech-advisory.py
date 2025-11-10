@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH 보안 권고사항 다운로드 스크립트
 ========================================

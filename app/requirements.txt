@@ -1,4 +1,4 @@
-# 🚀 Blacklist Flask Application Dependencies
+﻿# 🚀 Blacklist Flask Application Dependencies
 # Core Flask Dependencies
 Flask==2.3.3
 Werkzeug==2.3.7

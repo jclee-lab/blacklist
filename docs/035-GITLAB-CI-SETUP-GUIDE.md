@@ -1,4 +1,4 @@
-# GitLab CI/CD Setup Guide
+﻿# GitLab CI/CD Setup Guide
 
 ## Overview
 

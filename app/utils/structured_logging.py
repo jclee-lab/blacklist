@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 스마트 로깅 시스템 - 중복 방지 및 노이즈 필터링
 Phase 2.1: Structlog 기반 구조화된 로깅

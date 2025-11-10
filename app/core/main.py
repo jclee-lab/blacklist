@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Full Flask 애플리케이션 - 완전한 웹 인터페이스 지원
 """

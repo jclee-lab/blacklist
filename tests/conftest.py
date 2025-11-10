@@ -1,4 +1,4 @@
-"""
+﻿"""
 Pytest configuration and fixtures
 ⚠️ CRITICAL: All tests use MOCK data, NEVER real credentials
 """

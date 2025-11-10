@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Database, Shield, PlusCircle, Clock, Activity, TrendingUp, Globe, History, Table2 } from 'lucide-react';
 import { useState, useEffect } from 'react';

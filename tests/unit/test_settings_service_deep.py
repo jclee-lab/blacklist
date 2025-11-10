@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Comprehensive deep unit tests for services/settings_service.py
 Target: 213 lines, 23% → 80%+ coverage

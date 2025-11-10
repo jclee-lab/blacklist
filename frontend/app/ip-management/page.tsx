@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+﻿import { Suspense } from 'react';
 import IPManagementClient from './IPManagementClient';
 
 export default async function IPManagementPage() {

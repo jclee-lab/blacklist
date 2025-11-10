@@ -1,4 +1,4 @@
-# Docker Compose Environment Guide
+﻿# Docker Compose Environment Guide
 
 **Last Updated**: 2025-11-08
 **Version**: 3.3.9

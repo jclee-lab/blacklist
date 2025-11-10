@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 스코어링 서비스 - Phase 3.2: 위협 스코어링 시스템
 IP 위협 수준을 점수화하여 차단 여부 결정

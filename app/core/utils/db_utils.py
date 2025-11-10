@@ -1,4 +1,4 @@
-"""
+﻿"""
 Database utility functions
 공통 데이터베이스 연결 및 에러 처리 유틸리티
 """

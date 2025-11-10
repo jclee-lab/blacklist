@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 WebSocket 실시간 통신 라우트
 Flask-SocketIO를 사용한 실시간 업데이트

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 통합 최적화 API 라우트 - 효율적인 단일 엔드포인트 구조
 모든 API 요청을 단일 블루프린트로 통합하여 성능 향상

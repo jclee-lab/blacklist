@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Prometheus metrics for Blacklist application
 포트폴리오용 실제 비즈니스 메트릭 수집

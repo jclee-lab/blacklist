@@ -1,4 +1,4 @@
-"""
+﻿"""
 Collection Status Manager
 수집 상태 관리
 """

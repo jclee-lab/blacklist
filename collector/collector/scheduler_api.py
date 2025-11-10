@@ -1,4 +1,4 @@
-"""
+﻿"""
 Scheduler API Endpoints
 Provides HTTP API for scheduler management
 """

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Multi-Source Collection Management API
 Manages REGTECH and SECUDIUM data collection via scheduler
 """

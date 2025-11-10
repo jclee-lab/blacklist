@@ -1,4 +1,4 @@
-# VS Code Configuration
+﻿# VS Code Configuration
 
 This directory contains VS Code workspace settings for the Blacklist Intelligence Platform.
 

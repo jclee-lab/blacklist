@@ -1,4 +1,4 @@
-"""
+﻿"""
 Security Tests - SQL Injection, CSRF, Rate Limiting, Input Validation
 
 Tests critical security features implemented in Phase 1.3:

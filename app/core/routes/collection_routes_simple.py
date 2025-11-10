@@ -1,4 +1,4 @@
-"""
+﻿"""
 Simple Collection Routes
 Collection trigger and config endpoints at /collection/*
 """

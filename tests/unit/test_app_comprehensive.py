@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive tests for Flask app initialization and configuration (app.py)
 
 Target: app/core/app.py (297 statements, 0% coverage)

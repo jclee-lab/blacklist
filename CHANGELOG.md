@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to the Blacklist Intelligence Platform will be documented in this file.
 

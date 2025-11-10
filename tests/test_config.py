@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test Configuration - Safeguards to Prevent Real API Calls
 ⚠️ CRITICAL: All tests MUST use mock data, NEVER real credentials
 """

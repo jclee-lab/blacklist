@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive tests for connection_pool_manager.py
 Target: connection_pool_manager.py (99 statements, 0% baseline)
 Phase 5.3: Connection pool manager testing

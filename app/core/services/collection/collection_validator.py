@@ -1,4 +1,4 @@
-"""
+﻿"""
 Collection Validator
 수집 데이터 검증 및 전처리
 """

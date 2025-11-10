@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for Prometheus metrics module
 Tests metrics.py with mocked Flask app and Prometheus metrics
 Target: 40% → 80%+ coverage (87 statements)

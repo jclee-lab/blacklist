@@ -1,4 +1,4 @@
-"""
+﻿"""
 Health Server for Multi-Collector Scheduler
 Provides HTTP health endpoint at :8545/health
 """

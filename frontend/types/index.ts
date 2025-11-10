@@ -1,4 +1,4 @@
-// 통계 데이터 타입
+﻿// 통계 데이터 타입
 export interface Statistics {
   total_ips: number;
   active_ips: number;

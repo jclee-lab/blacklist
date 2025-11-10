@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for SECUDIUM Collector Components
 Tests authentication, API client, and data parsing with mocks
 """

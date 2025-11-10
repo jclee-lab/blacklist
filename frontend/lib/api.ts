@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
 // API 클라이언트 설정 - Next.js API 프록시 사용
 const api = axios.create({

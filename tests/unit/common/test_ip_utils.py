@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for IP utilities module
 Tests ip_utils.py with various IP address scenarios
 Target: 0% → 80% coverage (34 statements)

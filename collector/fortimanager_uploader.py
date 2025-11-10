@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 FortiManager Automatic Uploader
 Runs every 5 minutes to upload blacklist to FortiManager

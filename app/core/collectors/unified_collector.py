@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 통합 컬렉터 기본 클래스 및 설정
 """

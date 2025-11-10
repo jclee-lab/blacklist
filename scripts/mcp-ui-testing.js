@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 🖼️ MCP UI Testing Automation
  * Implements CLAUDE.md mandatory UI testing protocol
  * Uses MCP puppeteer/playwright for screenshot verification

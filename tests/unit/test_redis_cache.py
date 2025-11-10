@@ -1,4 +1,4 @@
-"""
+﻿"""
 Redis Cache Tests
 
 Tests Redis caching implementation in BlacklistService:

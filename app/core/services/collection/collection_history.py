@@ -1,4 +1,4 @@
-"""
+﻿"""
 Collection History Manager
 수집 이력 관리
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH 게시판들 확인 - 보안 권고 데이터 찾기
 """

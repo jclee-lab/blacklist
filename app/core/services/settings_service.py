@@ -1,4 +1,4 @@
-"""
+﻿"""
 Settings Service
 Manages application settings stored in database
 Replaces .env file dependency for runtime configurable settings

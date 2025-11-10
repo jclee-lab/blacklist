@@ -1,4 +1,4 @@
-"""
+﻿"""
 새로운 통합 API - collection_api 방식 사용 (Graceful Fallback 추가)
 """
 

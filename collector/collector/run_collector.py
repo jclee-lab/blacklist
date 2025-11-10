@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Blacklist Collector Main Entry Point
 블랙리스트 수집기 메인 실행 스크립트

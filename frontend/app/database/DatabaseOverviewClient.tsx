@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Database, Table, Users, Shield, RefreshCw } from 'lucide-react';

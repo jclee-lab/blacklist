@@ -1,4 +1,4 @@
-# GitLab CI/CD AutoDevOps Implementation Summary
+﻿# GitLab CI/CD AutoDevOps Implementation Summary
 
 **Complete AutoDevOps pipeline with build, deploy, verify, and rollback capabilities**
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 스마트 PostgreSQL 연결 관리자 - 반복 오류 방지 및 로깅 개선
 """

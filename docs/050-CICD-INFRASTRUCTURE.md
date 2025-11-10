@@ -1,4 +1,4 @@
-# CI/CD Infrastructure - Synology NAS Docker
+﻿# CI/CD Infrastructure - Synology NAS Docker
 
 **Version**: 3.3.9
 **Last Updated**: 2025-11-08

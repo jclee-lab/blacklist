@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for SECUDIUM Collection API endpoints
 Tests the multi-source collection API with SECUDIUM-specific functionality
 """

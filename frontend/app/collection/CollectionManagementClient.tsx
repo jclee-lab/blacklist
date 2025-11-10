@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Settings, CheckCircle, XCircle, Play, RefreshCw, Key, AlertCircle, Lock, Unlock } from 'lucide-react';

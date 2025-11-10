@@ -1,4 +1,4 @@
-# PostgreSQL Schema Dependency & Initialization Order
+﻿# PostgreSQL Schema Dependency & Initialization Order
 
 ## 📋 Initialization Script Execution Order
 

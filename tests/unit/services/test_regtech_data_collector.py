@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for REGTECH data collector
 Tests regtech_data.py with mocked HTTP requests
 Target: 9% → 80% coverage (274 statements)

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive unit tests for DatabaseService
 Tests connection pooling, error handling, and transaction management
 """

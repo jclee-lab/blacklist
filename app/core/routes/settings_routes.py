@@ -1,4 +1,4 @@
-"""
+﻿"""
 Settings Management Routes
 API endpoints for managing system settings
 """

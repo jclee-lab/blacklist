@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for validators utility
 Tests validators.py with various IP validation scenarios
 Target: 0% → 80% coverage (31 statements)

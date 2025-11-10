@@ -1,4 +1,4 @@
-"""
+﻿"""
 Database Schema and Table Browser API
 Provides database schema information and table browsing functionality
 """

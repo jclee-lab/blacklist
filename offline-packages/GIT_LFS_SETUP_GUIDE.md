@@ -1,4 +1,4 @@
-# Git LFS Setup Guide
+﻿# Git LFS Setup Guide
 
 This directory contains pre-built Docker images tracked by Git LFS for offline deployment.
 

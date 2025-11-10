@@ -1,4 +1,4 @@
-"""
+﻿"""
 SECUDIUM API Client
 SK Shielders Security Intelligence Platform Collector
 

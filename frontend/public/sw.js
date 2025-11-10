@@ -1,4 +1,4 @@
-// Service Worker for offline support
+﻿// Service Worker for offline support
 const CACHE_NAME = 'blacklist-v1';
 const urlsToCache = [
   '/',

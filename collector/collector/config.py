@@ -1,4 +1,4 @@
-"""
+﻿"""
 Collector Configuration
 수집기 관련 설정 및 환경변수 관리
 """

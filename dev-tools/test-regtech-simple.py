@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH 간단 테스트 - 공개 데이터 확인
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Comprehensive deep unit tests for services/collection/regtech_data.py
 Target: 274 lines, 9% → 80%+ coverage

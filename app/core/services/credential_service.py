@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 인증정보 관리 서비스
 웹 UI에서 입력한 REGTECH 인증정보를 안전하게 저장하고 로드

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for error handlers utility
 Tests error_handlers.py with various exception scenarios
 Target: 0% → 100% coverage (8 statements)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Multi-Source Blacklist Data Collection Scheduler
 - Supports multiple data sources (REGTECH, SECUDIUM)

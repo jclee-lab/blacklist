@@ -1,4 +1,4 @@
-# FortiManager CLI Script
+﻿# FortiManager CLI Script
 # FortiManager에서 직접 실행됨 (5분마다)
 # Device Manager > Script에 등록
 

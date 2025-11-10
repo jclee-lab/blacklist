@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive tests for main.py - Flask application entry point
 Target: main.py (142 statements, 0% baseline)
 Phase 5.1: Entry point testing

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive API Integration Tests
 
 Tests all critical API endpoints with various scenarios:

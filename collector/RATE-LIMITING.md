@@ -1,4 +1,4 @@
-# REGTECH Collector Rate Limiting
+﻿# REGTECH Collector Rate Limiting
 
 **작성일**: 2025-10-30
 **버전**: 3.3.8

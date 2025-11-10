@@ -1,4 +1,4 @@
-"""
+﻿"""
 FortiGate/FortiManager Integration API
 Provides active IP lists and blocklists for FortiGate firewalls
 """

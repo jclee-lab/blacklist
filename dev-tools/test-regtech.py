@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH 디버깅 테스트 스크립트
 """

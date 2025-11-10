@@ -1,4 +1,4 @@
-"""
+﻿"""
 API Proxy Routes
 Forwards frontend requests from /api/proxy/collection/* to /api/collection/*
 This allows the Next.js frontend to call backend APIs through a consistent proxy pattern.

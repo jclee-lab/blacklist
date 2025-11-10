@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH Threat IP Collector for On-Premise Deployment
 Korean Financial Security Institute (금융보안원) IP Blacklist Collector

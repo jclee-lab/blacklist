@@ -1,4 +1,4 @@
-# REGTECH 보안 권고사항 다운로드 스크립트
+﻿# REGTECH 보안 권고사항 다운로드 스크립트
 
 **URL**: https://regtech.fsec.or.kr/fcti/securityAdvisory/advisoryView
 

@@ -1,4 +1,4 @@
-# Blacklist Management Platform - Frontend
+﻿# Blacklist Management Platform - Frontend
 
 Next.js 15 + TypeScript + TailwindCSS로 구축된 현대적인 프론트엔드 애플리케이션
 

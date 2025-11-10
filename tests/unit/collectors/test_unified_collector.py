@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for unified collector base classes
 Tests unified_collector.py with mocked dependencies
 Target: 55% → 80% coverage (33 statements)

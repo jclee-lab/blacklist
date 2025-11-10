@@ -1,4 +1,4 @@
-# 🛡️ REGTECH Blacklist Intelligence Platform
+﻿# 🛡️ REGTECH Blacklist Intelligence Platform
 
 > **⚠️ REPOSITORY MIGRATED**
 >

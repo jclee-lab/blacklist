@@ -1,4 +1,4 @@
-# GitLab CI/CD Quick Reference
+﻿# GitLab CI/CD Quick Reference
 
 **Fast reference for common CI/CD operations**
 

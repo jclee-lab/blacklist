@@ -1,4 +1,4 @@
-# Docker Image Registry Push Guide
+﻿# Docker Image Registry Push Guide
 
 Complete guide for building and pushing Docker images to various container registries.
 

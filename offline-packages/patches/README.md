@@ -1,4 +1,4 @@
-# Runtime Patches
+﻿# Runtime Patches
 
 **Runtime patches for deployed Blacklist systems** - Apply fixes without Docker image rebuild.
 

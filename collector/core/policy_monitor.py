@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH 포털 정책 변경 모니터링 시스템
 - 포털 구조 변경 감지

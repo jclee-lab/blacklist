@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for error tracking middleware
 Tests error_tracking.py with Flask app context and mocked metrics
 Target: 0% → 80% coverage (76 statements)

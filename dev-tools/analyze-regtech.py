@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 REGTECH 페이지 분석 - 실제 엔드포인트 찾기
 """

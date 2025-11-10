@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for Collection API endpoints
 """
 import pytest

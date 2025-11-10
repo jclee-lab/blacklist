@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for REGTECH authentication module
 Tests regtech_auth.py with mocked HTTP requests
 Target: 19% → 80% coverage (95 statements)

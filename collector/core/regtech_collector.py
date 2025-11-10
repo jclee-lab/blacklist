@@ -1,4 +1,4 @@
-"""
+﻿"""
 REGTECH Collector Service
 REGTECH 포털에서 블랙리스트 IP 수집
 """

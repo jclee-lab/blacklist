@@ -1,1 +1,1 @@
-# Helpers module for REGTECH collectors
+﻿# Helpers module for REGTECH collectors

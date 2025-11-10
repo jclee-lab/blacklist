@@ -1,4 +1,4 @@
-"""
+﻿"""
 Enhanced Collection API
 넓은 범위 수집을 위한 확장된 수집 API
 """

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for Statistics API endpoints
 """
 import pytest

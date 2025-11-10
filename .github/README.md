@@ -1,4 +1,4 @@
-# GitHub/Gitea Configuration
+﻿# GitHub/Gitea Configuration
 
 **프로젝트**: Blacklist IP Management System
 **버전**: 3.3.8

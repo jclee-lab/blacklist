@@ -1,4 +1,4 @@
-import { Activity, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+﻿import { Activity, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 
 // Server-side data fetching - matching main dashboard pattern
 async function getStats() {

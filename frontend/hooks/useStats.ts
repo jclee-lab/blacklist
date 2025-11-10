@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+﻿import { useQuery } from '@tanstack/react-query';
 import { getStats, getHealth, getCollectionHistory, getAuthStatus } from '@/lib/api';
 
 export function useStats() {

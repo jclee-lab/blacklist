@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for DatabaseService
 Tests database_service.py with real PostgreSQL connection
 Target: 27% → 80% coverage

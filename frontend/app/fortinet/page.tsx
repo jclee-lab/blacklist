@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+﻿import { Suspense } from 'react';
 import FortinetClient from './FortinetClient';
 
 export default async function FortinetPage() {

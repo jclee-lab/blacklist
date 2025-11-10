@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for Blacklist API endpoints
 """
 import pytest

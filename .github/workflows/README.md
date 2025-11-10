@@ -1,4 +1,4 @@
-# GitHub/Gitea Actions Workflows
+﻿# GitHub/Gitea Actions Workflows
 
 ## 📋 Available Workflows
 

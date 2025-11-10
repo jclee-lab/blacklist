@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 FortiManager External Resource Connector Auto-Setup
 JSON-RPC API를 사용한 완전 자동화 스크립트

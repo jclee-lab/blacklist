@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 PostgreSQL 연결 개선 모듈 - 환경변수 기반 유연한 연결 설정
 """

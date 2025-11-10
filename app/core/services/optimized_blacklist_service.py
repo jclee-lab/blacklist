@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 최적화된 블랙리스트 서비스 - 통합 API 지원
 단일 쿼리 최적화 및 효율적인 데이터 처리

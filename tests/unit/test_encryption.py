@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for encryption utility
 Tests encryption.py with mocked file system and cryptography
 Target: 0% → 80% coverage (93 statements)

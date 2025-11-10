@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 로그 순환 관리 시스템 - 대용량 JSON 로그 파일 자동 순환
 """

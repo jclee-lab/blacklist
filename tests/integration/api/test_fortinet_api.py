@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for FortiGate/FortiManager API endpoints
 """
 import pytest

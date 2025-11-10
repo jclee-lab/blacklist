@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive integration tests for blacklist_api.py endpoints
 Coverage target: 16% → 80%
 """

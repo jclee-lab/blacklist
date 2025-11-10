@@ -1,4 +1,4 @@
-"""
+﻿"""
 Advanced tests for blacklist_service.py - Phase 4.2
 Target: Increase coverage from 36% to 80%+ by testing uncovered methods
 Focus: collection_status, active_blacklist, statistics, search, schema operations

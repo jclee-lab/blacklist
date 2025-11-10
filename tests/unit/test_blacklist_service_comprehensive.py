@@ -1,4 +1,4 @@
-"""
+﻿"""
 Comprehensive unit tests for BlacklistService
 Covers Redis caching, logging, metrics, and all public methods
 """
