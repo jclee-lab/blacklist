@@ -1,0 +1,87 @@
+{
+  "Flask Route": {
+    "prefix": "flaskroute",
+    "body": [
+      "@${1:blueprint}.route('/${2:path}', methods=['${3:GET}'])",
+      "def ${4:function_name}():",
+      "    \"\"\"${5:Function description}\"\"\"",
+      "    try:",
+      "        ${6:# Implementation}",
+      "        return jsonify({'success': True}), 200",
+      "    except Exception as e:",
+      "        logger.error(f'Error in ${4}: {str(e)}')",
+      "        return jsonify({'error': str(e)}), 500"
+    ],
+    "description": "Flask route with error handling"
+  },
+  "Flask Blueprint": {
+    "prefix": "flaskbp",
+    "body": [
+      "from flask import Blueprint, jsonify, request",
+      "import logging",
+      "",
+      "logger = logging.getLogger(__name__)",
+      "${1:blueprint_name}_bp = Blueprint('${1}', __name__)",
+      "",
+      "@${1}_bp.route('/${2:path}', methods=['${3:GET}'])",
+      "def ${4:function_name}():",
+      "    \"\"\"${5:Description}\"\"\"",
+      "    pass"
+    ],
+    "description": "Flask Blueprint template"
+  },
+  "Pytest Test": {
+    "prefix": "pytest",
+    "body": [
+      "def test_${1:function_name}(${2:fixtures}):",
+      "    \"\"\"${3:Test description}\"\"\"",
+      "    # Arrange",
+      "    ${4:# Setup test data}",
+      "    ",
+      "    # Act",
+      "    ${5:# Execute function}",
+      "    ",
+      "    # Assert",
+      "    ${6:# Verify results}",
+      "    assert ${7:condition}"
+    ],
+    "description": "Pytest test function"
+  },
+  "Docker Service": {
+    "prefix": "dockerservice",
+    "body": [
+      "${1:service_name}:",
+      "  image: ${2:image_name}:${3:tag}",
+      "  container_name: ${4:container_name}",
+      "  ports:",
+      "    - \"${5:host_port}:${6:container_port}\"",
+      "  environment:",
+      "    - ${7:ENV_VAR}=${8:value}",
+      "  networks:",
+      "    - ${9:network_name}",
+      "  restart: unless-stopped"
+    ],
+    "description": "Docker Compose service definition"
+  },
+  "Logger Setup": {
+    "prefix": "logger",
+    "body": [
+      "import logging",
+      "",
+      "logger = logging.getLogger(__name__)",
+      "logger.setLevel(logging.${1:INFO})"
+    ],
+    "description": "Python logger setup"
+  },
+  "Try-Except Block": {
+    "prefix": "tryexcept",
+    "body": [
+      "try:",
+      "    ${1:# Code that might raise exception}",
+      "except ${2:Exception} as e:",
+      "    logger.error(f'${3:Error message}: {str(e)}')",
+      "    ${4:# Error handling}"
+    ],
+    "description": "Try-except with logging"
+  }
+}

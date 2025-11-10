@@ -1,0 +1,18 @@
+{
+  "git.autofetch": true,
+  "git.autorefresh": true,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.postCommitCommand": "push",
+  "git.fetchOnPull": true,
+  "git.pruneOnFetch": true,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  "git.decorations.enabled": true,
+  "git.enableStatusBarSync": true,
+  "git.useIntegratedAskPass": true,
+  "git.terminalAuthentication": true,
+  "git.autofetchPeriod": 180,
+  "git.inputValidationLength": 72,
+  "git.inputValidationSubjectLength": 50
+}

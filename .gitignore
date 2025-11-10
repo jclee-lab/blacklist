@@ -54,7 +54,9 @@ worker/worker-configuration.d.ts
 .serena/
 .playwright-mcp/
 .DS_Store
-.vscode/
+# .vscode/ - Shared workspace settings (tracked)
+.vscode/settings.local.json  # Personal overrides
+.vscode/*.code-workspace     # Personal workspace files
 .idea/
 
 # ============================================================================

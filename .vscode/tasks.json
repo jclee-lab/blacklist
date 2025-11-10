@@ -1,0 +1,48 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Git: Auto Sync",
+      "type": "shell",
+      "command": "git pull origin ${input:branch} && git push origin ${input:branch}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Git: Commit and Push",
+      "type": "shell",
+      "command": "git add -A && git commit -m '${input:commitMessage}' && git push origin ${input:branch}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Git: Pull Latest",
+      "type": "shell",
+      "command": "git pull origin ${input:branch}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "branch",
+      "type": "pickString",
+      "description": "Select branch",
+      "options": ["main", "releases", "develop"],
+      "default": "main"
+    },
+    {
+      "id": "commitMessage",
+      "type": "promptString",
+      "description": "Commit message"
+    }
+  ]
+}
