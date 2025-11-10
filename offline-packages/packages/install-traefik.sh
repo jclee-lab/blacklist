@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 ##############################################################################
 # 🛡️ Blacklist Traefik Installer (Nginx-Free Version)
 # Deploys blacklist services with Traefik reverse proxy integration

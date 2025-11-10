@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 #
 # Patch 001: Upgrade Entrypoint with Smart Patch Detection
 # ==========================================================

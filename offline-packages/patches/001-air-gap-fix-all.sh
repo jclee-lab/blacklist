@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 #
 # Air-Gap Environment All-in-One Fix
 # Version: 3.0

@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 #
 # Patch 003: Fix Credential Initialization Issues
 # ================================================

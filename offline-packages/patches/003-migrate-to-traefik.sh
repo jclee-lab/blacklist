@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 #
 # Patch 002: Migrate to Traefik Reverse Proxy
 # ==============================================
