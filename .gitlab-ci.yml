@@ -43,8 +43,10 @@ validate:environment:
     - echo "[OK] Validation passed"
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: always
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: manual
+      when: always
+    - when: never
 
 # ============================================================================
 # SECURITY STAGE - Dependency scanning
@@ -127,8 +129,10 @@ security:python-scan:
 
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: always
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: manual
+      when: always
+    - when: never
 
   allow_failure: false  # Fail pipeline on critical vulnerabilities
 
@@ -175,8 +179,10 @@ security:javascript-scan:
 
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: always
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: manual
+      when: always
+    - when: never
 
   allow_failure: true
 
@@ -222,8 +228,10 @@ security:run-tests:
 
   rules:
     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+      when: always
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: manual
+      when: always
+    - when: never
 
   allow_failure: true
 
@@ -271,8 +279,10 @@ security:run-tests:
         - requirements.txt
         - docker-compose.yml
         - .gitlab-ci.yml
+      when: always
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: manual
+      when: always
+    - when: never
 
 build:postgres:
   <<: *build-template
