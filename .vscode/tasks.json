@@ -29,6 +29,174 @@
       "presentation": {
         "reveal": "silent"
       }
+    },
+    {
+      "label": "Docker: Start Dev Environment",
+      "type": "shell",
+      "command": "make dev",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Docker: Stop All Services",
+      "type": "shell",
+      "command": "make down",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Docker: Restart Services",
+      "type": "shell",
+      "command": "make restart",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Docker: View Logs",
+      "type": "shell",
+      "command": "make logs",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Docker: Rebuild All",
+      "type": "shell",
+      "command": "make rebuild",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Test: Run All Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/ -v --cov=core --cov-report=html",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Test: Run Unit Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/unit/ -v",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Test: Run Integration Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/integration/ -v",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Test: Run Security Tests",
+      "type": "shell",
+      "command": "python -m pytest tests/security/ -v",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Database: Connect Shell",
+      "type": "shell",
+      "command": "make db-shell",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Database: Backup",
+      "type": "shell",
+      "command": "make db-backup",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Lint: Python (Flake8)",
+      "type": "shell",
+      "command": "flake8 app/core --max-line-length=100 --ignore=E203,W503",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Format: Python (Black)",
+      "type": "shell",
+      "command": "black app/core --line-length=100",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Health: Check All Services",
+      "type": "shell",
+      "command": "make health",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Package: Single Image",
+      "type": "shell",
+      "command": "./scripts/package-single-image.sh ${input:serviceName}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Package: All Images",
+      "type": "shell",
+      "command": "./scripts/package-all-sequential.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
     }
   ],
   "inputs": [
@@ -43,6 +211,19 @@
       "id": "commitMessage",
       "type": "promptString",
       "description": "Commit message"
+    },
+    {
+      "id": "serviceName",
+      "type": "pickString",
+      "description": "Select service",
+      "options": [
+        "blacklist-postgres",
+        "blacklist-redis",
+        "blacklist-collector",
+        "blacklist-app",
+        "blacklist-frontend"
+      ],
+      "default": "blacklist-app"
     }
   ]
 }

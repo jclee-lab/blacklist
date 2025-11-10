@@ -19,6 +19,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⚡ Quick Command Reference Card
+
+```bash
+# Most Common Operations
+make dev                              # Start development environment
+make logs                             # View all logs
+make db-shell                         # PostgreSQL shell
+make test                             # Run full test suite
+make health                           # Check all services
+
+# Troubleshooting
+docker logs blacklist-app             # App logs
+docker logs blacklist-postgres | grep Migration  # Migration status
+docker exec blacklist-redis redis-cli ping       # Redis health
+curl http://localhost:2542/health     # API health check
+
+# CI/CD
+git push origin main                  # Trigger build pipeline
+./scripts/package-single-image.sh blacklist-app  # Package for offline
+
+# Database
+make db-backup                        # Backup database
+make db-restore BACKUP_FILE=...       # Restore from backup
+```
+
+---
+
 ## ⚡ Essential Commands
 
 ### Development
@@ -86,9 +113,13 @@ python -m pytest tests/integration/ -v        # Integration tests
 python -m pytest tests/security/ -v           # Security tests
 python -m pytest -m "db" -v                   # Database tests
 python -m pytest -m "api" -v                  # API tests
+python -m pytest -m "slow" -v                 # Long-running tests
 
 # Test with coverage
 python -m pytest --cov=core --cov-report=html
+
+# Run tests in parallel (faster)
+python -m pytest -n auto
 
 # Manual whitelist/blacklist tests
 ./tests/test_whitelist.sh
@@ -166,7 +197,7 @@ make info
 
 ## 🏗️ Architecture & Key Patterns
 
-### Common Utilities (NEW - 2025-11-08)
+### Common Utilities (2025-11-08)
 
 **Location**: `app/core/utils/`
 
@@ -231,10 +262,35 @@ ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE;
 - Structured logging with correlation IDs
 - Blueprint-based route organization
 
-**Critical Services** (Singleton Pattern):
-- `DatabaseService` - Connection pooling, whitelist priority checks
-- `SecureCredentialService` - AES-256 encrypted credential storage
-- `BlacklistService` - IP filtering with Redis caching
+### Service Layer Architecture
+
+**Location**: `app/core/services/` (15 services)
+
+**Core Infrastructure Services**:
+- `database_service.py` (13.7 KB) - Connection pooling with exponential backoff retry, whitelist priority
+- `blacklist_service.py` (33.9 KB) - IP filtering, Redis caching, Prometheus metrics
+- `secure_credential_service.py` (17.2 KB) - AES-256-GCM encryption, audit logging
+
+**Collection & Integration Services**:
+- `collection_service.py` (19.4 KB) - Collection orchestration, error tracking
+- `scheduler_service.py` (9.9 KB) - Collection scheduling, database-driven config
+- `regtech_config_service.py` (14.5 KB) - REGTECH configuration management
+- `secudium_collector_service.py` (10.6 KB) - SECUDIUM browser automation
+- `fortimanager_push_service.py` (6.9 KB) - FortiManager integration
+
+**Business Logic Services**:
+- `analytics_service.py` (10.9 KB) - Analytics, reporting, statistics
+- `scoring_service.py` (5.3 KB) - Risk scoring, threat classification
+- `expiry_service.py` (7.3 KB) - IP expiration handling, TTL management
+- `credential_service.py` (15.3 KB) - Credential CRUD operations
+- `settings_service.py` (13.9 KB) - System settings persistence
+- `ab_test_service.py` (3.8 KB) - A/B testing utilities
+
+**Connection Pooling Details**:
+- ThreadedConnectionPool (3-8 connections)
+- Exponential backoff retry: 2s, 4s, 8s, 16s, ... (max 10 attempts)
+- Automatic test connection before returning pool
+- Per-request retry for connection acquisition
 
 ### Priority-Based IP Filtering
 
@@ -248,6 +304,56 @@ ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE;
 - Redis caching for frequently checked IPs
 - Database connection pooling
 - Prepared statement reuse
+
+### Prometheus Metrics & Observability
+
+**Location**: `app/core/app.py` (metrics exported at `/api/monitoring/metrics`)
+
+**Key Metrics Tracked**:
+- `blacklist_whitelist_hits_total` - Whitelist match counter
+- `blacklist_decisions_total{decision="allow|block"}` - Decision metrics
+- `blacklist_check_duration_seconds` - IP check latency histogram
+- `redis_cache_hits_total` - Cache performance
+- `database_connection_pool_size` - Connection pool metrics
+- `collection_success_total` - Collection success rate by source
+- `collection_error_total{source="regtech|secudium"}` - Error tracking
+
+**Structured Logging**:
+- JSON-based event logging with correlation IDs
+- Event metadata: `ip_address`, `decision`, `source`, `timestamp`
+- Log aggregation via Loki (if configured)
+
+### Multi-Source Collection Orchestration
+
+**Pattern**: `CollectorScheduler` (collector/monitoring_scheduler.py)
+
+**Architecture**:
+```
+CollectorScheduler (Main Orchestrator)
+├── REGTECH Collector Thread
+│   ├── Monitoring collection (daily)
+│   ├── Policy collection (configurable)
+│   └── Excel/CSV parsing with binary fallback
+├── SECUDIUM Collector Thread
+│   ├── Browser automation (Playwright)
+│   ├── Report deduplication (processed_reports table)
+│   └── Multi-page download handling
+└── Future Source Threads (extensible)
+```
+
+**Key Features**:
+- Database-driven configuration (per-source enable/disable)
+- Independent thread scheduling per source
+- Configurable intervals: hourly, daily, weekly
+- Error count tracking with adaptive retry intervals
+- Statistics per source (success/failure tracking)
+- Graceful shutdown with daemon thread management
+
+**Error Recovery**:
+- Exponential backoff on persistent failures
+- Automatic retry with configurable max attempts
+- Error logging to `collection_logs` table
+- Health monitoring via `/api/collection/status`
 
 ### Microservices Communication
 
@@ -277,36 +383,71 @@ blacklist/
 ├── app/                          # Flask application
 │   ├── core/
 │   │   ├── app.py                # Flask factory with CSRF/rate limiting
-│   │   ├── routes/               # API endpoints by feature
+│   │   ├── routes/               # API endpoints by feature (18 modules)
 │   │   │   ├── api/              # RESTful API routes
 │   │   │   │   ├── core_api.py   # Health, stats, monitoring
 │   │   │   │   ├── ip_management_api.py  # Blacklist/whitelist
 │   │   │   │   ├── collection_api.py     # Collection triggers
-│   │   │   │   └── system_api.py         # System management
-│   │   │   └── web/              # Web UI routes
-│   │   ├── services/             # Business logic (database, redis, credentials)
-│   │   │   ├── database_service.py       # Core DB operations
-│   │   │   ├── secure_credential_service.py  # Encrypted credentials
-│   │   │   ├── blacklist_service.py      # IP filtering logic
-│   │   │   └── collection/               # Collection orchestration
+│   │   │   │   ├── system_api.py         # System management
+│   │   │   │   └── database_api.py       # Database operations
+│   │   │   ├── blacklist_api.py (32.3 KB)  # Core blacklist endpoints
+│   │   │   ├── whitelist_api.py            # VIP protection (Phase 1)
+│   │   │   ├── statistics_api.py (29.7 KB) # Analytics & reporting
+│   │   │   ├── collection_panel.py (23.2 KB)  # Collection UI & settings
+│   │   │   ├── regtech_admin_routes.py (25.1 KB)  # REGTECH admin panel
+│   │   │   ├── settings_routes.py (14.3 KB)  # System settings UI
+│   │   │   ├── fortinet_api.py (20.6 KB)   # FortiManager integration
+│   │   │   ├── multi_collection_api.py (19.4 KB)  # Multi-source orchestration
+│   │   │   ├── migration_routes.py         # Data migration tools
+│   │   │   ├── proxy_routes.py             # Frontend proxy
+│   │   │   ├── websocket_routes.py         # WebSocket real-time updates
+│   │   │   └── web/                        # Web UI routes
+│   │   │       └── web_routes.py
+│   │   ├── services/             # Business logic (15 services)
+│   │   │   ├── database_service.py (13.7 KB)  # Core DB operations
+│   │   │   ├── blacklist_service.py (33.9 KB)  # IP filtering logic
+│   │   │   ├── secure_credential_service.py (17.2 KB)  # Encrypted credentials
+│   │   │   ├── collection_service.py (19.4 KB)  # Collection orchestration
+│   │   │   ├── analytics_service.py (10.9 KB)  # Analytics & reporting
+│   │   │   ├── scheduler_service.py (9.9 KB)  # Collection scheduling
+│   │   │   ├── settings_service.py (13.9 KB)  # System settings
+│   │   │   ├── regtech_config_service.py (14.5 KB)  # REGTECH config
+│   │   │   ├── fortimanager_push_service.py (6.9 KB)  # FortiManager
+│   │   │   ├── secudium_collector_service.py (10.6 KB)  # SECUDIUM
+│   │   │   ├── scoring_service.py (5.3 KB)  # Risk scoring
+│   │   │   ├── expiry_service.py (7.3 KB)  # IP expiration
+│   │   │   ├── credential_service.py (15.3 KB)  # Credential management
+│   │   │   └── ab_test_service.py (3.8 KB)  # A/B testing
 │   │   ├── collectors/           # Data collection modules
 │   │   │   ├── unified_collector.py  # Multi-source collector
 │   │   │   └── regtech_auth.py       # REGTECH authentication
-│   │   └── models/               # SQLAlchemy models
-│   ├── templates/                # Jinja2 templates
-│   └── Dockerfile                # Multi-stage build with docs
+│   │   ├── models/               # SQLAlchemy models
+│   │   ├── database/             # DB schema & utilities
+│   │   ├── utils/                # Helper utilities
+│   │   ├── static/               # CSS, JS, images
+│   │   └── templates/            # Jinja2 templates
+│   ├── Dockerfile                # Multi-stage build with docs
+│   ├── entrypoint.sh             # Container startup script
+│   ├── requirements.txt          # Python dependencies
+│   └── run_app.py                # Direct Python execution
 │
 ├── collector/                    # REGTECH/SECUDIUM data collection
-│   ├── monitoring_scheduler.py   # Auto-collection orchestrator
+│   ├── core/                     # Core collection logic (138.8 KB)
+│   │   ├── regtech_collector.py (44.7 KB)  # REGTECH API client
+│   │   ├── multi_source_collector.py (27.2 KB)  # Multi-source aggregation
+│   │   ├── database.py (20.4 KB)           # DB operations with retry
+│   │   ├── policy_monitor.py (19.0 KB)     # Policy change detection
+│   │   ├── data_quality_manager.py (16.7 KB)  # Data validation
+│   │   └── rate_limiter.py (10.9 KB)       # API rate limiting
+│   ├── monitoring_scheduler.py (19.6 KB)   # Auto-collection orchestrator
+│   ├── fortimanager_uploader.py            # FortiManager integration
 │   ├── collector/                # Collection modules
-│   │   ├── monitoring_scheduler.py  # Cron-based scheduler
-│   │   └── health_server.py         # Health endpoint
-│   ├── core/                     # Core collection logic
-│   │   ├── regtech_collector.py     # REGTECH API client
-│   │   ├── multi_source_collector.py  # Multi-source aggregation
-│   │   └── rate_limiter.py          # API rate limiting
-│   ├── api/health_check.py       # Health endpoint (Port 8545)
-│   └── Dockerfile                # Multi-stage build with docs
+│   │   └── health_server.py      # Health endpoint
+│   ├── api/                      # Additional APIs
+│   ├── utils/                    # Utilities
+│   ├── requirements.txt          # Collector Python dependencies
+│   ├── Dockerfile                # Multi-stage collector image
+│   └── RATE-LIMITING.md          # Rate limiting documentation
 │
 ├── frontend/                     # Next.js React frontend
 │   ├── app/                      # Next.js 13+ app directory
@@ -317,25 +458,35 @@ blacklist/
 │   ├── Dockerfile                # Installs psql + dependencies
 │   ├── docker-entrypoint-custom.sh  # Migration wrapper
 │   ├── migrations/               # Idempotent SQL migrations
-│   │   ├── V001__init_schema.sql
-│   │   └── V002__secure_credentials.sql
+│   │   ├── 000_init_complete_schema.sql  (18.8 KB)
+│   │   ├── V001__verify_schema.sql       (5.8 KB)
+│   │   └── V002__secure_credentials.sql  (8.2 KB)
 │   └── SCHEMA-DEPENDENCY.md      # Schema documentation
 │
 ├── redis/
 │   └── Dockerfile                # Redis 7 with persistence
 │
-├── scripts/                      # Automation scripts
+├── scripts/                      # Automation scripts (32 files)
 │   ├── package-single-image.sh   # Single image packaging (recommended)
 │   ├── package-all-sequential.sh # Sequential all images
 │   ├── comprehensive_test.py     # Test runner
 │   └── (FortiManager scripts)    # FortiGate integration tools
 │
 ├── tests/                        # Pytest test suite
-│   ├── unit/                     # Unit tests
+│   ├── unit/                     # Unit tests (226.8 KB total)
+│   │   ├── test_blacklist_service*.py  # 4 variants
+│   │   ├── test_encryption.py (17.9 KB)
+│   │   ├── test_redis_cache.py (15.6 KB)
+│   │   ├── test_regtech_data_deep.py (23.4 KB)
+│   │   ├── test_secudium_collector.py (19.6 KB)
+│   │   ├── test_settings_service_deep.py (26.6 KB)
 │   │   ├── services/             # Service layer tests
 │   │   ├── collectors/           # Collector tests
+│   │   ├── middleware/           # Middleware tests
+│   │   ├── monitoring/           # Monitoring tests
+│   │   ├── common/               # Common utilities tests
 │   │   └── utils/                # Utility tests
-│   ├── integration/              # Integration tests
+│   ├── integration/              # Integration tests (13.9 KB)
 │   │   ├── api/                  # API endpoint tests
 │   │   └── services/             # Service integration tests
 │   ├── security/                 # CSRF, rate limiting tests
@@ -396,14 +547,30 @@ blacklist/
 
 #### 2. API Endpoints
 
-**Blueprint Organization**:
-```python
-# app/core/routes/api/
-core_api.py          # Health, stats, monitoring
-ip_management_api.py # Blacklist/whitelist operations
-collection_api.py    # Collection triggers
-system_api.py        # System management
-```
+**Route Organization** (`app/core/routes/` - 18 modules):
+
+**API Routes** (`api/`):
+- `core_api.py` - Health, stats, monitoring
+- `ip_management_api.py` - Blacklist/whitelist operations
+- `collection_api.py` - Collection triggers
+- `system_api.py` - System management
+- `database_api.py` - Database operations
+
+**Feature Routes** (root):
+- `blacklist_api.py` (32.3 KB) - Core blacklist endpoints
+- `whitelist_api.py` - VIP protection API (Phase 1)
+- `statistics_api.py` (29.7 KB) - Analytics & reporting
+- `collection_panel.py` (23.2 KB) - Collection UI & settings
+- `regtech_admin_routes.py` (25.1 KB) - REGTECH admin panel
+- `settings_routes.py` (14.3 KB) - System settings UI
+- `fortinet_api.py` (20.6 KB) - FortiManager integration
+- `multi_collection_api.py` (19.4 KB) - Multi-source orchestration
+- `migration_routes.py` - Data migration tools
+- `proxy_routes.py` - Frontend proxy
+- `websocket_routes.py` - WebSocket real-time updates
+
+**Web UI** (`web/`):
+- `web_routes.py` - Frontend UI routes
 
 **Steps**:
 1. Add route in appropriate blueprint file
@@ -424,14 +591,23 @@ def check_ip():
 
 #### 3. Collection Modules
 
-**Adding New Data Source**:
-1. Create collector in `collector/core/` or `app/core/collectors/`
-2. Implement base collector interface
-3. Add authentication logic
-4. Register in `unified_collector.py`
-5. Add tests in `tests/unit/collectors/`
+**Core Collection Logic** (`collector/core/` - 138.8 KB):
+- `regtech_collector.py` (44.7 KB) - REGTECH API client, two-stage auth
+- `multi_source_collector.py` (27.2 KB) - Multi-source aggregation
+- `database.py` (20.4 KB) - DB operations with retry logic
+- `policy_monitor.py` (19.0 KB) - Policy change detection
+- `data_quality_manager.py` (16.7 KB) - Data validation, duplicate detection
+- `rate_limiter.py` (10.9 KB) - Token bucket algorithm, API compliance
 
-**Rate Limiting**: Use `collector/core/rate_limiter.py` for API compliance
+**Adding New Data Source**:
+1. Create collector in `collector/core/`
+2. Implement base collector interface (see `regtech_collector.py` pattern)
+3. Add authentication logic
+4. Register in `monitoring_scheduler.py` CollectorScheduler
+5. Add configuration to `collection_credentials` table
+6. Add tests in `tests/unit/collectors/`
+
+**Rate Limiting**: All collectors use `collector/core/rate_limiter.py` for API compliance
 
 #### 4. Security Considerations
 
@@ -455,8 +631,27 @@ X-XSS-Protection: 1; mode=block
 
 **Pytest Configuration** (`pytest.ini`):
 - Coverage requirement: 80%+
-- Test markers: `unit`, `integration`, `e2e`, `db`, `security`, `api`, `cache`
+- Test markers: `unit`, `integration`, `e2e`, `slow`, `db`, `security`, `api`, `cache`
 - Coverage reports: `htmlcov/`, `coverage.xml`
+
+**Test Statistics**:
+- **Unit Tests**: 13+ test files (226.8 KB)
+  - `test_blacklist_service*.py` (4 variants)
+  - `test_encryption.py` (17.9 KB) - AES-256 encryption
+  - `test_redis_cache.py` (15.6 KB)
+  - `test_regtech_data_deep.py` (23.4 KB)
+  - `test_secudium_collector.py` (19.6 KB)
+  - `test_settings_service_deep.py` (26.6 KB)
+  - Plus: collectors/, services/, middleware/, monitoring/, common/, utils/
+
+- **Integration Tests**: `tests/integration/` (13.9 KB)
+  - API endpoint testing
+  - Service integration tests
+
+- **Security Tests**: `tests/security/`
+  - CSRF protection validation
+  - Rate limiting enforcement
+  - SQL injection prevention
 
 **Test Execution**:
 ```bash
@@ -468,6 +663,7 @@ python -m pytest -m unit              # Unit tests
 python -m pytest -m integration       # Integration tests
 python -m pytest -m security          # Security tests (CSRF, rate limiting)
 python -m pytest -m db                # Database tests
+python -m pytest -m slow              # Long-running tests
 
 # Single test file
 python -m pytest tests/unit/test_database.py -v
@@ -1169,6 +1365,7 @@ csrf.exempt(health_bp)  # Exempt health checks
 - `collection_credentials` - Encrypted authentication storage (AES-256)
 - `credential_audit_log` - Credential change tracking
 - `collection_logs` - Collection history and status
+- `processed_reports` - Deduplication tracking for SECUDIUM reports
 
 **Indexes** (for performance):
 ```sql
@@ -1256,6 +1453,53 @@ curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq
 
 ---
 
+## ⚠️ Common Pitfalls & Tips
+
+### Development
+
+1. **Database Schema Changes**
+   - ❌ DON'T modify schema directly in database
+   - ✅ DO create idempotent migration in `postgres/migrations/V00N__*.sql`
+   - ✅ Test with `make restart` (migrations run automatically)
+
+2. **Service Layer Changes**
+   - ❌ DON'T create duplicate service classes
+   - ✅ DO check if existing service can be extended
+   - ✅ Use singleton pattern via `app.extensions` dictionary
+
+3. **Testing**
+   - ❌ DON'T skip pytest markers (coverage won't track correctly)
+   - ✅ DO use appropriate markers: `@pytest.mark.unit`, `@pytest.mark.integration`, etc.
+   - ✅ Maintain 80%+ coverage (enforced by CI/CD)
+
+4. **CSRF Protection**
+   - ❌ DON'T disable CSRF globally
+   - ✅ DO exempt specific blueprints: `csrf.exempt(blueprint)`
+   - ✅ Include CSRF token in forms/headers for POST/PUT/DELETE
+
+5. **Rate Limiting**
+   - ❌ DON'T bypass rate limits in production
+   - ✅ DO use `FLASK_ENV=development` to disable in local dev
+   - ✅ Adjust per-endpoint limits with `@app.limiter.limit("N per minute")`
+
+### Deployment
+
+1. **Air-Gapped Deployment**
+   - ❌ DON'T assume automatic deployment after CI/CD build
+   - ✅ DO manually package images after build succeeds
+   - ✅ Verify checksums after transferring to air-gapped server
+
+2. **Container Restart**
+   - ❌ DON'T worry about losing database schema (auto-migration handles it)
+   - ✅ DO check logs after restart: `docker logs blacklist-postgres | grep Migration`
+
+3. **Credentials**
+   - ❌ DON'T store credentials in code or docker-compose.yml
+   - ✅ DO use encrypted storage via `SecureCredentialService`
+   - ✅ Manage via UI: `https://blacklist.jclee.me/settings`
+
+---
+
 ## 📝 Code Style & Best Practices
 
 ### Python
@@ -1314,6 +1558,7 @@ def check_ip_status(ip_address: str) -> Optional[dict]:
 - `scripts/PACKAGING-GUIDE.md` - Detailed packaging instructions
 - `postgres/SCHEMA-DEPENDENCY.md` - Database schema documentation
 - `collector/README.md` - Collection service details
+- `collector/RATE-LIMITING.md` - Rate limiting documentation
 - `tests/INTEGRATION_TEST_REPORT_*.md` - Test reports
 
 **Production URLs**:
@@ -1328,6 +1573,6 @@ def check_ip_status(ip_address: str) -> Optional[dict]:
 
 ---
 
-**Version**: 3.4.1 (CI/CD Stability Enhanced)
-**Last Updated**: 2025-11-09
+**Version**: 3.3.9
+**Last Updated**: 2025-11-10
 **Maintainer**: jclee

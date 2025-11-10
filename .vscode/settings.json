@@ -6,13 +6,117 @@
   "git.postCommitCommand": "push",
   "git.fetchOnPull": true,
   "git.pruneOnFetch": true,
-  "files.autoSave": "afterDelay",
-  "files.autoSaveDelay": 1000,
   "git.decorations.enabled": true,
   "git.enableStatusBarSync": true,
   "git.useIntegratedAskPass": true,
   "git.terminalAuthentication": true,
   "git.autofetchPeriod": 180,
   "git.inputValidationLength": 72,
-  "git.inputValidationSubjectLength": 50
+  "git.inputValidationSubjectLength": 50,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/*.pyo": true,
+    "**/.pytest_cache": true,
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/.mypy_cache": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/*.egg-info": true
+  },
+  "files.watcherExclude": {
+    "**/__pycache__": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true
+  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": [
+    "--max-line-length=100",
+    "--ignore=E203,W503"
+  ],
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--line-length=100"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests",
+    "-v",
+    "--cov=core",
+    "--cov-report=html"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/app",
+    "${workspaceFolder}/collector"
+  ],
+  "editor.formatOnSave": true,
+  "editor.rulers": [100],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [100]
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2
+  },
+  "docker.dockerodeOptions": {
+    "socketPath": "/var/run/docker.sock"
+  },
+  "docker.showStartPage": false,
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "${workspaceFolder}/app:${workspaceFolder}/collector"
+  },
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/htmlcov": true,
+    "**/.pytest_cache": true
+  },
+  "sqltools.useNodeRuntime": true,
+  "sqltools.connections": [
+    {
+      "name": "Blacklist PostgreSQL",
+      "driver": "PostgreSQL",
+      "server": "localhost",
+      "port": 5432,
+      "database": "blacklist",
+      "username": "postgres",
+      "askForPassword": true
+    }
+  ]
 }
