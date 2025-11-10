@@ -32,7 +32,7 @@ log_info "Step 1: Generating SSH key pair for GitLab CI/CD..."
 
 if [ -f "${SSH_KEY_DIR}" ]; then
     log_warning "SSH key already exists at ${SSH_KEY_DIR}"
-    read -p "Regenerate? (y/N): " regenerate
+    read -r -p "Regenerate? (y/N): " regenerate
     if [[ ! $regenerate =~ ^[Yy]$ ]]; then
         log_info "Using existing SSH key"
     else
@@ -50,7 +50,7 @@ log_info ""
 log_info "Step 2: Installing public key on deployment server..."
 log_info "Target: ${DEPLOY_USER}@${DEPLOY_HOST}"
 
-read -p "Install public key on server? (Y/n): " install_key
+read -r -p "Install public key on server? (Y/n): " install_key
 if [[ ! $install_key =~ ^[Nn]$ ]]; then
     if ssh-copy-id -i "${SSH_KEY_DIR}.pub" "${DEPLOY_USER}@${DEPLOY_HOST}"; then
         log_success "Public key installed on ${DEPLOY_HOST}"
@@ -63,7 +63,7 @@ if [[ ! $install_key =~ ^[Nn]$ ]]; then
         cat "${SSH_KEY_DIR}.pub"
         log_info "  # Then: chmod 600 ~/.ssh/authorized_keys"
         echo ""
-        read -p "Press Enter after manual installation..."
+        read -r -p "Press Enter after manual installation..."
     fi
 fi
 
@@ -229,7 +229,7 @@ log_info "  Deployment Server Setup"
 log_info "═══════════════════════════════════════════════"
 echo ""
 
-read -p "Setup deployment server now? (Y/n): " setup_server
+read -r -p "Setup deployment server now? (Y/n): " setup_server
 if [[ ! $setup_server =~ ^[Nn]$ ]]; then
     log_info "Preparing deployment server at ${DEPLOY_HOST}..."
 

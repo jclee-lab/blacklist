@@ -126,7 +126,7 @@ checkpoint_resume() {
         cat "${CHECKPOINT_FILE}.log" 2>/dev/null | head -10
     fi
 
-    read -p "Resume from checkpoint? (y/N): " -n 1 -r
+    read -r -p "Resume from checkpoint? (y/N): " -n 1 -r
     echo
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -269,7 +269,7 @@ recovery_error_handler() {
     checkpoint_fail "${step_name}" "Exit code ${exit_code} at line ${line_number}"
 
     # Ask for rollback
-    read -p "Execute rollback? (y/N): " -n 1 -r
+    read -r -p "Execute rollback? (y/N): " -n 1 -r
     echo
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then

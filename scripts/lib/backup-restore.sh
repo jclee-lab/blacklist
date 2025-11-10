@@ -251,7 +251,7 @@ restore_database() {
     # Confirmation prompt
     echo
     log_warning "⚠️  WARNING: This will REPLACE the current database!"
-    read -p "Continue with restore? (type 'yes' to confirm): " -r
+    read -r -p "Continue with restore? (type 'yes' to confirm): " -r
     echo
 
     if [ "$REPLY" != "yes" ]; then
@@ -306,7 +306,7 @@ restore_redis() {
 
     # Confirmation prompt
     log_warning "⚠️  WARNING: This will REPLACE the current Redis data!"
-    read -p "Continue with restore? (type 'yes' to confirm): " -r
+    read -r -p "Continue with restore? (type 'yes' to confirm): " -r
     echo
 
     if [ "$REPLY" != "yes" ]; then

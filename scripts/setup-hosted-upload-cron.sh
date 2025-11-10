@@ -36,7 +36,7 @@ EOF
     echo ""
     echo "vi $ENV_FILE"
     echo ""
-    read -p "Press Enter after editing the file..."
+    read -r -p "Press Enter after editing the file..."
 fi
 
 # Validate environment file
@@ -75,7 +75,7 @@ echo "  4) 매시간 정각"
 echo "  5) 하루 1번 (오전 2시)"
 echo "  6) 커스텀"
 echo ""
-read -p "선택 (1-6): " schedule_choice
+read -r -p "선택 (1-6): " schedule_choice
 
 case "$schedule_choice" in
     1)
@@ -101,7 +101,7 @@ case "$schedule_choice" in
     6)
         echo ""
         echo "Cron 형식 예시: */10 * * * *  (10분마다)"
-        read -p "Cron 스케줄 입력: " CRON_SCHEDULE
+        read -r -p "Cron 스케줄 입력: " CRON_SCHEDULE
         CRON_DESC="커스텀 스케줄"
         ;;
     *)
@@ -116,7 +116,7 @@ if crontab -l 2>/dev/null | grep -q "$CRON_WRAPPER"; then
     echo "⚠️ Cron job이 이미 존재합니다:"
     crontab -l | grep "$CRON_WRAPPER"
     echo ""
-    read -p "기존 cron을 삭제하고 새로 추가하시겠습니까? (y/n): " replace
+    read -r -p "기존 cron을 삭제하고 새로 추가하시겠습니까? (y/n): " replace
 
     if [[ "$replace" == "y" || "$replace" == "Y" ]]; then
         # Remove old cron
@@ -157,7 +157,7 @@ echo "  crontab -e  # 그리고 해당 라인 삭제"
 echo ""
 
 # Ask if user wants to test now
-read -p "지금 즉시 테스트 실행하시겠습니까? (y/n): " test_now
+read -r -p "지금 즉시 테스트 실행하시겠습니까? (y/n): " test_now
 
 if [[ "$test_now" == "y" || "$test_now" == "Y" ]]; then
     echo ""

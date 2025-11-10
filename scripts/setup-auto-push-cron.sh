@@ -32,7 +32,7 @@ echo "FortiGate Auto-Push Cron Setup"
 echo "=========================================="
 echo ""
 
-read -p "FortiGate IPs (comma-separated, e.g., 192.168.1.1,192.168.1.2): " FORTIGATE_HOSTS
+read -r -p "FortiGate IPs (comma-separated, e.g., 192.168.1.1,192.168.1.2): " FORTIGATE_HOSTS
 read -sp "FortiGate API Token: " FORTIGATE_TOKEN
 echo ""
 

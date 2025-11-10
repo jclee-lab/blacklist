@@ -277,7 +277,7 @@ main() {
 
     if [ "$target_component" == "all" ]; then
         # Build all components
-        for component in "${!COMPONENTS[@]}"; do
+        for component in "${!COMPONENTS[*]}"; do
             if ! build_and_push "$component" "${COMPONENTS[$component]}" "$no_cache"; then
                 failed_components+=("$component")
             fi
@@ -286,7 +286,7 @@ main() {
         # Build single component
         if [ -z "${COMPONENTS[$target_component]}" ]; then
             log_error "Unknown component: $target_component"
-            log_info "Available components: ${!COMPONENTS[@]}"
+            log_info "Available components: ${!COMPONENTS[*]}"
             exit 1
         fi
 
