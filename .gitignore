@@ -35,6 +35,7 @@ offline-packages/backup-*/
 *.tar.gz
 *.tar.gz.sha256
 !offline-packages/*.tar.gz  # Git LFS tracked
+!release/**/*.tar.gz         # Git LFS tracked (release images)
 offline-packages/*.zip
 
 # ============================================================================

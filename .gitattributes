@@ -187,3 +187,4 @@ dist/** linguist-generated
 build/** linguist-generated
 *.tar.gz filter=lfs diff=lfs merge=lfs -text
 offline-packages/*.tar.xz filter=lfs diff=lfs merge=lfs -text
+release/**/*.tar.gz filter=lfs diff=lfs merge=lfs -text

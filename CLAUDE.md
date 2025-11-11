@@ -28,37 +28,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Note**: All development, CI/CD builds, and deployments happen through GitLab only.
 
----
+### Git LFS Setup (701MB Offline Package)
 
-## ⚡ Quick Command Reference Card
+**Critical**: The repository uses Git LFS for the 701MB offline deployment package. CloudFlare bypass is required for cloning:
 
 ```bash
-# Setup (first time only)
-make setup                            # Complete dev environment setup
-make setup-offline                    # Setup from offline packages
-make package-deps                     # Package dependencies for offline
+# Step 1: Setup CloudFlare bypass (required for LFS downloads >100MB)
+sudo bash -c 'echo "221.153.20.249 git.jclee.me" >> /etc/hosts'
 
-# Most Common Operations
-make dev                              # Start development environment
-make logs                             # View all logs
-make db-shell                         # PostgreSQL shell
-make test                             # Run full test suite
-make health                           # Check all services
+# Step 2: Disable SSL verification (self-signed certificate when using direct IP)
+git config --global http.sslVerify false
 
-# Troubleshooting
-docker logs blacklist-app             # App logs
-docker logs blacklist-postgres | grep Migration  # Migration status
-docker exec blacklist-redis redis-cli ping       # Redis health
-curl http://localhost:2542/health     # API health check
+# Step 3: Clone with LFS support
+GIT_SSL_NO_VERIFY=1 git clone --depth 1 ssh://git@git.jclee.me:2223/gitadmin/blacklist.git
+cd blacklist
 
-# CI/CD
-git push origin main                  # Trigger build pipeline
-./scripts/package-single-image.sh blacklist-app  # Package for offline
-
-# Database
-make db-backup                        # Backup database
-make db-restore BACKUP_FILE=...       # Restore from backup
+# Step 4: Verify LFS file downloaded (should be 701MB, not 134 bytes)
+ls -lh offline-packages/*.tar.gz
+sha256sum -c offline-packages/*.sha256  # Verify integrity
 ```
+
+**Why these steps?**
+- `/etc/hosts` entry bypasses CloudFlare's 100MB upload/download limit
+- SSL verification must be disabled as direct IP connection uses Traefik's self-signed certificate
+- LFS is used to avoid repository bloat while maintaining offline deployment capability
 
 ---
 
@@ -930,11 +923,6 @@ python -m pytest -n auto
 **Environment**: Air-gapped (offline deployment)
 **Workflow**: Build → Package → Transfer → Load → Deploy
 
-### 🔒 Air-Gapped Deployment Model (2025-11-09)
-
-**Environment**: Air-gapped (offline deployment)
-**Workflow**: Build → Package → Transfer → Load → Deploy
-
 **Key Principle**: NO automatic deployment. Build artifacts (Docker images) are packaged as .tar.gz files, physically transferred to air-gapped servers, then manually loaded and deployed.
 
 ### GitLab CI/CD Pipeline (Air-Gapped Build)
@@ -1284,6 +1272,14 @@ curl http://localhost:2542/health
 # 4. Fill in key, value, and flags
 # 5. Click "Add variable"
 ```
+
+**Credential Storage Comparison**:
+
+| Method | Security | Ease of Use | Auto-Start | Use Case |
+|--------|----------|-------------|------------|----------|
+| **Web UI** | ✅ Encrypted | ✅ Easy | ✅ Yes | Production (Recommended) |
+| **API** | ✅ Encrypted | ⚠️ Moderate | ✅ Yes | Automation/Scripts |
+| **Environment Variables** | ❌ Plaintext | ✅ Easy | ⚠️ Manual | Offline/Development |
 
 **Generate Secret Keys**:
 ```bash
