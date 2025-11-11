@@ -11,7 +11,12 @@
 #### VSCode 워크스페이스 설정
 ```
 .vscode/
-├── extensions.json    # 38개 권장 확장
+├── extensions.json    # 36개 권장 확장 목록
+├── extensions/        # 오프라인 설치용 .vsix 파일 (98MB)
+│   ├── eamodio.gitlens-2025.11.1016.vsix (8.0M)
+│   ├── ms-python.vscode-pylance-2025.9.100.vsix (20M)
+│   ├── tamasfe.even-better-toml-0.21.2.vsix (21M)
+│   └── ... (총 36개 확장)
 ├── settings.json      # 작업공간 설정
 ├── launch.json        # 디버그 구성
 ├── tasks.json         # 작업 자동화
@@ -19,9 +24,24 @@
 └── README.md          # VSCode 설정 가이드
 ```
 
-**용도**: 개발 환경 표준화
+**용도**: 개발 환경 표준화 + 오프라인 설치 지원
 **편집**: VSCode UI 또는 직접 수정
-**배포**: 패키징 시 자동 복사 (`scripts/package-dependencies.sh`)
+**배포**:
+- 설정 파일: 패키징 시 자동 복사 (`scripts/package-dependencies.sh`)
+- 확장 파일: Git으로 추적 (.vsix 파일, 총 98MB)
+
+**오프라인 확장 업데이트**:
+```bash
+# 최신 버전 다운로드 (인터넷 연결 필요)
+./scripts/download-vscode-extensions.sh
+
+# 다운로드된 확장 확인
+ls -lh .vscode/extensions/
+
+# Git 커밋
+git add .vscode/extensions/
+git commit -m "chore: Update VSCode extensions"
+```
 
 #### Python 통합 의존성
 ```
@@ -145,9 +165,12 @@ dist/images/                          # gitignored
 ## 🔄 설정 파일 업데이트 워크플로
 
 ### 1. VSCode 설정 변경
+
+#### A. 설정 파일 수정 (extensions.json, settings.json 등)
 ```bash
 # 1. .vscode/ 파일 직접 수정
 vim .vscode/extensions.json
+vim .vscode/settings.json
 
 # 2. Git 커밋
 git add .vscode/
@@ -156,6 +179,27 @@ git push
 
 # 3. 오프라인 패키지 재생성 (필요 시)
 make package-deps
+```
+
+#### B. VSCode 확장 업데이트 (오프라인 설치용)
+```bash
+# 1. 최신 버전 다운로드 (인터넷 연결 필요)
+./scripts/download-vscode-extensions.sh
+
+# 2. 다운로드 확인
+ls -lh .vscode/extensions/
+du -sh .vscode/extensions/
+
+# 3. Git 커밋
+git add .vscode/extensions/
+git commit -m "chore: Update VSCode extensions to latest versions"
+git push
+
+# 4. 오프라인 서버에서 설치
+cd .vscode/extensions
+for ext in *.vsix; do
+    code --install-extension "$ext" --force
+done
 ```
 
 ### 2. Python 의존성 추가
