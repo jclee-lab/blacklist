@@ -35,6 +35,10 @@ if [ ! -d "dist/dependencies" ]; then
 fi
 
 echo "📦 Installing from offline packages..."
+echo "   → Python dependencies (93 packages)"
+echo "   → Node.js dependencies (124 packages)"
+echo "   → VSCode workspace configuration"
+echo ""
 cd dist/dependencies
 ./install-offline.sh
 cd ../..

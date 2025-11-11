@@ -6,11 +6,11 @@
 ENV ?= development
 
 # Setup commands
-setup: ## Setup complete development environment (Python + Node.js + VSCode extensions)
+setup: ## Setup complete development environment (Python + Node.js + VSCode config + extensions)
 	@echo "🚀 Setting up development environment..."
 	@bash scripts/setup-dev-environment.sh
 
-setup-offline: ## Setup development environment from offline packages
+setup-offline: ## Setup development environment from offline packages (Python + Node.js + VSCode)
 	@echo "🚀 Setting up from offline packages..."
 	@bash scripts/setup-offline.sh
 

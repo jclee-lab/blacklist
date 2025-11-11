@@ -77,24 +77,62 @@ else
 fi
 
 echo ""
-echo "📦 Step 3: Installing VSCode extensions..."
+echo "📦 Step 3: Setting up VSCode workspace configuration..."
+if [ ! -d ".vscode" ]; then
+    print_warning ".vscode directory not found, creating from offline package if available..."
+
+    # Try to copy from offline package first
+    if [ -d "dist/dependencies/.vscode" ]; then
+        cp -r dist/dependencies/.vscode .vscode
+        print_status "VSCode configuration copied from offline package"
+    else
+        print_warning "No offline .vscode package found"
+        print_warning "Please ensure .vscode directory exists in project root"
+    fi
+else
+    print_status "VSCode workspace configuration exists"
+
+    # Verify essential files exist
+    missing_files=()
+    [ ! -f ".vscode/extensions.json" ] && missing_files+=("extensions.json")
+    [ ! -f ".vscode/settings.json" ] && missing_files+=("settings.json")
+    [ ! -f ".vscode/launch.json" ] && missing_files+=("launch.json")
+    [ ! -f ".vscode/tasks.json" ] && missing_files+=("tasks.json")
+
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        print_warning "Missing VSCode files: ${missing_files[*]}"
+
+        # Try to restore from offline package
+        if [ -d "dist/dependencies/.vscode" ]; then
+            for file in "${missing_files[@]}"; do
+                if [ -f "dist/dependencies/.vscode/$file" ]; then
+                    cp "dist/dependencies/.vscode/$file" ".vscode/$file"
+                    print_status "Restored $file from offline package"
+                fi
+            done
+        fi
+    fi
+fi
+
+echo ""
+echo "📦 Step 4: Installing VSCode extensions..."
 if command -v code &> /dev/null; then
     if [ -f ".vscode/extensions.json" ]; then
         print_status "Reading recommended extensions..."
-        
+
         # Extract extension IDs from extensions.json
         extensions=$(grep -oP '"[^"]+\.[^"]+"' .vscode/extensions.json | tr -d '"')
-        
+
         total=$(echo "$extensions" | wc -l)
         current=0
-        
+
         for ext in $extensions; do
             current=$((current + 1))
             echo -ne "\r  Installing $current/$total: $ext..."
             code --install-extension "$ext" --force &> /dev/null || true
         done
         echo ""
-        
+
         print_status "VSCode extensions installed"
     else
         print_warning ".vscode/extensions.json not found, skipping VSCode setup"
@@ -105,7 +143,7 @@ else
 fi
 
 echo ""
-echo "📦 Step 4: Setting up Git hooks..."
+echo "📦 Step 5: Setting up Git hooks..."
 if [ -d ".git" ]; then
     if [ -f "scripts/install-git-hooks.sh" ]; then
         print_status "Installing Git hooks..."
@@ -119,14 +157,14 @@ else
 fi
 
 echo ""
-echo "📦 Step 5: Creating required directories..."
+echo "📦 Step 6: Creating required directories..."
 mkdir -p dist/images
 mkdir -p backups
 mkdir -p logs
 print_status "Directories created"
 
 echo ""
-echo "📦 Step 6: Copying environment template..."
+echo "📦 Step 7: Copying environment template..."
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
     cp .env.example .env
     print_status ".env file created from template"
