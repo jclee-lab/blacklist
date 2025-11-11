@@ -90,7 +90,17 @@ else
 fi
 
 echo ""
-echo "📦 Step 3: Creating installation script for offline environment..."
+echo "📦 Step 3: Packaging VSCode settings..."
+if [ -d ".vscode" ]; then
+    print_status "Copying VSCode settings..."
+    cp -r .vscode "$DIST_DIR/.vscode"
+    print_status "VSCode settings packaged"
+else
+    print_warning ".vscode directory not found"
+fi
+
+echo ""
+echo "📦 Step 4: Creating installation script for offline environment..."
 cat > "$DIST_DIR/install-offline.sh" << 'INSTALL_SCRIPT'
 #!/bin/bash
 set -e
