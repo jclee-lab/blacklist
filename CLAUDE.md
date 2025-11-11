@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **⚠️ Repository Migration Notice**: This project has migrated from GitHub to GitLab (https://gitlab.jclee.me/jclee/blacklist). All CI/CD pipelines, container registry, and development workflows now use GitLab infrastructure.
+
 ---
 
 ## 🎯 Project Overview
@@ -15,7 +17,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `blacklist-redis` - Redis 7 cache
 - `blacklist-frontend` - Next.js frontend (Port 2543)
 
-**Repository**: GitLab (https://gitlab.jclee.me/jclee/blacklist)
+**Repository Status**:
+- **GitLab** (PRIMARY): https://gitlab.jclee.me/jclee/blacklist
+  - ✅ Active development
+  - ✅ CI/CD pipeline (`.gitlab-ci.yml`)
+  - ✅ Container Registry (registry.jclee.me)
+- **GitHub** (Mirror): https://github.com/qws941/blacklist
+  - ℹ️ Read-only mirror
+  - ❌ No CI/CD (GitHub Actions disabled)
+
+**Note**: All development, CI/CD builds, and deployments happen through GitLab only.
 
 ---
 
@@ -47,6 +58,68 @@ git push origin main                  # Trigger build pipeline
 # Database
 make db-backup                        # Backup database
 make db-restore BACKUP_FILE=...       # Restore from backup
+```
+
+---
+
+## ⚡ Quick Command Reference Card
+
+### Most Common Operations
+```bash
+# Development
+make dev                              # Start development environment
+make logs                             # View all logs
+make logs-app                         # App logs only
+make health                           # Check all services
+
+# Testing
+make test                             # Run full test suite
+python -m pytest -m unit              # Unit tests only
+python -m pytest -m api               # API tests only
+python -m pytest -m security          # Security tests
+
+# Database
+make db-shell                         # PostgreSQL shell
+make db-backup                        # Backup database
+make db-restore BACKUP_FILE=...       # Restore from backup
+
+# Troubleshooting
+docker logs blacklist-app             # App logs
+docker logs blacklist-postgres | grep Migration  # Migration status
+docker exec blacklist-redis redis-cli ping       # Redis health
+curl http://localhost:2542/health     # API health check
+
+# CI/CD
+git push origin main                  # Trigger build pipeline
+./scripts/package-single-image.sh blacklist-app  # Package for offline
+```
+
+### Key Project Locations
+```bash
+# Source code
+app/core/routes/              # API routes (18 blueprint modules)
+app/core/services/            # Business logic (15 services)
+app/core/collectors/          # Data collection modules
+collector/core/               # Collection logic (6 modules, 138.8 KB)
+
+# Tests
+tests/unit/                   # Unit tests (226.8 KB, 13+ files)
+tests/integration/            # Integration tests
+tests/security/               # Security tests (CSRF, rate limiting)
+
+# Configuration
+docker-compose.yml            # Production config (symlink to .prod.yml)
+.gitlab-ci.yml                # CI/CD pipeline (air-gapped build)
+postgres/migrations/          # Auto-applied migrations
+```
+
+### Key Files
+```bash
+app/core/app.py               # Flask factory (CSRF, rate limiting)
+app/core/services/database_service.py  # DB connection pool
+app/core/services/blacklist_service.py # IP filtering logic
+collector/monitoring_scheduler.py      # Auto-collection orchestrator
+Makefile                      # Development commands
 ```
 
 ---
@@ -163,26 +236,94 @@ git push origin main
 
 ### Testing
 
+**Pytest Configuration** (`pytest.ini`):
+- Coverage requirement: 80%+
+- Test markers: `unit`, `integration`, `e2e`, `slow`, `db`, `security`, `api`, `cache`
+- Coverage reports: `htmlcov/`, `coverage.xml`
+
+**Test Statistics**:
+- **Unit Tests**: 13+ test files (226.8 KB total)
+  - `test_blacklist_service*.py` (4 variants)
+  - `test_encryption.py` (17.9 KB) - AES-256 encryption tests
+  - `test_redis_cache.py` (15.6 KB)
+  - `test_regtech_data_deep.py` (23.4 KB)
+  - `test_secudium_collector.py` (19.6 KB)
+  - `test_settings_service_deep.py` (26.6 KB)
+  - Plus: collectors/, services/, middleware/, monitoring/, common/, utils/
+
+- **Integration Tests**: `tests/integration/` (13.9 KB)
+  - API endpoint testing
+  - Service integration tests
+
+- **Security Tests**: `tests/security/`
+  - CSRF protection validation
+  - Rate limiting enforcement
+  - SQL injection prevention
+
+**Test Execution**:
 ```bash
-# Run comprehensive test suite
-make test
+# All tests with coverage
+python -m pytest tests/ -v --cov=core --cov-report=html
 
-# Run specific test types
-python -m pytest tests/ -v                    # All pytest tests
-python -m pytest tests/unit/ -v               # Unit tests only
-python -m pytest tests/integration/ -v        # Integration tests
-python -m pytest tests/security/ -v           # Security tests
-python -m pytest -m "db" -v                   # Database tests
-python -m pytest -m "api" -v                  # API tests
-python -m pytest -m "slow" -v                 # Long-running tests
+# By marker (recommended)
+python -m pytest -m unit              # Unit tests only
+python -m pytest -m integration       # Integration tests
+python -m pytest -m security          # Security tests (CSRF, rate limiting)
+python -m pytest -m db                # Database tests
+python -m pytest -m api               # API endpoint tests
+python -m pytest -m cache             # Redis cache tests
+python -m pytest -m slow              # Long-running tests
 
-# Test with coverage
-python -m pytest --cov=core --cov-report=html
+# By directory
+python -m pytest tests/unit/ -v
+python -m pytest tests/integration/ -v
+python -m pytest tests/security/ -v
 
-# Run tests in parallel (faster)
+# Single test file
+python -m pytest tests/unit/test_database.py -v
+
+# Parallel execution (faster)
 python -m pytest -n auto
 
-# Manual whitelist/blacklist tests
+# Verbose with output
+python -m pytest -v -s
+```
+
+**Pytest Test Markers** (`pytest.ini`):
+
+Test organization uses markers for selective execution:
+- `@pytest.mark.unit` - Fast unit tests (mocked dependencies)
+- `@pytest.mark.integration` - Integration tests (real database/Redis)
+- `@pytest.mark.security` - Security tests (CSRF, rate limiting, SQL injection)
+- `@pytest.mark.db` - Database-specific tests
+- `@pytest.mark.api` - API endpoint tests
+- `@pytest.mark.cache` - Redis cache tests
+- `@pytest.mark.slow` - Long-running tests (collection simulations)
+- `@pytest.mark.e2e` - End-to-end workflow tests
+
+**Usage Examples**:
+```bash
+# Run only fast unit tests
+python -m pytest -m "unit and not slow" -v
+
+# Run database and API tests together
+python -m pytest -m "db or api" -v
+
+# Exclude slow tests
+python -m pytest -m "not slow" -v
+
+# Run all integration tests except slow ones
+python -m pytest -m "integration and not slow" -v
+```
+
+**Makefile Commands**:
+```bash
+make test                     # Run comprehensive test suite
+make test-endpoints           # Test API endpoints only
+```
+
+**Manual whitelist/blacklist tests**:
+```bash
 ./tests/test_whitelist.sh
 ```
 
@@ -282,35 +423,27 @@ make info
 
 ### Auto-Migrating Database System
 
-**Critical Pattern**: PostgreSQL runs migrations on EVERY container restart (not just first time).
+**Critical Behavior**: PostgreSQL automatically runs all migrations on **every container restart**, not just the first time. This prevents the common "DB schema lost on restart" problem.
 
-**Implementation**:
-- **Custom Entrypoint**: `postgres/docker-entrypoint-custom.sh` wraps official postgres entrypoint
-- **Migration Directory**: `postgres/migrations/*.sql` mounted read-only into container
-- **Execution Flow**:
-  1. Start postgres in background
-  2. Wait for readiness (30 attempts, 1s each)
-  3. Run all `V*.sql` files in order
-  4. Shutdown background instance
-  5. Start postgres normally via official entrypoint
+**How It Works**:
+1. Custom entrypoint (`postgres/docker-entrypoint-custom.sh`) wraps the official PostgreSQL startup
+2. Executes all `.sql` files in `postgres/migrations/` directory in alphanumeric order
+3. All migrations use idempotent patterns (`IF NOT EXISTS`, `IF EXISTS`)
+4. After migrations complete, starts PostgreSQL normally
 
-**Idempotent Migrations**: All SQL uses `IF NOT EXISTS` / `IF EXISTS` patterns.
-
-**Example Migration**:
+**Migration Example** (`postgres/migrations/V001__init_schema.sql`):
 ```sql
--- V001__init_schema.sql
 CREATE TABLE IF NOT EXISTS blacklist_ips (
     id SERIAL PRIMARY KEY,
     ip_address VARCHAR(45) NOT NULL UNIQUE,
     ...
 );
 
--- V002__secure_credentials.sql
 ALTER TABLE collection_credentials
 ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE;
 ```
 
-**Why This Pattern**: Ensures schema consistency across container restarts, prevents "DB schema lost on restart" issues.
+**Key Benefit**: `make restart` is safe - your schema always matches the migration files.
 
 ### Flask Application Factory Pattern
 
@@ -322,6 +455,54 @@ ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE;
 - Security headers middleware
 - Structured logging with correlation IDs
 - Blueprint-based route organization
+
+### Route Organization (18 Blueprint Modules)
+
+**Location**: `app/core/routes/`
+
+**Structure**:
+```
+routes/
+├── api/                      # RESTful API endpoints
+│   ├── core_api.py           # Health, stats, monitoring
+│   ├── ip_management_api.py  # Blacklist/whitelist operations
+│   ├── collection_api.py     # Collection triggers
+│   ├── system_api.py         # System management
+│   └── database_api.py       # Database operations
+├── web/                      # Web UI routes
+│   └── web_routes.py         # HTML pages
+├── blacklist_api.py (32.3 KB) # Main blacklist operations
+├── whitelist_api.py          # VIP protection (Phase 1)
+├── collection_panel.py (23.2 KB)  # Collection control panel
+├── fortinet_api.py (20.6 KB) # FortiGate/FortiManager integration
+├── statistics_api.py (29.7 KB)    # Statistics endpoints
+├── settings_routes.py (14.3 KB)   # Settings management
+├── regtech_admin_routes.py (25.1 KB) # REGTECH admin panel
+├── multi_collection_api.py (19.4 KB) # Multi-source orchestration
+├── migration_routes.py       # Data migration tools
+├── proxy_routes.py           # Frontend proxy
+└── websocket_routes.py       # WebSocket real-time updates
+```
+
+**Blueprint Pattern**:
+- Each file defines a Flask Blueprint
+- Blueprints registered in `app.py::create_app()`
+- Centralized route organization by feature
+- CSRF and rate limiting applied per blueprint
+
+**Example**:
+```python
+# app/core/routes/api/ip_management_api.py
+from flask import Blueprint
+
+ip_management_bp = Blueprint('ip_management', __name__)
+
+@ip_management_bp.route('/api/blacklist/check', methods=['GET'])
+@app.limiter.limit("50 per minute")
+def check_ip():
+    # Implementation
+    pass
+```
 
 ### Service Layer Architecture
 
@@ -749,7 +930,19 @@ python -m pytest -n auto
 **Environment**: Air-gapped (offline deployment)
 **Workflow**: Build → Package → Transfer → Load → Deploy
 
+### 🔒 Air-Gapped Deployment Model (2025-11-09)
+
+**Environment**: Air-gapped (offline deployment)
+**Workflow**: Build → Package → Transfer → Load → Deploy
+
+**Key Principle**: NO automatic deployment. Build artifacts (Docker images) are packaged as .tar.gz files, physically transferred to air-gapped servers, then manually loaded and deployed.
+
 ### GitLab CI/CD Pipeline (Air-Gapped Build)
+
+**Status**: ✅ Active (GitLab only, no GitHub Actions)
+**Pipeline**: `.gitlab-ci.yml`
+**Registry**: registry.jclee.me (GitLab Container Registry)
+**Pipeline URL**: https://gitlab.jclee.me/jclee/blacklist/-/pipelines
 
 **Workflow**: `.gitlab-ci.yml`
 
@@ -791,6 +984,44 @@ python -m pytest -n auto
 Manual offline transfer required (see below)
 ```
 
+**Pipeline Visualization**:
+```
+┌─────────────┐
+│  VALIDATE   │ ← Environment checks
+└──────┬──────┘
+       │
+┌──────▼──────────────────────────────────────────┐
+│  SECURITY (Parallel)                            │
+├─────────────┬─────────────┬─────────────────────┤
+│ Python Scan │  JS Scan    │  Run Tests         │
+│ (safety)    │ (npm audit) │ (pytest + coverage)│
+└──────┬──────┴──────┬──────┴──────┬──────────────┘
+       │             │             │
+       └──────┬──────┴──────┬──────┘
+              │             │
+       ┌──────▼─────────────▼──────────────────────┐
+       │  BUILD (Parallel - 5 containers)          │
+       ├──────┬──────┬──────┬──────┬───────────────┤
+       │ Post │ Redis│ Coll │ App  │ Frontend      │
+       │ gres │      │ ector│      │               │
+       └──┬───┴───┬──┴───┬──┴───┬──┴───┬───────────┘
+          │       │      │      │      │
+          └───────┴──────┴──────┴──────┘
+                      │
+               ┌──────▼──────┐
+               │ PUSH IMAGES │
+               │  (Registry) │
+               └──────┬──────┘
+                      │
+               ┌──────▼──────┐
+               │   CLEANUP   │
+               │  (Manual)   │
+               └─────────────┘
+
+⚠️  NO AUTOMATIC DEPLOYMENT
+Manual offline transfer required (see Air-Gapped Deployment Workflow)
+```
+
 **Pipeline Stages**:
 1. **Validate** - Environment checks
 2. **Security** - Python (safety) + JavaScript (npm audit) + pytest
@@ -807,17 +1038,17 @@ Manual offline transfer required (see below)
    - Old image cleanup
    - Scheduled cleanup jobs
 
-**Triggers**:
-- Auto: Push to `main`/`master` branch
-- Auto: Merge request events
-- Manual: Anytime via GitLab UI
+**Auto-triggers**:
+- Push to `main` or `master` branch
+- Merge request events
+- Manual pipeline runs (GitLab UI)
 
 **Key Features**:
-- ✅ Parallel builds (5 containers simultaneously)
-- ✅ Build cache optimization with `DOCKER_BUILDKIT=1`
-- ✅ **Critical vulnerability blocking** (pipeline fails on critical CVEs)
-- ✅ Automatic registry push
-- ✅ No automatic deployment (air-gapped security)
+- ✅ Air-gapped deployment (build → package → transfer → load)
+- ✅ Security blocking on critical vulnerabilities
+- ✅ Parallel container builds (5 simultaneous)
+- ✅ Retry logic for transient failures
+- ❌ No automatic deployment (manual offline transfer required)
 
 ### Air-Gapped Deployment Workflow
 
@@ -1269,43 +1500,6 @@ curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
 # Trigger cleanup:registry job from GitLab UI
 ```
 
-### Offline Deployment (Image Packaging)
-
-**Use Case**: Deploy to servers without internet access or air-gapped environments.
-
-**Packaging Commands**:
-```bash
-# Single image (recommended - stable, 1-7 min)
-./scripts/package-single-image.sh blacklist-app
-
-# All images sequentially
-./scripts/package-all-sequential.sh
-
-# Check packaged files
-ls -lh dist/images/
-```
-
-**Deployment Workflow**:
-```bash
-# 1. Package on dev server
-./scripts/package-single-image.sh blacklist-app
-
-# 2. Transfer to production
-scp dist/images/*.tar.gz user@prod-server:/opt/blacklist/
-
-# 3. Load on production
-ssh prod-server
-cd /opt/blacklist
-for f in *.tar.gz; do
-    gunzip -c "$f" | docker load
-done
-
-# 4. Start services
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-**Compression Efficiency**: ~66% reduction (2.4GB → 815MB total)
-
 ### Environment Variables
 
 **Required**:
@@ -1440,6 +1634,114 @@ CREATE INDEX idx_collection_date ON collection_logs(collection_date);
 
 ---
 
+## 🔍 Common Development Patterns
+
+### Adding New API Endpoint
+
+**Example**: Add IP lookup endpoint
+
+```python
+# Step 1: Create route in app/core/routes/api/ip_management_api.py
+from flask import Blueprint, jsonify, request
+from core.services.blacklist_service import blacklist_service
+
+ip_management_bp = Blueprint('ip_management', __name__)
+
+@ip_management_bp.route('/api/ip/lookup/<ip>', methods=['GET'])
+@app.limiter.limit("50 per minute")  # Rate limit
+def lookup_ip(ip):
+    """Look up IP information"""
+    # Validation
+    if not validate_ip(ip):
+        return jsonify({'error': 'Invalid IP'}), 400
+
+    # Business logic (service layer)
+    result = blacklist_service.lookup(ip)
+
+    return jsonify(result), 200
+
+# Step 2: Register blueprint in app/core/app.py::create_app()
+from routes.api.ip_management_api import ip_management_bp
+app.register_blueprint(ip_management_bp)
+
+# Step 3: Add tests in tests/integration/api/test_ip_management.py
+@pytest.mark.api
+@pytest.mark.integration
+def test_lookup_ip(client):
+    response = client.get('/api/ip/lookup/1.2.3.4')
+    assert response.status_code == 200
+    assert 'ip_address' in response.json
+```
+
+### Adding Database Service
+
+**Example**: Add user management service
+
+```python
+# Step 1: Create service in app/core/services/user_service.py
+from services.database_service import db_service
+
+class UserService:
+    def __init__(self):
+        self.db = db_service
+
+    def get_user(self, user_id):
+        """Get user by ID"""
+        query = "SELECT * FROM users WHERE id = %s"
+        return self.db.execute_query(query, (user_id,))
+
+# Singleton pattern (in app.py)
+user_service = UserService()
+
+# Step 2: Use in routes
+from services.user_service import user_service
+user = user_service.get_user(123)
+```
+
+### Common Utilities (2025-11-08)
+
+**Database Utilities** (`app/core/utils/db_utils.py`):
+```python
+from utils.db_utils import execute_query, execute_write
+
+# Query with context manager
+result = execute_query(
+    "SELECT * FROM blacklist_ips WHERE country = %s",
+    ('CN',)
+)
+
+# Write operation
+execute_write(
+    "INSERT INTO whitelist_ips (ip_address, reason) VALUES (%s, %s)",
+    ('192.168.1.100', 'VIP customer')
+)
+```
+
+**Redis Caching** (`app/core/utils/cache_utils.py`):
+```python
+from utils.cache_utils import CacheManager, cached
+
+cache = CacheManager()
+
+# Manual cache
+cache.set('key', {'data': 'value'}, expire=3600)
+data = cache.get('key')
+
+# Decorator-based caching
+@cached(expire=300)
+def expensive_operation(param):
+    # Heavy computation
+    return result
+```
+
+**Benefits**:
+- Eliminates code duplication across services
+- Standardizes database connection handling
+- Centralizes error handling patterns
+- Improves maintainability and testability
+
+---
+
 ## 🛠️ Troubleshooting
 
 ### Container Not Starting
@@ -1475,10 +1777,10 @@ make up
 make logs-collector
 
 # Verify credentials
-# Access settings UI: https://blacklist.jclee.me/settings
+# Access settings UI: https://blacklist.nxtd.co.kr/settings
 
 # Trigger manual collection
-curl -X POST https://blacklist.jclee.me/collection-panel/trigger \
+curl -X POST https://blacklist.nxtd.co.kr/collection-panel/trigger \
   -H "Content-Type: application/json" \
   -d '{"source": "regtech", "start_date": "2025-01-01", "end_date": "2025-01-10"}'
 ```
@@ -1510,6 +1812,159 @@ curl -f https://blacklist.nxtd.co.kr/health
 
 # Full diagnostic
 curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq
+```
+
+---
+
+## 🔍 Common Debugging Workflows
+
+### 1. Container Won't Start
+
+**Symptoms**: `docker-compose up -d` fails or container exits immediately
+
+**Debug Steps**:
+```bash
+# 1. Check container status
+docker-compose ps
+
+# 2. View container logs (last 50 lines)
+docker-compose logs --tail=50 blacklist-app
+docker-compose logs --tail=50 blacklist-postgres
+
+# 3. Check for port conflicts
+netstat -tulpn | grep -E '2542|5432|6379|8545'
+
+# 4. Verify environment variables
+docker-compose config | grep -A5 environment
+
+# 5. Test database connectivity
+docker exec blacklist-postgres pg_isready -U postgres
+
+# 6. Check disk space
+df -h
+docker system df
+```
+
+### 2. Database Connection Failures
+
+**Symptoms**: "Connection refused" or "Connection timeout" errors
+
+**Debug Steps**:
+```bash
+# 1. Verify PostgreSQL is running
+docker-compose ps blacklist-postgres
+
+# 2. Check PostgreSQL logs for errors
+docker logs blacklist-postgres | tail -50
+
+# 3. Test connection from app container
+docker exec blacklist-app psql -h blacklist-postgres -U postgres -d blacklist -c "SELECT 1"
+
+# 4. Verify network connectivity
+docker network inspect blacklist-network
+
+# 5. Check connection pool status
+curl http://localhost:2542/api/monitoring/metrics | grep pool
+```
+
+### 3. Collection Service Not Running
+
+**Symptoms**: No new data being collected, collector health check fails
+
+**Debug Steps**:
+```bash
+# 1. Check collector service status
+docker-compose ps blacklist-collector
+
+# 2. View collector logs (look for errors)
+docker logs blacklist-collector --tail=100
+
+# 3. Check collector health endpoint
+curl http://localhost:8545/health
+
+# 4. Verify REGTECH credentials are configured
+docker exec blacklist-app python -c "from core.services.credential_service import CredentialService; print(CredentialService.get_credentials('regtech'))"
+
+# 5. Check collection schedule status
+curl http://localhost:2542/api/collection/status | jq
+
+# 6. Manually trigger collection (for testing)
+curl -X POST http://localhost:2542/api/collection/regtech/trigger \
+  -H "Content-Type: application/json" \
+  -d '{"start_date": "2025-11-01", "end_date": "2025-11-10"}'
+```
+
+### 4. Rate Limiting Issues
+
+**Symptoms**: "429 Too Many Requests" errors
+
+**Debug Steps**:
+```bash
+# 1. Check Redis connection
+docker exec blacklist-redis redis-cli ping
+
+# 2. View current rate limit keys
+docker exec blacklist-redis redis-cli keys "LIMITER*"
+
+# 3. Check specific IP rate limit
+docker exec blacklist-redis redis-cli GET "LIMITER:192.168.1.100"
+
+# 4. Clear rate limits for testing (development only)
+docker exec blacklist-redis redis-cli FLUSHDB
+
+# 5. Verify rate limit configuration
+grep -r "limiter.limit" app/core/routes/
+```
+
+### 5. CI/CD Pipeline Failures
+
+**Symptoms**: Build fails, tests don't pass, image push errors
+
+**Debug Steps**:
+```bash
+# 1. Check pipeline status
+# Visit: https://gitlab.jclee.me/jclee/blacklist/-/pipelines
+
+# 2. Download job artifacts
+curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+  https://gitlab.jclee.me/api/v4/projects/<id>/jobs/<job_id>/artifacts/download
+
+# 3. Reproduce build locally
+docker build -t test-build -f app/Dockerfile app/
+
+# 4. Run tests locally
+make test
+
+# 5. Check GitLab runner status
+# Visit: https://gitlab.jclee.me/jclee/blacklist/-/settings/ci_cd#runners
+
+# 6. View job logs
+# Visit: https://gitlab.jclee.me/jclee/blacklist/-/jobs/<job_id>
+```
+
+### 6. Memory or Performance Issues
+
+**Symptoms**: Slow response times, high memory usage, container OOM kills
+
+**Debug Steps**:
+```bash
+# 1. Check resource usage
+docker stats --no-stream
+
+# 2. View connection pool metrics
+curl http://localhost:2542/api/monitoring/metrics | grep -E "pool|connection"
+
+# 3. Check Redis memory usage
+docker exec blacklist-redis redis-cli INFO memory
+
+# 4. Analyze slow queries
+docker exec blacklist-postgres psql -U postgres -d blacklist -c "SELECT * FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 10"
+
+# 5. Profile Flask app (development only)
+# Add profiling middleware in app/core/app.py
+
+# 6. Check for memory leaks
+docker exec blacklist-app python -c "import psutil; print(psutil.virtual_memory())"
 ```
 
 ---
@@ -1557,7 +2012,7 @@ curl -s https://blacklist.nxtd.co.kr/api/monitoring/metrics | jq
 3. **Credentials**
    - ❌ DON'T store credentials in code or docker-compose.yml
    - ✅ DO use encrypted storage via `SecureCredentialService`
-   - ✅ Manage via UI: `https://blacklist.jclee.me/settings`
+   - ✅ Manage via UI: `https://blacklist.nxtd.co.kr/settings`
 
 ---
 
