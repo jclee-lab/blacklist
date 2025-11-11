@@ -75,6 +75,7 @@ history_backup/
 docs/*
 !docs/0*-*.md
 !docs/GITLAB-CI-SETUP-GUIDE.md
+!docs/CONFIGURATION-GUIDE.md
 !docs/release/*_GUIDE.md
 
 # Analysis documents

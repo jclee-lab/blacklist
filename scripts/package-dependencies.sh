@@ -29,9 +29,14 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Create dist directory
+# Create dist directory (clean start)
 DIST_DIR="dist/dependencies"
+if [ -d "$DIST_DIR" ]; then
+    print_warning "Removing existing dependencies directory..."
+    rm -rf "$DIST_DIR"
+fi
 mkdir -p "$DIST_DIR"
+print_status "Clean dependencies directory created"
 
 echo "📦 Step 1: Packaging Python dependencies..."
 if [ -f "requirements.txt" ]; then

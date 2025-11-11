@@ -2069,6 +2069,8 @@ def check_ip_status(ip_address: str) -> Optional[dict]:
 
 **Documentation**:
 - `README.md` - Comprehensive project overview
+- `CLAUDE.md` - AI development guide (this file)
+- `CONFIGURATION-GUIDE.md` - **Configuration file locations and management** ⭐ NEW
 - `CHANGELOG.md` - Version history
 - `IMAGE-PACKAGING-COMPLETE.md` - Offline deployment guide
 - `scripts/PACKAGING-GUIDE.md` - Detailed packaging instructions
@@ -2089,6 +2091,6 @@ def check_ip_status(ip_address: str) -> Optional[dict]:
 
 ---
 
-**Version**: 3.3.9
-**Last Updated**: 2025-11-10
+**Version**: 3.4.0
+**Last Updated**: 2025-11-11
 **Maintainer**: jclee
