@@ -1,0 +1,332 @@
+{
+  "description": "Claude Code configuration for blacklist (Python application)",
+  "version": "1.0.0",
+  "model": "claude-sonnet-4-20250514",
+  "maxTokens": 8192,
+  "permissions": {
+    "allowedTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash(pip )",
+      "Bash(python )",
+      "Bash(pytest )",
+      "Bash(git )",
+      "Bash(ls)",
+      "Bash(cat)",
+      "Bash(grep)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Write(*.pyc)",
+      "Bash(rm -rf)",
+      "Bash(sudo)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write(*.py)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[[ -f $file ]] && python -m black $file 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(requirements.txt)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pip install -r requirements.txt --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pytest -q 2>/dev/null || echo '⚠️  Tests failed'"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "filesystem": {
+      "description": "File system operations - 14 tools",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/home/jclee"
+      ],
+      "enabled": true
+    },
+    "github": {
+      "description": "GitHub repository operations - 26 tools",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      },
+      "enabled": true
+    },
+    "memory": {
+      "description": "Persistent memory and knowledge graph - 9 tools",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {
+        "MEMORY_FILE_PATH": "/home/jclee/.claude/data/memory.json"
+      },
+      "enabled": true
+    },
+    "tmux": {
+      "description": "Tmux session management - 6 tools",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@hughescr/tmux-mcp-server"
+      ],
+      "env": {
+        "TMUX_SOCKET_DIR": "/home/jclee/.tmux/sockets"
+      },
+      "enabled": true
+    },
+    "brave-search": {
+      "description": "Web search using Brave API - 2 tools [DISABLED: Use fetch instead]",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "enabled": false
+    },
+    "context7": {
+      "description": "Documentation and code examples - 2 tools",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "enabled": true
+    },
+    "puppeteer": {
+      "description": "Browser automation and testing - Puppeteer [DISABLED: Replaced by chrome-devtools]",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "enabled": false
+    },
+    "chrome-devtools": {
+      "description": "Chrome DevTools - Official Google Chrome browser automation, debugging, and performance analysis - 26 tools",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "enabled": true
+    },
+    "sequential-thinking": {
+      "description": "Sequential thinking and problem-solving - 1 tool",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "enabled": true
+    },
+    "sqlite": {
+      "description": "SQLite database operations - 8 tools [DISABLED: Use postgres instead]",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-sqlite",
+        "/home/jclee/.claude/data/local.db"
+      ],
+      "enabled": false
+    },
+    "n8n-mcp": {
+      "description": "n8n workflow automation node documentation - 536 nodes, 23 tools",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "n8n-mcp"
+      ],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true"
+      },
+      "enabled": true
+    },
+    "fetch": {
+      "description": "Web content fetching and HTML to markdown",
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "enabled": true
+    },
+    "grok": {
+      "description": "xAI Grok - chat completion, vision, function calling (INSTRUMENTED with metrics) - ACTIVE",
+      "type": "stdio",
+      "command": "/home/jclee/.claude/governance/mcp/providers/grok/grok-mcp.sh",
+      "args": [],
+      "env": {
+        "XAI_API_KEY": "${GROK_API_KEY}"
+      },
+      "enabled": true
+    },
+    "figma": {
+      "description": "Figma design file operations - 14 tools",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-figma"
+      ],
+      "enabled": true
+    },
+    "serena": {
+      "description": "Code analysis and refactoring (Python)",
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena-mcp-server"
+      ],
+      "env": {
+        "SERENA_WORKSPACE": "/home/jclee"
+      },
+      "enabled": true
+    },
+    "accessibility-scanner": {
+      "description": "WCAG compliance and accessibility scanning [DISABLED: Project specific]",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-accessibility-scanner"
+      ],
+      "enabled": false
+    },
+    "shrimp-task-manager": {
+      "description": "Task management and decomposition",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-shrimp-task-manager"
+      ],
+      "env": {
+        "DATA_DIR": "/home/jclee/.claude/data/shrimp"
+      },
+      "enabled": true
+    },
+    "terraform": {
+      "description": "Terraform Registry integration - IaC automation and provider/module discovery",
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "hashicorp/terraform-mcp-server:latest"
+      ],
+      "env": {
+        "TFE_ADDRESS": "https://app.terraform.io"
+      },
+      "enabled": true
+    },
+    "postgres": {
+      "description": "PostgreSQL database operations - blacklist database",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:blacklist2024!@localhost:5433/blacklist"
+      ],
+      "enabled": true
+    },
+    "gitlab": {
+      "description": "GitLab operations (GitHub-compatible API) - 26 tools",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITLAB_TOKEN}",
+        "GITHUB_API_URL": "https://gitlab.jclee.me/api/v4"
+      },
+      "enabled": true
+    },
+    "language-server-python": {
+      "description": "Python syntax checking with pyright - diagnostics, type checking, error detection",
+      "command": "/home/jclee/go/bin/mcp-language-server",
+      "args": [
+        "--workspace",
+        "/home/jclee/.claude",
+        "--lsp",
+        "pyright-langserver",
+        "--",
+        "--stdio"
+      ],
+      "enabled": true
+    },
+    "language-server-typescript": {
+      "description": "TypeScript/JavaScript syntax checking - diagnostics, type checking, error detection",
+      "command": "/home/jclee/go/bin/mcp-language-server",
+      "args": [
+        "--workspace",
+        "/home/jclee/.claude",
+        "--lsp",
+        "typescript-language-server",
+        "--",
+        "--stdio"
+      ],
+      "enabled": true
+    },
+    "tavily": {
+      "description": "Advanced web search using Tavily API - 1000 free searches/month (REQUIRES: TAVILY_API_KEY)",
+      "command": "npx",
+      "args": [
+        "-y",
+        "tavily-mcp"
+      ],
+      "env": {
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}"
+      },
+      "enabled": true
+    }
+  }
+}

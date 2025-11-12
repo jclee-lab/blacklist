@@ -12,7 +12,7 @@ import os
 import base64
 import hashlib
 
-from core.services.database_service import DatabaseService
+from .database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
 

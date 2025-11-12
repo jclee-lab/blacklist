@@ -4,7 +4,7 @@ REGTECH 관리자 라우트
 """
 
 from flask import Blueprint, request, jsonify
-from ..services.regtech_config_service import regtech_config_service
+from ...services.regtech_config_service import regtech_config_service
 import logging
 import os
 from datetime import datetime, timedelta

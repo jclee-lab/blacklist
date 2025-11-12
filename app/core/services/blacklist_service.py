@@ -16,7 +16,7 @@ import redis
 import json
 
 # Phase 2.2: Prometheus 메트릭 (Claude-Gemini 합의안)
-from core.monitoring.metrics import blacklist_decisions_total, blacklist_whitelist_hits_total
+from ..monitoring.metrics import blacklist_decisions_total, blacklist_whitelist_hits_total
 
 # 구조화된 로깅 설정
 logger = structlog.get_logger(__name__)

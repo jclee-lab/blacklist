@@ -158,13 +158,13 @@ def create_app():
         app.logger.error(f"Web routes failed: {e}")
 
     try:
-        from .routes.statistics_api import statistics_api_bp
+        from .routes.api.statistics import statistics_api_bp
         app.register_blueprint(statistics_api_bp, url_prefix="/api")
     except Exception as e:
         app.logger.error(f"Statistics API failed: {e}")
 
     try:
-        from .routes.blacklist_api import blacklist_api_bp
+        from .routes.api.blacklist import blacklist_api_bp
         app.register_blueprint(blacklist_api_bp, url_prefix="/api")
     except Exception as e:
         app.logger.error(f"Blacklist API failed: {e}")
@@ -185,7 +185,7 @@ def create_app():
 
     # REGTECH Admin Routes (Credential Management & Collection)
     try:
-        from .routes.regtech_admin_routes import regtech_admin_bp
+        from .routes.web.admin import regtech_admin_bp
         app.register_blueprint(regtech_admin_bp, url_prefix="/admin")
         app.logger.info("✅ REGTECH admin routes registered")
     except Exception as e:
@@ -193,7 +193,7 @@ def create_app():
 
     # Settings Management Routes (System Settings & Credentials)
     try:
-        from .routes.settings_routes import settings_bp
+        from .routes.web.settings import settings_bp
         app.register_blueprint(settings_bp)
         app.logger.info("✅ Settings management routes registered")
     except Exception as e:
@@ -201,7 +201,7 @@ def create_app():
 
     # Collection Panel Routes (Credential Management UI)
     try:
-        from .routes.collection_panel import collection_bp
+        from .routes.web.collection_panel import collection_bp
         app.register_blueprint(collection_bp)
         app.logger.info("✅ Collection panel routes registered")
     except Exception as e:
@@ -217,7 +217,7 @@ def create_app():
 
     # Multi-Source Collection API Routes (REGTECH + SECUDIUM)
     try:
-        from .routes.multi_collection_api import multi_collection_bp
+        from .routes.api.collection import multi_collection_bp
         app.register_blueprint(multi_collection_bp)
         csrf.exempt(multi_collection_bp)  # Exempt from CSRF (called via proxy from frontend)
         app.logger.info("✅ Multi-source collection API routes registered (CSRF exempt)")
@@ -235,7 +235,7 @@ def create_app():
 
     # FortiGate Integration API Routes
     try:
-        from .routes.fortinet_api import fortinet_api_bp
+        from .routes.api.fortinet import fortinet_api_bp
         app.register_blueprint(fortinet_api_bp)
         app.logger.info("✅ FortiGate integration API routes registered")
     except Exception as e:
@@ -244,7 +244,7 @@ def create_app():
     # Optional blueprints removed (CloudFlare integration disabled)
 
     try:
-        from .routes.monitoring_dashboard import monitoring_dashboard_bp
+        from .routes.web.monitoring import monitoring_dashboard_bp
         app.register_blueprint(monitoring_dashboard_bp)
     except Exception:
         pass

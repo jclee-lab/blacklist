@@ -7,10 +7,10 @@ import os
 from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from ..utils.version import get_app_version
+from ...utils.version import get_app_version
 
 # Enhanced logging with tagging
-from ..utils.logger_config import api_logger as logger
+from ...utils.logger_config import api_logger as logger
 
 statistics_api_bp = Blueprint("statistics_api", __name__)
 

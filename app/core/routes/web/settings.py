@@ -7,8 +7,8 @@ from flask import Blueprint, request, jsonify, render_template
 import logging
 from datetime import datetime
 
-from core.services.settings_service import settings_service
-from core.services.database_service import DatabaseService
+from ...services.settings_service import settings_service
+from ...services.database_service import DatabaseService
 
 logger = logging.getLogger(__name__)
 
