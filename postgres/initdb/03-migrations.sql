@@ -139,3 +139,18 @@ BEGIN
     
     RAISE NOTICE 'Migration 002 complete. Total columns in affected tables: %', col_count;
 END $$;
+
+-- ============================================================
+-- 7. system_settings.display_order (ordering for settings UI)
+-- ============================================================
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'system_settings' AND column_name = 'display_order'
+    ) THEN
+        ALTER TABLE system_settings 
+        ADD COLUMN display_order INTEGER DEFAULT 0;
+        RAISE NOTICE 'Added: system_settings.display_order';
+    END IF;
+END $$;

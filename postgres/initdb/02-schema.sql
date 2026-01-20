@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
     setting_key VARCHAR(100) NOT NULL UNIQUE,
     setting_value TEXT,
     description TEXT,
+    display_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
