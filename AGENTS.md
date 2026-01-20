@@ -1,7 +1,7 @@
 # AGENTS.md — Blacklist Intelligence Platform
 
 **Generated:** 2026-01-20
-**Commit:** 6ea7e7b6
+**Commit:** f2e15ba
 **Branch:** refactor/structure-cleanup
 
 > **For AI Agents**: This file contains essential patterns and commands. Follow these strictly.
