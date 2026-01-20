@@ -169,6 +169,22 @@ CREATE TABLE IF NOT EXISTS fortigate_pull_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- FortiGate devices (device management)
+CREATE TABLE IF NOT EXISTS fortigate_devices (
+    id SERIAL PRIMARY KEY,
+    device_ip VARCHAR(45) NOT NULL UNIQUE,
+    device_name VARCHAR(255),
+    device_model VARCHAR(100),
+    firmware_version VARCHAR(50),
+    serial_number VARCHAR(100),
+    location VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    last_seen TIMESTAMP,
+    config JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- System settings (key-value store)
 CREATE TABLE IF NOT EXISTS system_settings (
     id SERIAL PRIMARY KEY,

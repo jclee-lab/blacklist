@@ -4,3 +4,12 @@ node_modules
 *.log
 .env
 .env.local
+__tests__
+e2e
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+playwright.config.ts
+coverage
