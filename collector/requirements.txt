@@ -1,0 +1,39 @@
+# Core Dependencies
+requests==2.31.0
+PySocks==1.7.1
+psycopg2-binary==2.9.7
+redis==4.6.0
+
+# Data Processing
+pandas>=2.2.0  # Python 3.13 compatible
+numpy>=1.26.0  # Python 3.13 compatible
+openpyxl==3.1.2
+
+# Web Automation for REGTECH
+selenium==4.15.2
+beautifulsoup4==4.12.2
+
+# Web Automation for SECUDIUM (Browser-based download)
+# NOTE: playwright removed - SECUDIUM disabled in v3.1+
+# playwright==1.40.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+schedule==1.2.0
+
+# Security & Encryption
+cryptography==44.0.0
+bcrypt==4.0.1
+
+# Monitoring & Health Check
+flask==2.3.3
+waitress==2.1.2
+prometheus-client==0.18.0
+
+# Logging
+colorlog==6.7.0
+structlog==23.2.0
+
+# SSH for FortiGate
+paramiko==3.4.0

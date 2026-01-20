@@ -1,0 +1,163 @@
+name: XWiki Documentation Auto-Sync
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'app/**/*.py'
+      - 'docs/xwiki-sections/**'
+      - '.github/workflows/xwiki-auto-sync.yml'
+
+  schedule:
+    # 매주 일요일 00:00 UTC (KST 09:00)
+    - cron: '0 0 * * 0'
+
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update all pages'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-docs:
+    name: Generate XWiki Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Generate API documentation
+        run: |
+          cd docs/xwiki-sections
+          python3 generate-api-docs.py
+
+      - name: Validate section files
+        run: |
+          cd docs/xwiki-sections
+          python3 xwiki-manager.py validate
+
+      - name: Upload to XWiki
+        env:
+          XWIKI_URL: ${{ secrets.XWIKI_URL }}
+          XWIKI_USER: ${{ secrets.XWIKI_USER }}
+          XWIKI_PASS: ${{ secrets.XWIKI_PASS }}
+          PARENT_SPACE: 'Main'
+          PARENT_PAGE: 'Blacklist'
+        run: |
+          cd docs/xwiki-sections
+          python3 xwiki-manager.py create --batch ${{ github.event.inputs.force_update == 'true' && '--force' || '' }}
+
+      - name: Notify Slack on success
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "✅ XWiki 문서 자동 업데이트 성공",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*XWiki Documentation Updated*\n✅ 성공적으로 업데이트되었습니다"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n${{ github.sha }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View XWiki"
+                      },
+                      "url": "${{ secrets.XWIKI_URL }}/bin/view/Main/Blacklist"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Commit"
+                      },
+                      "url": "${{ github.event.head_commit.url }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "❌ XWiki 문서 자동 업데이트 실패",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*XWiki Documentation Update Failed*\n❌ 업데이트 중 오류 발생"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Workflow:*\nXWiki Auto-Sync"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Logs"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터 수집 관리 | Blacklist System</title>
+
+    <!-- Bootstrap 5.3.0 (Local) -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+
+    <!-- Bootstrap Icons (Local) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stat-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.3;
+        }
+
+        .collector-card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+        }
+
+        .collector-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .regtech-header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .badge-status {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .badge-success-custom {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .badge-warning-custom {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .badge-danger-custom {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .btn-trigger {
+            border-radius: 20px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-trigger:hover {
+            transform: scale(1.05);
+        }
+
+        .history-table {
+            font-size: 0.9rem;
+        }
+
+        .history-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #4a5568;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        .history-table tbody td {
+            vertical-align: middle;
+            word-wrap: break-word;
+            max-width: 400px;
+        }
+
+        .history-table tbody td[title] {
+            cursor: help;
+        }
+
+        .history-table tbody td strong {
+            color: #2d3748;
+            font-size: 0.95rem;
+        }
+
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .alert-dismissible {
+            border-radius: 8px;
+        }
+
+        .credential-input {
+            border-radius: 8px;
+        }
+
+        /* Pulse animation for collecting status */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Log viewer styling */
+        .log-line {
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        #liveLogViewer::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #liveLogViewer::-webkit-scrollbar-track {
+            background: #2d2d2d;
+        }
+
+        #liveLogViewer::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+        #liveLogViewer::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check me-2"></i>
+                Blacklist System - 데이터 수집 관리
+            </a>
+            <div>
+                <a href="/" class="btn btn-outline-light btn-sm me-2">
+                    <i class="bi bi-house-door"></i> 홈
+                </a>
+                <a href="/settings" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-gear"></i> 설정
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid py-4">
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Statistics Overview -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h4 class="mb-3">
+                    <i class="bi bi-graph-up"></i> 수집 통계 요약
+                </h4>
+            </div>
+
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="stat-label">총 수집 횟수</div>
+                                <div class="stat-value" id="totalCollections">{{ total_collections }}</div>
+                            </div>
+                            <i class="bi bi-collection stat-icon text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="stat-label">성공률</div>
+                                <div class="stat-value text-success" id="successRate">{{ success_rate }}%</div>
+                            </div>
+                            <i class="bi bi-check-circle stat-icon text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="stat-label">마지막 수집</div>
+                                <div class="stat-value" style="font-size: 1rem;" id="lastCollection">{{ last_collection_time }}</div>
+                            </div>
+                            <i class="bi bi-clock-history stat-icon text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="stat-label">활성 수집기</div>
+                                <div class="stat-value text-warning" id="activeCollections">{{ active_collections }}</div>
+                            </div>
+                            <i class="bi bi-server stat-icon text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REGTECH Collector -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card collector-card">
+                    <div class="collector-header regtech-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1">
+                                    <i class="bi bi-database"></i> REGTECH 수집기
+                                </h5>
+                                <small>금융위원회 REGTECH 데이터 수집</small>
+                            </div>
+                            <span class="badge badge-status" id="regtechStatus">
+                                <i class="bi bi-hourglass-split"></i> 로딩 중...
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-key"></i> 인증 정보</h6>
+                                <div class="mb-2">
+                                    <label class="form-label">사용자 ID</label>
+                                    <input type="text" class="form-control credential-input" id="regtechUsername" placeholder="REGTECH ID">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">비밀번호</label>
+                                    <input type="password" class="form-control credential-input" id="regtechPassword" placeholder="Password">
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="regtechEnabled" checked>
+                                    <label class="form-check-label" for="regtechEnabled">
+                                        수집기 활성화
+                                    </label>
+                                </div>
+                                <button class="btn btn-primary btn-sm me-2" onclick="saveRegtechCredentials()">
+                                    <i class="bi bi-save"></i> 저장
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="loadRegtechCredentials()">
+                                    <i class="bi bi-arrow-clockwise"></i> 불러오기
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-graph-up-arrow"></i> 수집 통계</h6>
+                                <div id="regtechStats">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>총 수집 횟수:</span>
+                                        <strong id="regtechTotalCollections">-</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>수집된 IP 수:</span>
+                                        <strong id="regtechTotalItems">-</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>평균 소요 시간:</span>
+                                        <strong id="regtechAvgDuration">-</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>마지막 수집:</span>
+                                        <strong id="regtechLastCollection">-</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <button class="btn btn-success btn-trigger" onclick="triggerCollection('REGTECH')">
+                                <i class="bi bi-play-circle"></i> 수동 수집 실행
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FortiGate Integration -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card collector-card">
+                    <div class="collector-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1">
+                                    <i class="bi bi-shield-lock"></i> FortiGate External Connector 설정
+                                </h5>
+                                <small>FortiGate에 입력할 Threat Feed 정보</small>
+                            </div>
+                            <span class="badge badge-status badge-success-custom">
+                                <i class="bi bi-check-circle"></i> 준비됨
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-link-45deg"></i> Threat Feed URL</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">서버 주소</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="threatFeedUrl" readonly>
+                                        <button class="btn btn-outline-secondary" onclick="copyToClipboard('threatFeedUrl')">
+                                            <i class="bi bi-clipboard"></i> 복사
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">FortiGate External Connector URI에 입력</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Format</label>
+                                    <input type="text" class="form-control" value="Text" readonly>
+                                    <small class="text-muted">IP 목록 (1줄 1개)</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">권장 갱신 주기</label>
+                                    <input type="text" class="form-control" value="300 (5분)" readonly>
+                                    <small class="text-muted">초 단위 (최소 60초)</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">현재 IP 수</label>
+                                    <input type="text" class="form-control" id="threatFeedCount" value="-" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-terminal"></i> FortiGate CLI 설정 예시</h6>
+                                <div class="mb-2">
+                                    <label class="form-label d-flex justify-content-between">
+                                        <span>External Connector 생성</span>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard('fortigateCli')">
+                                            <i class="bi bi-clipboard"></i> 전체 복사
+                                        </button>
+                                    </label>
+                                    <textarea id="fortigateCli" class="form-control font-monospace" style="height: 280px; font-size: 0.85rem;" readonly></textarea>
+                                </div>
+                                <div class="alert alert-warning mt-3" role="alert">
+                                    <i class="bi bi-exclamation-triangle"></i> <strong>주의사항</strong>
+                                    <ul class="mb-0 mt-2 small">
+                                        <li>FortiGate에서 서버 URL에 HTTPS 접근이 가능해야 합니다</li>
+                                        <li>방화벽 정책에서 해당 External Connector를 참조하세요</li>
+                                        <li>실시간 업데이트: 5분마다 자동 갱신됩니다</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <h6><i class="bi bi-eye"></i> Threat Feed 미리보기</h6>
+                                <div class="card">
+                                    <div class="card-body p-2">
+                                        <pre id="threatFeedPreview" class="mb-0" style="max-height: 200px; overflow-y: auto; font-size: 0.8rem; background: #f8f9fa; padding: 10px;">로딩 중...</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Log Viewer -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card collector-card">
+                    <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-white">
+                                <i class="bi bi-terminal"></i> 실시간 수집 로그
+                            </h5>
+                            <div>
+                                <span class="badge bg-light text-dark me-2" id="logUpdateTime">-</span>
+                                <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
+                                    <i class="bi bi-arrow-clockwise"></i> 새로고침
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="liveLogViewer" style="height: 450px; overflow-y: auto; background: #1e1e1e; font-family: 'Courier New', monospace; font-size: 0.85rem; padding: 15px; color: #d4d4d4;">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
+                                <p class="mt-2">로그를 불러오는 중...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IP Search & Filter Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card collector-card">
+                    <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                        <h5 class="mb-0 text-white">
+                            <i class="bi bi-search"></i> 수집된 IP 검색
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Search Filters -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label small">IP 주소</label>
+                                <input type="text" class="form-control" id="filterIp" placeholder="예: 192.168.1.1">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">국가</label>
+                                <select class="form-select" id="filterCountry">
+                                    <option value="ALL">전체</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">소스</label>
+                                <select class="form-select" id="filterSource">
+                                    <option value="ALL">전체</option>
+                                    <option value="REGTECH">REGTECH</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">상태</label>
+                                <select class="form-select" id="filterActive">
+                                    <option value="all">전체</option>
+                                    <option value="true">활성</option>
+                                    <option value="false">비활성</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">수집 날짜</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="date" class="form-control" id="filterDateFrom">
+                                    <span class="input-group-text">~</span>
+                                    <input type="date" class="form-control" id="filterDateTo">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <button class="btn btn-primary btn-sm" onclick="searchIPs()">
+                                    <i class="bi bi-search"></i> 검색
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm ms-2" onclick="resetFilters()">
+                                    <i class="bi bi-arrow-counterclockwise"></i> 초기화
+                                </button>
+                            </div>
+                            <div>
+                                <span class="badge bg-secondary" id="searchResultCount">검색 대기</span>
+                            </div>
+                        </div>
+
+                        <!-- Search Results Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover history-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 12%;">IP 주소</th>
+                                        <th style="width: 6%;">국가</th>
+                                        <th style="width: 35%;">사유 (상세)</th>
+                                        <th style="width: 10%;">탐지일</th>
+                                        <th style="width: 10%;">해제일</th>
+                                        <th style="width: 8%;">소스</th>
+                                        <th style="width: 7%;">상태</th>
+                                        <th style="width: 12%;">수집일시</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="searchResultsBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">
+                                            검색 버튼을 클릭하여 데이터를 조회하세요.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <nav id="searchPagination" style="display: none;">
+                            <ul class="pagination pagination-sm justify-content-center">
+                                <!-- Populated by JavaScript -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collection History -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card collector-card">
+                    <div class="card-header bg-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-clock-history"></i> 수집 이력
+                            </h5>
+                            <button class="btn btn-outline-primary btn-sm" onclick="refreshHistory()">
+                                <i class="bi bi-arrow-clockwise"></i> 새로고침
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover history-table">
+                                <thead>
+                                    <tr>
+                                        <th>수집 시간</th>
+                                        <th>소스</th>
+                                        <th>수집 건수</th>
+                                        <th>소요 시간</th>
+                                        <th>상태</th>
+                                        <th>메시지</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    {% if collection_history %}
+                                        {% for item in collection_history %}
+                                        <tr>
+                                            <td>{{ item.collection_date }}</td>
+                                            <td>
+                                                <span class="badge bg-info">{{ item.service_name }}</span>
+                                            </td>
+                                            <td>{{ item.items_collected }}</td>
+                                            <td>{{ item.duration_seconds }}s</td>
+                                            <td>
+                                                {% if item.success %}
+                                                <span class="badge bg-success">성공</span>
+                                                {% else %}
+                                                <span class="badge bg-danger">실패</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ item.error_message or '-' }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">수집 이력이 없습니다.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (Local) -->
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+    <script>
+        // Show alert message
+        function showAlert(message, type = 'info') {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            document.getElementById('alertContainer').innerHTML = alertHtml;
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alert = document.querySelector('.alert');
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+
+        // Show/hide loading overlay
+        function showLoading(show = true) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.classList.add('active');
+            } else {
+                overlay.classList.remove('active');
+            }
+        }
+
+        // Load REGTECH credentials
+        async function loadRegtechCredentials() {
+            try {
+                const response = await fetch('/api/collection/credentials/REGTECH');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('regtechUsername').value = data.username || '';
+                    document.getElementById('regtechEnabled').checked = data.enabled || false;
+                    showAlert('REGTECH 인증 정보를 불러왔습니다.', 'success');
+                } else {
+                    showAlert('인증 정보 로드 실패: ' + data.error, 'danger');
+                }
+            } catch (error) {
+                showAlert('네트워크 오류: ' + error.message, 'danger');
+            }
+        }
+
+        // Save REGTECH credentials
+        async function saveRegtechCredentials() {
+            const username = document.getElementById('regtechUsername').value;
+            const password = document.getElementById('regtechPassword').value;
+            const enabled = document.getElementById('regtechEnabled').checked;
+
+            if (!username || !password) {
+                showAlert('사용자 ID와 비밀번호를 입력해주세요.', 'warning');
+                return;
+            }
+
+            try {
+                showLoading();
+                const response = await fetch('/api/collection/credentials/REGTECH', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        enabled: enabled
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('REGTECH 인증 정보가 저장되었습니다.', 'success');
+                    document.getElementById('regtechPassword').value = '';
+                    await loadCollectorStatus();
+                } else {
+                    showAlert('저장 실패: ' + data.error, 'danger');
+                }
+            } catch (error) {
+                showAlert('네트워크 오류: ' + error.message, 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Trigger collection
+        async function triggerCollection(source) {
+            if (!confirm(`${source} 데이터 수집을 시작하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                showLoading();
+                const response = await fetch(`/api/collection/trigger/${source}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert(`${source} 수집이 시작되었습니다.`, 'success');
+                    setTimeout(() => {
+                        refreshHistory();
+                        loadCollectorStatus();
+                        loadStatistics();
+                    }, 3000);
+                } else {
+                    showAlert(`수집 실패: ${data.error}`, 'danger');
+                }
+            } catch (error) {
+                showAlert('네트워크 오류: ' + error.message, 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Load collector status
+        async function loadCollectorStatus() {
+            try {
+                const response = await fetch('/api/collection/status');
+                const data = await response.json();
+
+                if (data.success && data.collectors) {
+                    // REGTECH status
+                    if (data.collectors.REGTECH) {
+                        updateStatusBadge('regtechStatus', data.collectors.REGTECH.enabled, data.collectors.REGTECH.last_run);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load collector status:', error);
+            }
+        }
+
+        // Update status badge with real-time collection status
+        function updateStatusBadge(elementId, enabled, lastRun, isRunning, nextRun) {
+            const badge = document.getElementById(elementId);
+
+            if (isRunning) {
+                // 수집중 - Pulse animation
+                badge.className = 'badge badge-status bg-success';
+                badge.innerHTML = `
+                    <span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span>
+                    <strong>수집중</strong>
+                `;
+                badge.style.animation = 'pulse 2s ease-in-out infinite';
+            } else if (enabled) {
+                badge.className = 'badge badge-status badge-success-custom';
+                badge.innerHTML = `<i class="bi bi-check-circle"></i> 활성화`;
+                badge.style.animation = 'none';
+
+                // Show next run time
+                if (nextRun) {
+                    const nextRunDate = new Date(nextRun);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((nextRunDate - now) / 60000);
+
+                    if (diffMinutes > 0 && diffMinutes < 1440) { // Less than 24 hours
+                        badge.innerHTML += ` <small>(${diffMinutes}분 후)</small>`;
+                    }
+                }
+            } else {
+                badge.className = 'badge badge-status badge-warning-custom';
+                badge.innerHTML = `<i class="bi bi-pause-circle"></i> 비활성화`;
+                badge.style.animation = 'none';
+            }
+        }
+
+        // Load real-time collector status
+        async function loadRealtimeStatus() {
+            try {
+                const response = await fetch('/collection-panel/api/collector-status');
+                const data = await response.json();
+
+                if (data.success && data.collectors) {
+                    data.collectors.forEach(collector => {
+                        if (collector.source === 'REGTECH') {
+                            updateStatusBadge(
+                                'regtechStatus',
+                                collector.enabled,
+                                collector.last_run,
+                                collector.is_running,
+                                collector.next_run
+                            );
+                            document.getElementById('regtechLastCollection').textContent = collector.last_run;
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load realtime status:', error);
+            }
+        }
+
+        // Load live logs
+        async function refreshLogs() {
+            try {
+                const response = await fetch('/collection-panel/api/live-logs');
+                const data = await response.json();
+
+                const logViewer = document.getElementById('liveLogViewer');
+
+                if (data.success && data.logs && data.logs.length > 0) {
+                    let logHtml = '';
+
+                    data.logs.forEach(log => {
+                        let colorClass = '';
+                        switch(log.level) {
+                            case 'ERROR':
+                                colorClass = 'text-danger';
+                                break;
+                            case 'WARNING':
+                                colorClass = 'text-warning';
+                                break;
+                            case 'INFO':
+                                colorClass = 'text-info';
+                                break;
+                            case 'DEBUG':
+                                colorClass = 'text-muted';
+                                break;
+                            default:
+                                colorClass = 'text-light';
+                        }
+
+                        logHtml += `
+                            <div class="log-line mb-1">
+                                <span class="text-muted">[${log.timestamp}]</span>
+                                <span class="badge badge-sm ${colorClass === 'text-danger' ? 'bg-danger' : colorClass === 'text-warning' ? 'bg-warning text-dark' : 'bg-secondary'}">${log.level}</span>
+                                <span class="${colorClass}">${escapeHtml(log.message)}</span>
+                            </div>
+                        `;
+                    });
+
+                    logViewer.innerHTML = logHtml;
+
+                    // Auto-scroll to bottom
+                    logViewer.scrollTop = logViewer.scrollHeight;
+
+                    // Update timestamp
+                    document.getElementById('logUpdateTime').textContent = new Date().toLocaleTimeString('ko-KR');
+                } else {
+                    logViewer.innerHTML = `
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
+                            <p class="mt-2">수집 로그가 없습니다.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to refresh logs:', error);
+                document.getElementById('liveLogViewer').innerHTML = `
+                    <div class="text-center text-danger py-5">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
+                        <p class="mt-2">로그 로드 실패: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // HTML escape helper
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load countries for filter dropdown
+        async function loadCountries() {
+            try {
+                const response = await fetch('/collection-panel/api/countries');
+                const data = await response.json();
+
+                if (data.success && data.countries) {
+                    const select = document.getElementById('filterCountry');
+                    data.countries.forEach(country => {
+                        const option = document.createElement('option');
+                        option.value = country;
+                        option.textContent = country;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load countries:', error);
+            }
+        }
+
+        // Search IPs with filters
+        let currentPage = 1;
+        async function searchIPs(page = 1) {
+            try {
+                currentPage = page;
+
+                // Build query parameters
+                const params = new URLSearchParams({
+                    page: page,
+                    per_page: 50,
+                    ip: document.getElementById('filterIp').value,
+                    country: document.getElementById('filterCountry').value,
+                    source: document.getElementById('filterSource').value,
+                    is_active: document.getElementById('filterActive').value,
+                    date_from: document.getElementById('filterDateFrom').value,
+                    date_to: document.getElementById('filterDateTo').value
+                });
+
+                showLoading();
+                const response = await fetch(`/collection-panel/api/search-ips?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    displaySearchResults(data.data);
+                    updatePagination(data.pagination);
+                    updateResultCount(data.pagination.total);
+                } else {
+                    showAlert('검색 실패: ' + data.error, 'danger');
+                    document.getElementById('searchResultsBody').innerHTML = `
+                        <tr><td colspan="8" class="text-center text-danger">검색 중 오류 발생</td></tr>
+                    `;
+                }
+            } catch (error) {
+                showAlert('네트워크 오류: ' + error.message, 'danger');
+                console.error('Search error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display search results
+        function displaySearchResults(results) {
+            const tbody = document.getElementById('searchResultsBody');
+
+            if (!results || results.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="8" class="text-center text-muted">검색 결과가 없습니다.</td></tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            results.forEach(row => {
+                const statusBadge = row.is_active
+                    ? '<span class="badge bg-success">활성</span>'
+                    : '<span class="badge bg-secondary">비활성</span>';
+
+                const sourceBadge = '<span class="badge" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">REGTECH</span>';
+
+                const reasonText = row.reason || '-';
+                const reasonDisplay = reasonText.length > 50
+                    ? `<span title="${reasonText}">${reasonText}</span>`
+                    : reasonText;
+
+                html += `
+                    <tr>
+                        <td><code>${row.ip_address}</code></td>
+                        <td><strong>${row.country || '-'}</strong></td>
+                        <td>${reasonDisplay}</td>
+                        <td>${row.detection_date || '-'}</td>
+                        <td>${row.removal_date || '-'}</td>
+                        <td>${sourceBadge}</td>
+                        <td>${statusBadge}</td>
+                        <td><small>${row.created_at || '-'}</small></td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // Update pagination
+        function updatePagination(pagination) {
+            const nav = document.getElementById('searchPagination');
+            const ul = nav.querySelector('ul');
+
+            if (pagination.pages <= 1) {
+                nav.style.display = 'none';
+                return;
+            }
+
+            nav.style.display = 'block';
+            ul.innerHTML = '';
+
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${pagination.page === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" onclick="searchIPs(${pagination.page - 1}); return false;">이전</a>`;
+            ul.appendChild(prevLi);
+
+            // Page numbers (show max 5 pages)
+            let startPage = Math.max(1, pagination.page - 2);
+            let endPage = Math.min(pagination.pages, startPage + 4);
+
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === pagination.page ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="searchIPs(${i}); return false;">${i}</a>`;
+                ul.appendChild(li);
+            }
+
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${pagination.page === pagination.pages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" onclick="searchIPs(${pagination.page + 1}); return false;">다음</a>`;
+            ul.appendChild(nextLi);
+        }
+
+        // Update result count
+        function updateResultCount(total) {
+            const badge = document.getElementById('searchResultCount');
+            badge.textContent = `총 ${total.toLocaleString()}건`;
+            badge.className = 'badge bg-primary';
+        }
+
+        // Reset filters
+        function resetFilters() {
+            document.getElementById('filterIp').value = '';
+            document.getElementById('filterCountry').value = 'ALL';
+            document.getElementById('filterSource').value = 'ALL';
+            document.getElementById('filterActive').value = 'all';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+
+            document.getElementById('searchResultCount').textContent = '검색 대기';
+            document.getElementById('searchResultCount').className = 'badge bg-secondary';
+
+            document.getElementById('searchResultsBody').innerHTML = `
+                <tr><td colspan="8" class="text-center text-muted">검색 버튼을 클릭하여 데이터를 조회하세요.</td></tr>
+            `;
+
+            document.getElementById('searchPagination').style.display = 'none';
+        }
+
+        // Load statistics
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/api/collection/statistics');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update overview stats
+                    if (data.overall) {
+                        document.getElementById('totalCollections').textContent = data.overall.total_collections || 0;
+                        // Calculate overall success rate from sources
+                        let totalSuccess = 0;
+                        let totalCount = 0;
+                        if (data.sources) {
+                            Object.values(data.sources).forEach(src => {
+                                if (src.success_rate !== undefined) {
+                                    totalSuccess += src.success_rate * (src.total_collections || 0);
+                                    totalCount += src.total_collections || 0;
+                                }
+                            });
+                        }
+                        const overallRate = totalCount > 0 ? totalSuccess / totalCount : 0;
+                        document.getElementById('successRate').textContent = overallRate.toFixed(1) + '%';
+                    }
+
+                    // REGTECH stats (note: lowercase 'regtech' in API response)
+                    if (data.sources && data.sources.regtech) {
+                        const regtech = data.sources.regtech;
+                        document.getElementById('regtechTotalCollections').textContent = regtech.total_collections || 0;
+                        document.getElementById('regtechTotalItems').textContent = regtech.total_items || 0;
+                        document.getElementById('regtechAvgDuration').textContent = (regtech.avg_duration || 0).toFixed(2) + 's';
+                        document.getElementById('regtechLastCollection').textContent = regtech.last_collection ? new Date(regtech.last_collection).toLocaleString('ko-KR') : '-';
+                    }
+
+
+                }
+            } catch (error) {
+                console.error('Failed to load statistics:', error);
+            }
+        }
+
+        // Refresh history
+        async function refreshHistory() {
+            try {
+                const response = await fetch('/api/collection/history?limit=20');
+                const data = await response.json();
+
+                if (data.success && data.history) {
+                    const tbody = document.getElementById('historyTableBody');
+                    tbody.innerHTML = '';
+
+                    if (data.history.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">수집 이력이 없습니다.</td></tr>';
+                    } else {
+                        data.history.forEach(item => {
+                            const row = `
+                                <tr>
+                                    <td>${new Date(item.collection_date).toLocaleString('ko-KR')}</td>
+                                    <td><span class="badge bg-info">${item.service_name}</span></td>
+                                    <td>${item.items_collected}</td>
+                                    <td>${item.duration_seconds ? item.duration_seconds.toFixed(2) + 's' : '-'}</td>
+                                    <td>${item.success ? '<span class="badge bg-success">성공</span>' : '<span class="badge bg-danger">실패</span>'}</td>
+                                    <td>${item.error_message || '-'}</td>
+                                </tr>
+                            `;
+                            tbody.innerHTML += row;
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to refresh history:', error);
+            }
+        }
+
+        // FortiGate Threat Feed functions
+        async function loadFortigateThreatFeed() {
+            try {
+                // Get current hostname and protocol
+                const protocol = window.location.protocol;
+                const hostname = window.location.hostname;
+                const port = window.location.port ? `:${window.location.port}` : '';
+                
+                // Build Threat Feed URL
+                const threatFeedUrl = `${protocol}//${hostname}${port}/api/fortinet/threat-feed?format=text`;
+                document.getElementById('threatFeedUrl').value = threatFeedUrl;
+
+                // Generate FortiGate CLI config
+                const cliConfig = `config system external-resource
+    edit "REGTECH-Blacklist"
+        set type address
+        set category 192
+        set resource "${threatFeedUrl}"
+        set refresh-rate 300
+        set status enable
+    next
+end
+
+config firewall address
+    edit "REGTECH-Blacklist"
+        set type dynamic
+        set sdn "REGTECH-Blacklist"
+        set comment "Korean Financial Security Institute Blacklist"
+    next
+end
+
+# 정책에 적용 예시
+config firewall policy
+    edit <policy-id>
+        set srcintf "any"
+        set dstintf "any"
+        set srcaddr "REGTECH-Blacklist"
+        set dstaddr "all"
+        set action deny
+        set schedule "always"
+        set service "ALL"
+        set logtraffic all
+    next
+end`;
+                
+                document.getElementById('fortigateCli').value = cliConfig;
+
+                // Load threat feed count
+                const statsResponse = await fetch('/api/stats');
+                const statsData = await statsResponse.json();
+                if (statsData.success) {
+                    document.getElementById('threatFeedCount').value = `${statsData.active_ips || 0} 개`;
+                }
+
+                // Load threat feed preview
+                const feedResponse = await fetch('/api/fortinet/threat-feed?format=text');
+                const feedText = await feedResponse.text();
+                const lines = feedText.split('\n').filter(line => line.trim());
+                const preview = lines.slice(0, 20).join('\n') + (lines.length > 20 ? `\n... (총 ${lines.length}개 IP)` : '');
+                document.getElementById('threatFeedPreview').textContent = preview;
+
+            } catch (error) {
+                console.error('Failed to load FortiGate threat feed:', error);
+                document.getElementById('threatFeedPreview').textContent = '로드 실패: ' + error.message;
+            }
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            element.select();
+            element.setSelectionRange(0, 99999); // For mobile
+
+            try {
+                document.execCommand('copy');
+                showAlert('클립보드에 복사되었습니다', 'success');
+            } catch (err) {
+                // Fallback for modern browsers
+                navigator.clipboard.writeText(element.value).then(() => {
+                    showAlert('클립보드에 복사되었습니다', 'success');
+                }).catch(() => {
+                    showAlert('복사 실패', 'danger');
+                });
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load initial data
+            loadCollectorStatus();
+            loadStatistics();
+            loadRegtechCredentials();
+            loadSecudiumCredentials();
+            loadRealtimeStatus();
+            refreshLogs();
+            loadCountries();  // Load country filter options
+            loadFortigateThreatFeed();  // Load FortiGate settings
+
+            // Real-time status updates every 5 seconds
+            setInterval(() => {
+                loadRealtimeStatus();
+            }, 5000);
+
+            // Live log updates every 3 seconds
+            setInterval(() => {
+                refreshLogs();
+            }, 3000);
+
+            // Refresh stats every 30 seconds
+            setInterval(() => {
+                loadCollectorStatus();
+                loadStatistics();
+                loadFortigateThreatFeed();  // Refresh threat feed preview
+            }, 30000);
+        });
+    </script>
+</body>
+</html>

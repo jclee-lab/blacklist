@@ -1,0 +1,110 @@
+# =============================================================================
+# Pre-commit Configuration for REGTECH Blacklist Platform
+# =============================================================================
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+# =============================================================================
+
+default_stages: [pre-commit]
+default_language_version:
+  python: python3.11
+
+repos:
+  # ==========================================================================
+  # General Hooks
+  # ==========================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+        exclude: ^(dist/|frontend/node_modules/)
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+        exclude: ^dist/images/
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+
+  # ==========================================================================
+  # Python - Ruff (Linting + Formatting)
+  # ==========================================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+        files: ^(app|collector|tests)/
+      # Formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+        files: ^(app|collector|tests)/
+
+  # ==========================================================================
+  # Python - Type Checking (mypy)
+  # ==========================================================================
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        args: [--ignore-missing-imports, --no-error-summary]
+        files: ^(app|collector)/
+        exclude: ^(tests/|app/core/collectors/)
+        additional_dependencies:
+          - types-requests
+          - types-redis
+
+  # ==========================================================================
+  # Security - Secret Detection
+  # ==========================================================================
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: ^(frontend/node_modules/|dist/|\.secrets\.baseline$)
+
+  # ==========================================================================
+  # SQL - Formatting (optional, for postgres/ migrations)
+  # ==========================================================================
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.3.1
+    hooks:
+      - id: sqlfluff-lint
+        files: ^postgres/migrations/
+        args: [--dialect, postgres]
+        additional_dependencies: [sqlfluff-templater-jinja]
+
+  # ==========================================================================
+  # Dockerfile - Linting
+  # ==========================================================================
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.1-beta
+    hooks:
+      - id: hadolint-docker
+        entry: hadolint
+        args: [--ignore, DL3008, --ignore, DL3013]
+
+  # ==========================================================================
+  # Commit Message - Conventional Commits
+  # ==========================================================================
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+
+ci:
+  autofix_commit_msg: "style: auto-fix by pre-commit hooks"
+  autoupdate_commit_msg: "chore: update pre-commit hooks"
+  skip: [hadolint-docker, sqlfluff-lint]

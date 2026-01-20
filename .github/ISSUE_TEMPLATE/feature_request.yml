@@ -1,0 +1,133 @@
+name: ✨ Feature Request
+description: Propose new features or improvements
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        💡 **Thank you for your feature suggestion!**
+        
+        Your ideas help make the REGTECH Blacklist Intelligence Platform even better.
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: 📂 Feature Category
+      description: What type of feature is this?
+      options:
+        - 🏠 Dashboard Improvements
+        - 📊 Data Collection Enhancement
+        - 🗃️ Data Management Extension
+        - 🔍 Search & Filtering
+        - 📈 Statistics & Reporting
+        - 🔔 Alerts & Monitoring
+        - ⚙️ System Administration
+        - 🎨 UI/UX Improvements
+        - 🔒 Security Enhancement
+        - 🚀 Performance Optimization
+        - 🔧 Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🎯 Priority
+      description: How important is this feature?
+      options:
+        - 🔴 High (Essential for operations)
+        - 🟡 Medium (Very useful to have)
+        - 🟢 Low (Convenience improvement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🤔 해결하고자 하는 문제
+      description: 현재 어떤 불편함이나 제약사항이 있나요?
+      placeholder: |
+        예시:
+        - REGTECH 데이터 수집 후 결과를 Excel로 내보낼 수 없어서 수동으로 복사해야 합니다
+        - 대시보드에서 특정 기간별 통계를 확인하기 어렵습니다
+        - 여러 조건을 조합해서 데이터를 필터링할 수 없습니다
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 제안하는 해결책
+      description: 어떤 기능이 있으면 이 문제가 해결될까요?
+      placeholder: |
+        예시:
+        - 데이터 조회 결과를 Excel, CSV, PDF 형태로 다운로드할 수 있는 버튼 추가
+        - 대시보드에 날짜 범위 선택기 추가하여 기간별 통계 표시
+        - 고급 필터 기능으로 IP 대역, 국가, 등록일 등 다중 조건 검색
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefit
+    attributes:
+      label: 🎉 기대 효과
+      description: 이 기능이 추가되면 어떤 장점이 있을까요?
+      placeholder: |
+        - 업무 효율성 30% 향상
+        - 보고서 작성 시간 단축
+        - 데이터 분석 정확도 개선
+        - 사용자 만족도 향상
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 대안 방법
+      description: 다른 해결 방법이나 유사한 기능을 고려해봤나요?
+      placeholder: |
+        - 현재 수동으로 처리하는 방법
+        - 다른 시스템에서 본 유사한 기능
+        - 임시방편으로 사용 중인 해결책
+    validations:
+      required: false
+
+  - type: dropdown
+    id: implementation
+    attributes:
+      label: ⏱️ 구현 시급성
+      description: 언제까지 이 기능이 필요한가요?
+      options:
+        - 🚨 긴급 (1주 이내)
+        - ⚡ 빠른 시일 내 (1달 이내)
+        - 📅 계획된 일정 (3달 이내)
+        - 🔮 향후 고려사항 (시기 무관)
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockup
+    attributes:
+      label: 🎨 화면 구성 아이디어
+      description: UI/UX 관련 제안이 있다면 설명이나 스케치를 첨부해주세요
+      placeholder: |
+        - 버튼 위치나 메뉴 구성 제안
+        - 스크린샷이나 스케치 첨부
+        - 참고할 만한 다른 서비스 예시
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ 체크리스트
+      options:
+        - label: 동일하거나 유사한 기능 요청이 이미 등록되어 있지 않은지 확인했습니다
+          required: true
+        - label: 이 기능이 다른 사용자들에게도 유용할 것이라고 생각합니다
+          required: true
+        - label: 기능 구현 후 테스트에 협조할 수 있습니다
+          required: false

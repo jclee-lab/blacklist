@@ -1,0 +1,180 @@
+# ============================================================================
+# Python
+# ============================================================================
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+ENV/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+
+# ============================================================================
+# Environment & Secrets
+# ============================================================================
+.env
+.env.*
+!.env.example
+*.key
+CREDENTIAL_MASTER_KEY.txt
+!dist/CREDENTIAL_MASTER_KEY.txt
+
+# ============================================================================
+# Docker & Deployment
+# ============================================================================
+data/
+dist/*
+!dist/.env
+!dist/deploy-airgap.sh
+!dist/docker-compose.yml
+!dist/certs/
+!dist/traefik/
+!dist/README-AIRGAP.md
+!dist/INSTALLATION.md
+!dist/QUICK-REFERENCE.md
+!dist/VERSION
+!dist/backup-database.sh
+!dist/CREDENTIAL_MASTER_KEY.txt
+!dist/checksums.txt
+offline-docker-centos8/
+offline-package/
+production-install/
+offline-deploy/
+offline-packages/backup-*/
+
+# Docker image packages
+*.tar.gz
+*.tar.gz.sha256
+!offline-packages/*.tar.gz  # Git LFS tracked
+!release/**/*.tar.gz         # Git LFS tracked (release images)
+offline-packages/*.zip
+
+# ============================================================================
+# Node.js & Frontend
+# ============================================================================
+node_modules/
+frontend/node_modules/
+frontend/.next/
+worker/node_modules/
+worker/.wrangler/
+worker/worker-configuration.d.ts
+
+# ============================================================================
+# IDE & Tools
+# ============================================================================
+.claude/
+.serena/
+.serena.json
+.sisyphus/
+.playwright-mcp/
+.DS_Store
+.ruff_cache/
+
+# OpenCode AI Cache
+in-memoria.db
+in-memoria-vectors.db/
+${OPENCODE_PROJECT_DATA}/
+# .vscode/ - Shared workspace settings (tracked)
+.vscode/settings.local.json  # Personal overrides
+.vscode/*.code-workspace     # Personal workspace files
+.vscode/todo/
+.idea/
+.envrc
+.user
+todo/
+
+# ============================================================================
+# Build Artifacts & Temporary Files
+# ============================================================================
+*.bak
+*.backup
+*.old
+*.doc.bak
+docker-compose.override.yml
+history_backup/
+
+# ============================================================================
+# Documentation (selective tracking)
+# ============================================================================
+docs/*
+!docs/AGENTS.md
+!docs/FOLDER-STRUCTURE.md
+!docs/CICD-QUICK-REFERENCE.md
+!docs/FRONTEND-ARCHITECTURE.md
+!docs/architecture-diagram.svg
+!docs/architecture-functional.svg
+!docs/architecture.drawio
+!docs/implementation-report.html
+!docs/implementation-report.pdf
+!docs/deliverables/
+
+# Analysis documents
+ANALYSIS*.md
+GEMINI*.md
+*_SUMMARY*.md
+*_SUMMARY*.txt
+*_REPORT.md
+*_GUIDE.md
+!docs/GITLAB-CI-SETUP-GUIDE.md
+*_STATUS.md
+IMPROVEMENT_ROADMAP.md
+OFFLINE-PACKAGE-INSTRUCTIONS.md
+docker-offline-package-summary.md
+offline-package-final-report.md
+CREDENTIAL_SETUP_GUIDE.md
+SOLUTION_SUMMARY.txt
+
+# ============================================================================
+# Ignored Directories
+# ============================================================================
+config/
+reports/
+src/
+tools/
+app/core/middleware/
+docs/xwiki-sections/
+
+# ============================================================================
+# Offline Packages Metadata
+# ============================================================================
+offline-packages/*.txt
+offline-packages/*.md5
+offline-packages/INSPECTION_REPORT.md
+offline-packages/COLLECTION_DAILY_REPORT.md
+offline-packages/PACKAGE_STATUS.md
+offline-packages/FINAL_SUMMARY.md
+!offline-packages/*_summary.txt
+!offline-packages/*.sha256
+!offline-packages/GIT_LFS_SETUP_GUIDE.md
+
+# ============================================================================
+# Specific Files
+# ============================================================================
+GITHUB_SECRETS.md
+portainer_deploy.py
+export-clean-images.sh
+offline-package-temp.sh
+app/requirements.in
+collector/requirements.in
+app/core/error_handlers.py
+app/core/exceptions.py
+release/
+
+# Sensitive data
+har/
+*.har
+frontend/coverage/
+.gitattributes.backup
+.opencode/
+frontend/test-results/
+ssl/
+frontend/ssl/
+app/pytest.ini
+app/pytest.ini
+!dist/install.sh
+!dist/prereqs/docker.service
+docker-compose.override.yml
+dist/.env

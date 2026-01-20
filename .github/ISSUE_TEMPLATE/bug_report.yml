@@ -1,0 +1,123 @@
+name: 🐛 Bug Report
+description: Report system issues and problems
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        🙏 **Thank you for submitting a bug report!**
+        
+        Please provide detailed information to help improve the REGTECH Blacklist Intelligence Platform.
+
+  - type: dropdown
+    id: bug-area
+    attributes:
+      label: 🎯 Issue Area
+      description: Which area is experiencing the problem?
+      options:
+        - 🏠 Dashboard (Main page)
+        - 📊 Data Collection (REGTECH integration)
+        - 🗃️ Data Management (Query/Search)
+        - ⚙️ System Administration (Settings/Logs)
+        - 🔐 Authentication/Login
+        - 🐳 Deployment/Container
+        - 🔧 Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 🚨 Severity
+      description: What is the impact of this issue on operations?
+      options:
+        - 🔴 Critical (Complete system outage)
+        - 🟡 High (Major features unavailable)
+        - 🟢 Medium (Limited functionality)
+        - 🔵 Low (Inconvenient but workable)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 📝 Problem Description
+      description: Please describe the issue in detail
+      placeholder: |
+        Examples:
+        - "Connection failed" error occurs during REGTECH data collection
+        - Dashboard statistics show as 0
+        - Data query page fails to load
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Please describe step-by-step how to reproduce the issue
+      placeholder: |
+        1. Access https://blacklist.jclee.me in browser
+        2. Click "Data Collection" menu
+        3. Click "Start Collection" button
+        4. Observe error message
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Expected Result
+      description: What should happen if working correctly?
+      placeholder: Data collection should execute successfully and show progress
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: ❌ Actual Result
+      description: What actually happened?
+      placeholder: "Connection failed: Unable to connect to REGTECH server" error message displayed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 🌐 Browser Used
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📎 Additional Information
+      description: Please attach screenshots, logs, or other helpful information
+      placeholder: |
+        - Attach screenshots (drag and drop)
+        - Copy/paste error logs
+        - Note if issue occurs at specific times, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Checklist
+      options:
+        - label: I have checked that the same issue is not already reported
+          required: true
+        - label: I have tried refreshing the browser and retrying
+          required: false
+        - label: I have verified the same issue occurs in other browsers
+          required: false

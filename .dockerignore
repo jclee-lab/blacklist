@@ -1,0 +1,91 @@
+# Docker ignore file for optimized builds
+
+# Version control
+.git
+.gitignore
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Development files
+.env
+.env.example
+.user
+.serena/
+.playwright-mcp/
+
+# Node modules and dependencies
+node_modules/
+npm-debug.log*
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Test files and coverage
+.coverage
+.pytest_cache/
+.tox/
+tests/
+test-results/
+
+# Backup files
+backups/
+*.backup
+*.bak
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Docker files (don't copy into containers)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD files
+.github/
+
+# Local configuration
+config/
+dev-tools/
+data/
+
+# Scripts not needed in containers
+scripts/comprehensive_test.py
+scripts/verify_endpoints.py
+scripts/cloudflare_cleanup.py

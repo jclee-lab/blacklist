@@ -1,0 +1,37 @@
+# Hadolint Configuration for REGTECH Blacklist Platform
+# https://github.com/hadolint/hadolint#configure
+
+# Ignore specific rules
+ignored:
+  # DL3008: Pin versions in apt-get install
+  # Reason: Using latest stable packages for security updates
+  - DL3008
+  
+  # DL3015: Avoid additional packages by specifying --no-install-recommends
+  # Reason: Some recommended packages are needed for proper operation
+  - DL3015
+  
+  # DL4006: Set the SHELL option -o pipefail
+  # Reason: Using explicit error handling in RUN commands
+  - DL4006
+  
+  # DL3048: Invalid label key
+  # Reason: Custom labels for internal tracking
+  - DL3048
+  
+  # DL3059: Multiple consecutive RUN instructions
+  # Reason: Intentional for Docker layer caching optimization
+  - DL3059
+  
+  # SC2034: Variable appears unused
+  # Reason: Variables used in loop constructs
+  - SC2034
+  
+  # SC2012: Use find instead of ls
+  # Reason: Simple directory listing is sufficient
+  - SC2012
+
+# Trusted registries (no warning for missing version pinning)
+trustedRegistries:
+  - docker.io
+  - registry.example.com

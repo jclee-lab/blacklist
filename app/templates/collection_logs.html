@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수집 로그 관리 - Blacklist Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .log-entry {
+            border-left: 4px solid #6c757d;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .log-entry:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateX(2px);
+        }
+        .log-entry.success {
+            border-left-color: #28a745;
+        }
+        .log-entry.error {
+            border-left-color: #dc3545;
+        }
+        .log-entry.warning {
+            border-left-color: #ffc107;
+        }
+        .log-entry.info {
+            border-left-color: #17a2b8;
+        }
+        .log-timestamp {
+            color: #6c757d;
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+        }
+        .log-source {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .log-message {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .log-stats {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .stats-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .log-level-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .auto-refresh-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        .auto-refresh-indicator.active {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-file-text-fill"></i> 수집 로그 관리
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="bi bi-house-door"></i> 홈</a>
+                <a class="nav-link" href="/integrations"><i class="bi bi-plug"></i> 연동</a>
+                <a class="nav-link" href="/sessions"><i class="bi bi-activity"></i> 세션</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="bi bi-file-text"></i> 수집 로그</h2>
+                <p class="text-muted">REGTECH 및 SECUDIUM 데이터 수집 로그 및 이력</p>
+            </div>
+            <div>
+                <button class="btn btn-outline-primary" onclick="toggleAutoRefresh()">
+                    <i class="bi bi-arrow-repeat" id="autoRefreshIcon"></i> <span id="autoRefreshText">자동 새로고침 시작</span>
+                </button>
+                <button class="btn btn-outline-secondary" onclick="refreshLogs()">
+                    <i class="bi bi-arrow-clockwise"></i> 새로고침
+                </button>
+                <button class="btn btn-outline-info" onclick="exportLogs()">
+                    <i class="bi bi-download"></i> 내보내기
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-check-circle fs-1 mb-2"></i>
+                        <h3 class="mb-0" id="successCount">0</h3>
+                        <small>성공</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-x-circle fs-1 mb-2"></i>
+                        <h3 class="mb-0" id="errorCount">0</h3>
+                        <small>실패</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-exclamation-triangle fs-1 mb-2"></i>
+                        <h3 class="mb-0" id="warningCount">0</h3>
+                        <small>경고</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-database fs-1 mb-2"></i>
+                        <h3 class="mb-0" id="totalCount">0</h3>
+                        <small>전체</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">데이터 소스</label>
+                    <select class="form-select" id="sourceFilter" onchange="applyFilters()">
+                        <option value="all">전체</option>
+                        <option value="REGTECH">REGTECH</option>
+                        <option value="SECUDIUM">SECUDIUM</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">로그 레벨</label>
+                    <select class="form-select" id="levelFilter" onchange="applyFilters()">
+                        <option value="all">전체</option>
+                        <option value="success">성공</option>
+                        <option value="error">오류</option>
+                        <option value="warning">경고</option>
+                        <option value="info">정보</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">시간 범위</label>
+                    <select class="form-select" id="timeFilter" onchange="refreshLogs()">
+                        <option value="1">최근 1시간</option>
+                        <option value="24" selected>최근 24시간</option>
+                        <option value="168">최근 7일</option>
+                        <option value="720">최근 30일</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">검색</label>
+                    <input type="text" class="form-control" id="searchFilter" placeholder="메시지 검색..." onkeyup="applyFilters()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Collection Status -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-speedometer2"></i> 실시간 수집 상태</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-database"></i> REGTECH</h6>
+                        <div id="regtechStatus" class="mb-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div> 로딩 중...
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-shield"></i> SECUDIUM</h6>
+                        <div id="secudiumStatus" class="mb-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div> 로딩 중...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Container -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-list-ul"></i> 로그 목록</h5>
+            </div>
+            <div class="card-body">
+                <div id="logsContainer">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto Refresh Indicator -->
+    <div id="autoRefreshIndicator" class="auto-refresh-indicator" style="display: none;">
+        <i class="bi bi-arrow-repeat"></i> <span id="refreshCounter">30</span>초 후 갱신
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allLogs = [];
+        let filteredLogs = [];
+        let autoRefreshInterval = null;
+        let refreshCounterInterval = null;
+        let refreshCountdown = 30;
+
+        // Load logs on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshLogs();
+            loadCollectionStatus();
+        });
+
+        // Load collection logs
+        async function refreshLogs() {
+            try {
+                // Load collection history
+                const response = await fetch('/api/collection/history?limit=500');
+                const data = await response.json();
+
+                if (data.success) {
+                    allLogs = data.data.map((log, index) => ({
+                        id: index + 1,
+                        timestamp: log.start_time || log.created_at,
+                        source: log.source,
+                        level: log.status === 'success' ? 'success' : (log.status === 'failed' ? 'error' : 'info'),
+                        message: `${log.status === 'success' ? '✅' : '❌'} ${log.collected_count || 0}개 IP 수집 (${log.duration || 0}초 소요)`,
+                        details: {
+                            total_pages: log.total_pages,
+                            duration: log.duration,
+                            error_message: log.error_message
+                        }
+                    }));
+
+                    // Calculate statistics
+                    updateStatistics();
+
+                    // Apply filters and render
+                    applyFilters();
+                } else {
+                    showError('로그 로드 실패: ' + data.error);
+                }
+            } catch (error) {
+                showError('로그 로드 오류: ' + error.message);
+            }
+        }
+
+        // Load collection status
+        async function loadCollectionStatus() {
+            try {
+                const response = await fetch('/api/collection/status');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update REGTECH status
+                    const regtechData = data.data.find(s => s.source === 'REGTECH');
+                    if (regtechData) {
+                        document.getElementById('regtechStatus').innerHTML = `
+                            <div class="log-stats">
+                                <div class="stats-item">
+                                    <span class="badge ${regtechData.status === 'active' ? 'bg-success' : 'bg-secondary'}">${regtechData.status}</span>
+                                </div>
+                                <div class="stats-item">
+                                    <i class="bi bi-clock"></i> 최근 수집: ${formatDate(regtechData.last_collection)}
+                                </div>
+                                <div class="stats-item">
+                                    <i class="bi bi-database"></i> ${regtechData.total_collected || 0}개
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Update SECUDIUM status
+                    const secudiumData = data.data.find(s => s.source === 'SECUDIUM');
+                    if (secudiumData) {
+                        document.getElementById('secudiumStatus').innerHTML = `
+                            <div class="log-stats">
+                                <div class="stats-item">
+                                    <span class="badge ${secudiumData.status === 'active' ? 'bg-success' : 'bg-secondary'}">${secudiumData.status}</span>
+                                </div>
+                                <div class="stats-item">
+                                    <i class="bi bi-clock"></i> 최근 수집: ${formatDate(secudiumData.last_collection)}
+                                </div>
+                                <div class="stats-item">
+                                    <i class="bi bi-database"></i> ${secudiumData.total_collected || 0}개
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('수집 상태 로드 오류:', error);
+            }
+        }
+
+        // Update statistics
+        function updateStatistics() {
+            const stats = {
+                success: allLogs.filter(l => l.level === 'success').length,
+                error: allLogs.filter(l => l.level === 'error').length,
+                warning: allLogs.filter(l => l.level === 'warning').length,
+                total: allLogs.length
+            };
+
+            document.getElementById('successCount').textContent = stats.success;
+            document.getElementById('errorCount').textContent = stats.error;
+            document.getElementById('warningCount').textContent = stats.warning;
+            document.getElementById('totalCount').textContent = stats.total;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const sourceFilter = document.getElementById('sourceFilter').value;
+            const levelFilter = document.getElementById('levelFilter').value;
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+
+            filteredLogs = allLogs.filter(log => {
+                // Source filter
+                if (sourceFilter !== 'all' && log.source !== sourceFilter) {
+                    return false;
+                }
+
+                // Level filter
+                if (levelFilter !== 'all' && log.level !== levelFilter) {
+                    return false;
+                }
+
+                // Search filter
+                if (searchFilter && !log.message.toLowerCase().includes(searchFilter)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            renderLogs();
+        }
+
+        // Render logs
+        function renderLogs() {
+            const container = document.getElementById('logsContainer');
+
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">필터 조건에 맞는 로그가 없습니다.</div>';
+                return;
+            }
+
+            let html = '';
+            filteredLogs.forEach(log => {
+                html += `
+                    <div class="log-entry ${log.level}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="log-stats">
+                                <span class="log-timestamp">${formatDate(log.timestamp)}</span>
+                                <span class="log-source mx-2">[${log.source}]</span>
+                                <span class="log-level-badge badge ${getLevelBadgeClass(log.level)}">${getLevelLabel(log.level)}</span>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleDetails(${log.id})">
+                                <i class="bi bi-chevron-down" id="toggle-icon-${log.id}"></i>
+                            </button>
+                        </div>
+                        <div class="log-message">${log.message}</div>
+                        <div id="details-${log.id}" style="display: none;" class="mt-2 p-2 bg-light rounded">
+                            <small><strong>상세 정보:</strong></small><br>
+                            <small><strong>전체 페이지:</strong> ${log.details.total_pages || 'N/A'}</small><br>
+                            <small><strong>소요 시간:</strong> ${log.details.duration || 0}초</small><br>
+                            ${log.details.error_message ? `<small class="text-danger"><strong>오류:</strong> ${log.details.error_message}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `<div class="mt-3 text-muted">총 ${filteredLogs.length}개 로그 (전체 ${allLogs.length}개 중)</div>`;
+            container.innerHTML = html;
+        }
+
+        // Toggle log details
+        function toggleDetails(logId) {
+            const detailsDiv = document.getElementById(`details-${logId}`);
+            const icon = document.getElementById(`toggle-icon-${logId}`);
+
+            if (detailsDiv.style.display === 'none') {
+                detailsDiv.style.display = 'block';
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-up');
+            } else {
+                detailsDiv.style.display = 'none';
+                icon.classList.remove('bi-chevron-up');
+                icon.classList.add('bi-chevron-down');
+            }
+        }
+
+        // Toggle auto refresh
+        function toggleAutoRefresh() {
+            const indicator = document.getElementById('autoRefreshIndicator');
+            const text = document.getElementById('autoRefreshText');
+            const icon = document.getElementById('autoRefreshIcon');
+
+            if (autoRefreshInterval) {
+                // Stop auto refresh
+                clearInterval(autoRefreshInterval);
+                clearInterval(refreshCounterInterval);
+                autoRefreshInterval = null;
+                refreshCounterInterval = null;
+
+                indicator.style.display = 'none';
+                indicator.classList.remove('active');
+                text.textContent = '자동 새로고침 시작';
+                icon.classList.remove('spinning');
+            } else {
+                // Start auto refresh
+                refreshCountdown = 30;
+                autoRefreshInterval = setInterval(() => {
+                    refreshLogs();
+                    loadCollectionStatus();
+                    refreshCountdown = 30;
+                }, 30000);
+
+                refreshCounterInterval = setInterval(() => {
+                    refreshCountdown--;
+                    document.getElementById('refreshCounter').textContent = refreshCountdown;
+                    if (refreshCountdown <= 0) {
+                        refreshCountdown = 30;
+                    }
+                }, 1000);
+
+                indicator.style.display = 'block';
+                indicator.classList.add('active');
+                text.textContent = '자동 새로고침 중지';
+            }
+        }
+
+        // Export logs
+        function exportLogs() {
+            let csv = '시간,소스,레벨,메시지\n';
+            filteredLogs.forEach(log => {
+                csv += `${formatDate(log.timestamp)},${log.source},${getLevelLabel(log.level)},"${log.message}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `collection_logs_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        // Helper functions
+        function getLevelLabel(level) {
+            const labels = {
+                'success': '성공',
+                'error': '오류',
+                'warning': '경고',
+                'info': '정보'
+            };
+            return labels[level] || level;
+        }
+
+        function getLevelBadgeClass(level) {
+            const classes = {
+                'success': 'bg-success',
+                'error': 'bg-danger',
+                'warning': 'bg-warning text-dark',
+                'info': 'bg-info'
+            };
+            return classes[level] || 'bg-secondary';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleString('ko-KR');
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+    </script>
+</body>
+</html>

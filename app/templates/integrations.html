@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>외부 연동 관리 - Blacklist Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .endpoint-card {
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        .endpoint-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .method-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            font-weight: 600;
+        }
+        .url-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        .copy-btn {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            transform: scale(1.1);
+        }
+        .integration-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+        }
+        .test-result {
+            display: none;
+            margin-top: 10px;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-plug-fill"></i> 외부 연동 관리
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="bi bi-house-door"></i> 홈</a>
+                <a class="nav-link" href="/api/stats"><i class="bi bi-bar-chart"></i> 통계</a>
+                <a class="nav-link" href="/settings"><i class="bi bi-gear"></i> 설정</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header & Stats -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h2><i class="bi bi-plug"></i> 외부 연동 관리</h2>
+                <p class="text-muted">FortiGate, FortiManager 및 기타 보안 시스템과의 연동 엔드포인트</p>
+            </div>
+            <div class="col-md-4">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <h3 class="mb-1" id="totalEndpoints">8</h3>
+                        <p class="mb-0">활성 엔드포인트</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FortiGate/FortiManager Section -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-shield-check"></i> FortiGate / FortiManager 연동
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle-fill"></i>
+                            <strong>연동 가이드:</strong> FortiGate/FortiManager에서 External Block List 또는 Threat Feed로 등록하여 사용할 수 있습니다.
+                            각 엔드포인트는 실시간으로 활성 IP를 제공하며, 화이트리스트는 자동으로 제외됩니다.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: Active IPs (JSON) -->
+                <div class="endpoint-card card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    활성 IP 목록 (JSON)
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    페이지네이션 지원, 상세 메타데이터 포함 (국가, 신뢰도, 탐지일 등)
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint1')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint1">
+                            <span class="text-primary" id="baseUrl"></span>/api/fortinet/active-ips?limit=100&page=1
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/active-ips?limit=5', 'result1')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                            <button class="btn btn-sm btn-secondary" data-bs-toggle="collapse" data-bs-target="#example1">
+                                <i class="bi bi-code"></i> 응답 예시
+                            </button>
+                        </div>
+                        <div id="result1" class="test-result alert alert-secondary"></div>
+                        <div id="example1" class="collapse mt-2">
+                            <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "ip_address": "1.2.3.4",
+      "country": "CN",
+      "reason": "Malicious activity",
+      "confidence_level": 95,
+      "detection_date": "2025-10-20T10:00:00",
+      "is_active": true
+    }
+  ],
+  "total": 1234,
+  "page": 1,
+  "limit": 100
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: Blocklist (Text) -->
+                <div class="endpoint-card card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    IP 차단 목록 (Text)
+                                    <span class="badge bg-warning text-dark ms-2">추천</span>
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    FortiGate External Block List (EBL) 호환 형식 - 순수 텍스트 (IP per line)
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint2')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint2">
+                            <span class="text-primary" id="baseUrl2"></span>/api/fortinet/blocklist
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/blocklist', 'result2')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                            <button class="btn btn-sm btn-secondary" data-bs-toggle="collapse" data-bs-target="#example2">
+                                <i class="bi bi-code"></i> 응답 예시
+                            </button>
+                        </div>
+                        <div id="result2" class="test-result alert alert-secondary"></div>
+                        <div id="example2" class="collapse mt-2">
+                            <pre class="bg-light p-3 rounded"><code>1.2.3.4
+5.6.7.8
+9.10.11.12
+13.14.15.16
+...</code></pre>
+                        </div>
+                        <div class="alert alert-warning mt-2">
+                            <i class="bi bi-lightbulb-fill"></i> <strong>FortiGate 설정 방법:</strong>
+                            <br>Security Fabric &gt; External Connectors &gt; Create New &gt; Threat Feeds &gt;
+                            URL: <code class="text-dark">[이 URL 입력]</code> &gt;
+                            Update Interval: Hourly
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: Threat Feed (JSON Push API) -->
+                <div class="endpoint-card card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    Threat Feed (Push API 형식)
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    FortiGate 7.2+ Push API 호환 JSON 형식 (snapshot/add/remove 명령 지원)
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint3')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint3">
+                            <span class="text-primary" id="baseUrl3"></span>/api/fortinet/threat-feed?command=snapshot
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/threat-feed?command=snapshot', 'result3')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                            <button class="btn btn-sm btn-secondary" data-bs-toggle="collapse" data-bs-target="#example3">
+                                <i class="bi bi-code"></i> 응답 예시
+                            </button>
+                        </div>
+                        <div id="result3" class="test-result alert alert-secondary"></div>
+                        <div id="example3" class="collapse mt-2">
+                            <pre class="bg-light p-3 rounded"><code>{
+  "commands": [
+    {
+      "name": "ip",
+      "command": "snapshot",
+      "entries": [
+        "1.2.3.4",
+        "5.6.7.8",
+        ...
+      ]
+    }
+  ]
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: JSON Connector (with metadata) -->
+                <div class="endpoint-card card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    JSON Connector (메타데이터 포함)
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    국가, 위험도, 이유 등 상세 정보 포함 (필터링 지원: risk_level, country)
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint4')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint4">
+                            <span class="text-primary" id="baseUrl4"></span>/api/fortinet/json-connector?risk_level=high&limit=100
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/json-connector?limit=5', 'result4')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                            <button class="btn btn-sm btn-secondary" data-bs-toggle="collapse" data-bs-target="#example4">
+                                <i class="bi bi-code"></i> 응답 예시
+                            </button>
+                        </div>
+                        <div id="result4" class="test-result alert alert-secondary"></div>
+                        <div id="example4" class="collapse mt-2">
+                            <pre class="bg-light p-3 rounded"><code>{
+  "results": [
+    {
+      "ip": "1.2.3.4",
+      "country": "CN",
+      "risk_level": "high",
+      "reason": "malicious_activity",
+      "confidence": 95,
+      "first_seen": "2025-10-20T10:00:00Z",
+      "last_updated": "2025-10-29T15:30:00Z"
+    }
+  ],
+  "metadata": {
+    "total": 1234,
+    "filtered": 100,
+    "version": "1.0"
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: Active Sessions -->
+                <div class="endpoint-card card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    활성 세션 모니터링
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    실시간 위협 세션 정보 (활성 시간, 세션 상태, 통계 포함)
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint5')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint5">
+                            <span class="text-primary" id="baseUrl5"></span>/api/fortinet/active-sessions?hours=24&limit=50
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/active-sessions?hours=24&limit=5', 'result5')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                            <button class="btn btn-sm btn-secondary" data-bs-toggle="collapse" data-bs-target="#example5">
+                                <i class="bi bi-code"></i> 응답 예시
+                            </button>
+                        </div>
+                        <div id="result5" class="test-result alert alert-secondary"></div>
+                        <div id="example5" class="collapse mt-2">
+                            <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "ip_address": "1.2.3.4",
+      "country": "CN",
+      "session_status": "active",
+      "active_hours": 2.5,
+      "confidence_level": 95,
+      "detection_date": "2025-10-29T10:00:00",
+      "reason": "Port scanning"
+    }
+  ],
+  "stats": {
+    "total_sessions": 150,
+    "active_count": 45,
+    "last_hour": 12,
+    "last_24h": 45,
+    "unique_countries": 23
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: Config -->
+                <div class="endpoint-card card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    FortiGate 연동 설정 정보
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    External Blocklist URL, 업데이트 주기 등 연동 설정 정보
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint6')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint6">
+                            <span class="text-primary" id="baseUrl6"></span>/api/fortinet/config
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/config', 'result6')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                        </div>
+                        <div id="result6" class="test-result alert alert-secondary"></div>
+                    </div>
+                </div>
+
+                <!-- Endpoint: Health Check -->
+                <div class="endpoint-card card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title">
+                                    <span class="method-badge badge bg-success me-2">GET</span>
+                                    연동 헬스 체크
+                                </h6>
+                                <p class="card-text text-muted mb-2">
+                                    FortiGate 연동 상태 확인 및 활성 IP 수 조회
+                                </p>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyToClipboard('endpoint7')">
+                                <i class="bi bi-clipboard"></i> 복사
+                            </button>
+                        </div>
+                        <div class="url-display" id="endpoint7">
+                            <span class="text-primary" id="baseUrl7"></span>/api/fortinet/health
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-info" onclick="testEndpoint('/api/fortinet/health', 'result7')">
+                                <i class="bi bi-play-circle"></i> 테스트
+                            </button>
+                        </div>
+                        <div id="result7" class="test-result alert alert-secondary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FortiManager Scripts Section -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-earmark-code"></i> FortiManager 자동화 스크립트
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>FortiManager 통합:</strong> 서버의 <code>/scripts</code> 디렉토리에 FortiManager CLI Script 등록 및 자동 업로드 스크립트가 준비되어 있습니다.
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="bi bi-terminal"></i> CLI Script 등록</h6>
+                                <p class="text-muted small mb-2">FortiManager에 주기적 실행 스크립트 등록</p>
+                                <pre class="bg-white p-2 rounded small"><code>bash /scripts/fmg-register-script.sh \
+  [FMG_IP] [USER] [PASSWORD]</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="bi bi-upload"></i> 자동 업로드 스크립트</h6>
+                                <p class="text-muted small mb-2">Flask API → FortiManager → FortiGates</p>
+                                <pre class="bg-white p-2 rounded small"><code>bash /scripts/fmg-auto-upload.sh \
+  [FMG_IP] [USER] [PASSWORD]</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill"></i> <strong>Cron 설정 예시 (5분마다 업데이트):</strong>
+                    <br><code>*/5 * * * * bash /scripts/fmg-auto-upload.sh 192.168.1.100 admin 'password' >> /var/log/fmg-upload.log 2>&1</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Set base URL on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const baseUrl = window.location.origin;
+            document.querySelectorAll('[id^="baseUrl"]').forEach(el => {
+                el.textContent = baseUrl;
+            });
+        });
+
+        // Copy URL to clipboard
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                // Show success feedback
+                const originalText = event.target.innerHTML;
+                event.target.innerHTML = '<i class="bi bi-check"></i> 복사됨!';
+                event.target.classList.remove('btn-outline-primary');
+                event.target.classList.add('btn-success');
+
+                setTimeout(() => {
+                    event.target.innerHTML = originalText;
+                    event.target.classList.remove('btn-success');
+                    event.target.classList.add('btn-outline-primary');
+                }, 2000);
+            }).catch(err => {
+                alert('복사 실패: ' + err);
+            });
+        }
+
+        // Test endpoint
+        async function testEndpoint(url, resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result alert alert-secondary';
+            resultDiv.innerHTML = '<i class="spinner-border spinner-border-sm"></i> 테스트 중...';
+
+            try {
+                const response = await fetch(url);
+                const contentType = response.headers.get('Content-Type');
+
+                let data;
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                    resultDiv.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> <strong>성공!</strong><br>' +
+                        '<pre class="mt-2 bg-light p-2 rounded small" style="max-height: 300px; overflow: auto;">' +
+                        JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    const text = await response.text();
+                    const lines = text.split('\n').slice(0, 10);
+                    resultDiv.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> <strong>성공!</strong><br>' +
+                        '<pre class="mt-2 bg-light p-2 rounded small">' + lines.join('\n') +
+                        (lines.length < text.split('\n').length ? '\n... (more)' : '') + '</pre>';
+                }
+
+                resultDiv.className = 'test-result alert alert-success';
+            } catch (error) {
+                resultDiv.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i> <strong>실패:</strong> ' + error.message;
+                resultDiv.className = 'test-result alert alert-danger';
+            }
+        }
+    </script>
+</body>
+</html>

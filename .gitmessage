@@ -1,0 +1,19 @@
+# <type>: <subject>
+#
+# <body>
+#
+# <footer>
+#
+# Type: feat, fix, docs, style, refactor, test, chore
+# Subject: 50 characters or less
+# Body: Explain what and why (not how)
+# Footer: Reference issues, breaking changes
+#
+# Example:
+# feat: Add user authentication
+#
+# Implement JWT-based authentication system
+# - Add login/logout endpoints
+# - Integrate with PostgreSQL user table
+#
+# Closes #123
