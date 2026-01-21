@@ -256,6 +256,35 @@ deploy_services() {
     log_success "Services started"
 }
 
+restore_database() {
+    log_step "Restore Database"
+
+    local dump_file="${IMAGES_DIR}/blacklist-db-dump.sql.gz"
+    
+    if [ ! -f "${dump_file}" ]; then
+        log_warning "Database dump not found, skipping restore"
+        return 0
+    fi
+
+    log_info "Waiting for PostgreSQL to be ready..."
+    local retries=30
+    while ! docker exec blacklist-postgres pg_isready -U postgres -q 2>/dev/null; do
+        retries=$((retries - 1))
+        if [ "$retries" -le 0 ]; then
+            log_warning "PostgreSQL not ready, skipping restore"
+            return 0
+        fi
+        sleep 1
+    done
+
+    log_info "Restoring database from dump..."
+    if gunzip -c "${dump_file}" | docker exec -i blacklist-postgres psql -U postgres blacklist > /dev/null 2>&1; then
+        log_success "Database restored successfully"
+    else
+        log_warning "Database restore had warnings (may be OK if tables exist)"
+    fi
+}
+
 health_checks() {
     log_step "Health Checks"
 
@@ -354,6 +383,7 @@ main() {
     setup_secrets
 
     deploy_services
+    restore_database
     health_checks
     post_install
 
