@@ -18,63 +18,16 @@ log_step() { echo -e "\n${CYAN}===${NC} ${BOLD}$1${NC}\n"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGES_DIR="${SCRIPT_DIR}/images"
 
-install_docker_offline() {
-    log_step "Offline Docker Installation"
-    
-    local prereqs_dir="${SCRIPT_DIR}/prereqs"
-    if [ ! -d "$prereqs_dir" ]; then
-        log_error "prereqs/ directory not found. Cannot install Docker."
-    fi
-
-    log_info "Installing Docker Engine..."
-    # Find docker tarball
-    local docker_tgz=$(find "${prereqs_dir}" -name "docker-*.tgz" | head -n 1)
-    if [ -z "$docker_tgz" ]; then
-        log_error "Docker binary tarball not found in prereqs/"
-    fi
-    
-    # Extract to /usr/bin
-    if ! tar -xzf "$docker_tgz" -C /usr/bin --strip-components=1; then
-        log_error "Failed to extract Docker binaries"
-    fi
-    
-    # Setup service
-    if [ -f "${prereqs_dir}/docker.service" ]; then
-        cp "${prereqs_dir}/docker.service" /etc/systemd/system/
-        systemctl daemon-reload
-        systemctl enable --now docker
-        sleep 5
-    else
-        log_error "docker.service not found in prereqs/"
-    fi
-}
-
-install_docker_compose() {
-    log_info "Installing Docker Compose Plugin..."
-    local prereqs_dir="${SCRIPT_DIR}/prereqs"
-    local compose_bin="${prereqs_dir}/docker-compose-linux-x86_64"
-    
-    if [ ! -f "$compose_bin" ]; then
-        log_error "Docker Compose binary not found in prereqs/"
-    fi
-    
-    mkdir -p /usr/libexec/docker/cli-plugins
-    cp "$compose_bin" /usr/libexec/docker/cli-plugins/docker-compose
-    chmod +x /usr/libexec/docker/cli-plugins/docker-compose
-}
-
 preflight_checks() {
     log_step "Preflight Checks"
 
     if ! command -v docker &> /dev/null; then
-        log_warning "Docker not found. Attempting offline installation..."
-        install_docker_offline
+        log_error "Docker not installed. Install Docker first: https://docs.docker.com/engine/install/"
     fi
     log_success "Docker $(docker --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
 
     if ! docker compose version &> /dev/null; then
-         log_warning "Docker Compose not found. Attempting offline installation..."
-         install_docker_compose
+        log_error "Docker Compose not installed. Install Docker Compose plugin first."
     fi
     log_success "Docker Compose $(docker compose version --short)"
 
