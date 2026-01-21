@@ -108,16 +108,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/server.js ./server.js
 
-# Generate self-signed SSL certificate at build time (baked into image)
-RUN mkdir -p /app/ssl && \
-    apk add --no-cache openssl && \
-    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-        -keyout /app/ssl/server.key \
-        -out /app/ssl/server.crt \
-        -subj "/CN=localhost/O=Blacklist/C=KR" && \
-    chown -R nextjs:nodejs /app/ssl && \
-    chmod 600 /app/ssl/server.key && \
-    chmod 644 /app/ssl/server.crt
+# Copy SSL certificates (nxtd.co.kr wildcard)
+COPY --chown=nextjs:nodejs ssl/server.key ssl/server.crt /app/ssl/
+RUN chmod 600 /app/ssl/server.key && chmod 644 /app/ssl/server.crt
 
 # Switch to non-root user
 USER nextjs
