@@ -140,8 +140,6 @@ services:
       TZ: Asia/Seoul
       SSL_KEY_PATH: /app/ssl/server.key
       SSL_CERT_PATH: /app/ssl/server.crt
-    volumes:
-      - ./ssl:/app/ssl:ro
     healthcheck:
       test:
         - CMD-SHELL
