@@ -1,0 +1,75 @@
+# Environment files with secrets
+.env
+.env.local
+.env.production
+.env.*.local
+cloudflare/.env
+
+# Runtime data (deployment)
+data/
+logs/
+*.log
+
+# Docker images
+images/
+*.tar.gz
+*.tar
+
+# Node.js
+node_modules/
+.next/
+.npm/
+npm-debug.log*
+yarn-error.log
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.sqlite
+*.db
+*.dump
+
+# SSL/TLS certificates (for development)
+*.pem
+*.key
+*.crt
+!ssl/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+dist/
+build/
+*.egg

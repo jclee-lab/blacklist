@@ -1,0 +1,122 @@
+# Blacklist Platform - Docker Compose
+# Version: 1.0.0
+# Generated: 2026-01-31
+
+services:
+  blacklist-app:
+    container_name: blacklist-app
+    image: blacklist-app:latest
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: production
+      PORT: 2542
+      SSL_ENABLED: 'false'
+      TZ: Asia/Seoul
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      SECRET_KEY: ${SECRET_KEY}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY}
+      CREDENTIAL_MASTER_KEY: ${CREDENTIAL_MASTER_KEY}
+    volumes:
+      - ./data/logs:/app/logs
+      - ./data/uploads:/app/uploads
+      - ./data/app_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2542/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  blacklist-collector:
+    container_name: blacklist-collector
+    image: blacklist-collector:latest
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      BACKEND_API_URL: http://localhost:2542
+      HEALTH_CHECK_PORT: 8545
+      COLLECTION_INTERVAL: 86400
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blacklist
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      SECRET_KEY: ${SECRET_KEY}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY}
+      CREDENTIAL_MASTER_KEY: ${CREDENTIAL_MASTER_KEY}
+    volumes:
+      - ./data/collector:/app/data
+      - ./data/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  blacklist-frontend:
+    container_name: blacklist-frontend
+    image: blacklist-frontend:latest
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 443
+      NEXT_PUBLIC_API_URL: http://localhost:2542
+      SSL_CERT_PATH: /app/ssl/server.crt
+      SSL_KEY_PATH: /app/ssl/server.key
+      TZ: Asia/Seoul
+    healthcheck:
+      # FIX: Changed from wget --spider to curl for reliability
+      test: ["CMD", "curl", "-sfk", "https://localhost:443/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  blacklist-postgres:
+    container_name: blacklist-postgres
+    image: blacklist-postgres:latest
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: blacklist
+      TZ: Asia/Seoul
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./postgres/migrations:/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d blacklist"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  blacklist-redis:
+    container_name: blacklist-redis
+    image: blacklist-redis:latest
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
