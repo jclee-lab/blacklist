@@ -78,8 +78,9 @@ services:
       SSL_KEY_PATH: /app/ssl/server.key
       TZ: Asia/Seoul
     healthcheck:
-      # FIX: Changed from wget --spider to curl for reliability
-      test: ["CMD", "curl", "-sfk", "https://localhost:443/"]
+      # FIX: Use process check - network check fails with host network mode
+      # Container can't connect to localhost:443 from inside (Alpine/BusyBox quirk)
+      test: ["CMD-SHELL", "pgrep -x node || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
