@@ -1,0 +1,41 @@
+{
+  "name": "blacklist-api",
+  "version": "1.0.0",
+  "description": "Blacklist Intelligence Platform - Cloudflare Workers API",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "db:create": "wrangler d1 create blacklist-db",
+    "db:migrate": "wrangler d1 execute blacklist-db --file=schema.sql",
+    "db:migrate:staging": "wrangler d1 execute blacklist-db-staging --file=schema.sql",
+    "kv:create": "wrangler kv:namespace create CACHE && wrangler kv:namespace create SESSIONS",
+    "secret:set": "wrangler secret put CREDENTIAL_MASTER_KEY && wrangler secret put REGTECH_USERNAME && wrangler secret put REGTECH_PASSWORD",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.0.5",
+    "hono": "^4.6.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241205.0",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "miniflare": "^3.20241205.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^4.60.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

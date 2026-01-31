@@ -1,0 +1,36 @@
+# Cloudflare Workers Configuration for Blacklist Frontend
+# Requires: @opennextjs/cloudflare
+
+name = "blacklist-frontend"
+account_id = "bb656f6265d20a50e7835fda2dfa7fc3"  # Nextrade account
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+main = ".open-next/worker.js"
+workers_dev = true
+
+# Custom Domain Route
+routes = [
+  { pattern = "blacklist.nextrade.co.kr/*", zone_id = "0812fba073b9812c2c97b4a51b09a00d" }
+]
+
+# Assets configuration for OpenNext
+assets = { directory = ".open-next/assets", binding = "ASSETS" }
+
+# Environment variables
+# Note: NEXT_PUBLIC_API_URL is set via wrangler secret for security
+[vars]
+# API_URL configured via: wrangler secret put NEXT_PUBLIC_API_URL
+
+# Production environment
+[env.production]
+name = "blacklist-frontend"
+
+[env.production.vars]
+NODE_ENV = "production"
+
+# Preview environment (for PR deployments)
+[env.preview]
+name = "blacklist-frontend-preview"
+
+[env.preview.vars]
+NODE_ENV = "preview"

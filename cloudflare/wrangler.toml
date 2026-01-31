@@ -1,0 +1,158 @@
+# ============================================================
+# Blacklist API - Cloudflare Workers Configuration
+# ============================================================
+# Deploy: wrangler deploy
+# Dev:    wrangler dev
+# D1:     wrangler d1 execute blacklist-db --file=schema.sql
+# ============================================================
+
+name = "blacklist-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat_v2"]
+
+# ============================================================
+# Browser Rendering (Puppeteer for REGTECH scraping)
+# ============================================================
+[browser]
+binding = "BROWSER"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# ============================================================
+# D1 Database
+# ============================================================
+[[d1_databases]]
+binding = "DB"
+database_name = "blacklist-db"
+database_id = "2718537e-622a-4ec8-8249-88971677617d"
+
+# ============================================================
+# KV Namespaces (Redis replacement)
+# ============================================================
+[[kv_namespaces]]
+binding = "CACHE"
+id = "8bde09ae9c154f7da3338a270ad465da"
+
+# ============================================================
+# Queues (Background job processing)
+# ============================================================
+[[queues.producers]]
+queue = "blacklist-collection"
+binding = "COLLECTION_QUEUE"
+
+[[queues.consumers]]
+queue = "blacklist-collection"
+max_batch_size = 100
+max_batch_timeout = 30
+max_retries = 3
+
+# ============================================================
+# Cron Triggers (APScheduler replacement)
+# ============================================================
+[triggers]
+crons = [
+  "0 */6 * * *",   # Every 6 hours - REGTECH collection
+  "0 0 * * *",     # Daily at midnight - Cleanup old data
+  "*/5 * * * *",   # Every 5 minutes - Health check
+]
+
+# ============================================================
+# Environment Variables
+# ============================================================
+[vars]
+ENVIRONMENT = "production"
+LOG_LEVEL = "INFO"
+CORS_ORIGINS = "https://blacklist.example.com,https://blacklist.pages.dev"
+API_VERSION = "1.0.0"
+
+# ============================================================
+# Secrets (set via: wrangler secret put SECRET_NAME)
+# ============================================================
+# CREDENTIAL_MASTER_KEY  - AES-256-GCM encryption key
+# REGTECH_USERNAME       - REGTECH portal username
+# REGTECH_PASSWORD       - REGTECH portal password
+
+# ============================================================
+# Rate Limiting
+# ============================================================
+# Note: Implement in code using Workers KV or external service
+
+# ============================================================
+# Environments
+# ============================================================
+
+[env.staging]
+name = "blacklist-api-staging"
+vars = { ENVIRONMENT = "staging", LOG_LEVEL = "DEBUG" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "blacklist-db-staging"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[env.staging.kv_namespaces]]
+binding = "CACHE"
+id = "00000000000000000000000000000000"
+
+[env.preview]
+name = "blacklist-api-preview"
+vars = { ENVIRONMENT = "preview", LOG_LEVEL = "DEBUG" }
+
+# ============================================================
+# Observability
+# ============================================================
+# Cloudflare Workers Analytics automatically enabled
+# For custom metrics, use Workers Analytics Engine binding
+
+# [[analytics_engine_datasets]]
+# binding = "ANALYTICS"
+
+# ============================================================
+# Tail Workers (Logging)
+# ============================================================
+# Uncomment to enable tail worker for centralized logging
+# [[tail_consumers]]
+# binding = "LOG_CONSUMER"
+# service = "blacklist-logger"
+
+# ============================================================
+# Durable Objects (For long-running tasks)
+# ============================================================
+# Uncomment when implementing collection coordinator
+# [[durable_objects.bindings]]
+# name = "COLLECTION_COORDINATOR"
+# class_name = "CollectionCoordinator"
+
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["CollectionCoordinator"]
+
+# ============================================================
+# Usage Notes
+# ============================================================
+#
+# 1. Create D1 database:
+#    wrangler d1 create blacklist-db
+#    
+# 2. Apply schema:
+#    wrangler d1 execute blacklist-db --file=schema.sql
+#
+# 3. Create KV namespaces:
+#    wrangler kv:namespace create CACHE
+#    wrangler kv:namespace create SESSIONS
+#
+# 4. Set secrets:
+#    wrangler secret put CREDENTIAL_MASTER_KEY
+#    wrangler secret put REGTECH_USERNAME
+#    wrangler secret put REGTECH_PASSWORD
+#
+# 5. Deploy:
+#    wrangler deploy
+#
+# 6. View logs:
+#    wrangler tail
+#
+# ============================================================
