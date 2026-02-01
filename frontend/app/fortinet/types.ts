@@ -1,14 +1,3 @@
-export interface FortinetIP {
-  id: number;
-  ip_address: string;
-  country?: string;
-  reason?: string;
-  confidence_level?: number;
-  detection_date?: string;
-  removal_date?: string;
-  is_active: boolean;
-}
-
 export interface PullLog {
   id: number;
   device_ip: string;
@@ -26,10 +15,3 @@ export interface PullLogStats {
   failed_pulls: number;
   unique_devices: number;
 }
-
-export interface FortinetStats {
-  total_active: number;
-  last_updated: string;
-}
-
-export type FortinetViewTab = 'active-ips' | 'pull-logs';

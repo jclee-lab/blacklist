@@ -108,20 +108,6 @@ export const getDatabaseSchema = async () => {
   return data;
 };
 
-// 데이터베이스 테이블 데이터 조회 API
-export const getDatabaseTableData = async (tableName: string, params?: string) => {
-  const url = params ? `/database/table/${tableName}?${params}` : `/database/table/${tableName}`;
-  const { data } = await api.get(url);
-  return data;
-};
-
-// Fortinet 활성 IP 조회 API
-export const getFortinetActiveIPs = async (params?: string) => {
-  const url = params ? `/fortinet/active-ips?${params}` : '/fortinet/active-ips';
-  const { data } = await api.get(url);
-  return data;
-};
-
 // Fortinet 로그 조회 API
 export const getFortinetPullLogs = async (params?: string) => {
   const url = params ? `/fortinet/pull-logs?${params}` : '/fortinet/pull-logs';

@@ -1,14 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, CheckCircle, XCircle, Play, RefreshCw, Key, AlertCircle, Lock, Clock, Database, TrendingUp } from 'lucide-react';
-import { 
-  getCredential, 
-  getCollectionStatus, 
-  getBlacklistStats, 
-  testCredential, 
-  triggerCollectionService, 
-  updateCredential 
+import {
+  Settings,
+  CheckCircle,
+  XCircle,
+  Play,
+  RefreshCw,
+  AlertCircle,
+  Lock,
+  Clock,
+  Database,
+  TrendingUp,
+} from 'lucide-react';
+import {
+  getCredential,
+  getCollectionStatus,
+  getBlacklistStats,
+  testCredential,
+  triggerCollectionService,
+  updateCredential,
 } from '@/lib/api';
 
 interface CollectorStatus {
@@ -54,7 +65,10 @@ export default function CollectionManagementClient() {
   // Modal state for credential management
   const [showCredentialModal, setShowCredentialModal] = useState(false);
   const [editingService, setEditingService] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [credentialForm, setCredentialForm] = useState({
     username: '',
     password: '',
@@ -135,7 +149,10 @@ export default function CollectionManagementClient() {
       if (data.success) {
         setNotification({ type: 'success', message: `${serviceName} 연결 테스트 성공!` });
       } else {
-        setNotification({ type: 'error', message: `${serviceName} 연결 실패: ${data.message || data.error}` });
+        setNotification({
+          type: 'error',
+          message: `${serviceName} 연결 실패: ${data.message || data.error}`,
+        });
       }
     } catch (error) {
       setNotification({ type: 'error', message: `${serviceName} 연결 테스트 중 오류 발생` });
@@ -153,7 +170,10 @@ export default function CollectionManagementClient() {
         setNotification({ type: 'success', message: `${serviceName} 수집 작업이 시작되었습니다!` });
         setTimeout(fetchData, 2000);
       } else {
-        setNotification({ type: 'error', message: `${serviceName} 수집 실패: ${data.error || '알 수 없는 오류'}` });
+        setNotification({
+          type: 'error',
+          message: `${serviceName} 수집 실패: ${data.error || '알 수 없는 오류'}`,
+        });
       }
     } catch (error) {
       setNotification({ type: 'error', message: `${serviceName} 수집 작업 중 오류 발생` });
@@ -183,13 +203,24 @@ export default function CollectionManagementClient() {
       const data = await updateCredential(editingService.toLowerCase(), credentialForm);
 
       if (data.success) {
-        setNotification({ type: 'success', message: `${editingService} 인증 정보가 저장되었습니다!` });
+        setNotification({
+          type: 'success',
+          message: `${editingService} 인증 정보가 저장되었습니다!`,
+        });
         setShowCredentialModal(false);
         setEditingService(null);
-        setCredentialForm({ username: '', password: '', enabled: true, collection_interval: 'daily' });
+        setCredentialForm({
+          username: '',
+          password: '',
+          enabled: true,
+          collection_interval: 'daily',
+        });
         fetchData();
       } else {
-        setNotification({ type: 'error', message: `저장 실패: ${data.error || '알 수 없는 오류'}` });
+        setNotification({
+          type: 'error',
+          message: `저장 실패: ${data.error || '알 수 없는 오류'}`,
+        });
       }
     } catch (error) {
       setNotification({ type: 'error', message: '저장 중 오류 발생' });
@@ -250,7 +281,7 @@ export default function CollectionManagementClient() {
 
   const getSourceCount = (source: string) => {
     if (!blacklistStats?.sources) return 0;
-    const found = blacklistStats.sources.find(s => s.source === source);
+    const found = blacklistStats.sources.find((s) => s.source === source);
     return found?.count || 0;
   };
 
@@ -266,13 +297,15 @@ export default function CollectionManagementClient() {
   return (
     <div className="space-y-6">
       {notification && (
-        <div 
+        <div
           role="alert"
           aria-live="polite"
           className={`rounded-md p-4 ${notification.type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}
         >
           <div className="flex justify-between items-center">
-            <p className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+            <p
+              className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}
+            >
               {notification.message}
             </p>
             <button
@@ -291,15 +324,17 @@ export default function CollectionManagementClient() {
             <div>
               <p className="text-gray-600 text-sm">수집 상태</p>
               {(() => {
-                const isCollecting = Object.values(triggeringCollection).some(v => v);
+                const isCollecting = Object.values(triggeringCollection).some((v) => v);
                 return (
-                  <p className={`text-2xl font-bold mt-2 ${isCollecting ? 'text-green-600' : 'text-gray-900'}`}>
+                  <p
+                    className={`text-2xl font-bold mt-2 ${isCollecting ? 'text-green-600' : 'text-gray-900'}`}
+                  >
                     {isCollecting ? '수집 중' : '대기 중'}
                   </p>
                 );
               })()}
             </div>
-            {Object.values(triggeringCollection).some(v => v) ? (
+            {Object.values(triggeringCollection).some((v) => v) ? (
               <RefreshCw className="h-12 w-12 text-green-500 animate-spin" />
             ) : (
               <RefreshCw className="h-12 w-12 text-gray-400" />
@@ -324,10 +359,14 @@ export default function CollectionManagementClient() {
             <div>
               <p className="text-gray-600 text-sm">활성 수집기</p>
               <p className="text-2xl font-bold text-gray-900 mt-2">
-                {collectionStatus?.collectors ? Object.values(collectionStatus.collectors).filter(c => c.enabled).length : 0}
+                {collectionStatus?.collectors
+                  ? Object.values(collectionStatus.collectors).filter((c) => c.enabled).length
+                  : 0}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                전체: {collectionStatus?.collectors ? Object.keys(collectionStatus.collectors).length : 0}개
+                전체:{' '}
+                {collectionStatus?.collectors ? Object.keys(collectionStatus.collectors).length : 0}
+                개
               </p>
             </div>
             <Settings className="h-12 w-12 text-blue-500" />
@@ -366,154 +405,173 @@ export default function CollectionManagementClient() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {collectionStatus?.collectors && Object.entries(collectionStatus.collectors).map(([name, collector]) => {
-            const cred = credentials.find(c => c.service_name === name);
-            const sourceCount = getSourceCount(name);
-            
-            return (
-              <div key={name} className="bg-white rounded-lg shadow-lg overflow-hidden">
-                {/* Card Header with Color */}
-                <div className={`px-6 py-4 ${
-                  name === 'REGTECH'
-                    ? 'bg-gradient-to-r from-pink-500 to-pink-600'
-                    : name === 'SECUDIUM'
-                    ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-                    : 'bg-gradient-to-r from-gray-500 to-gray-600'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xl font-bold text-white">{name}</h4>
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                      collector.enabled ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
-                    }`}>
-                      {collector.enabled ? '활성' : '비활성'}
-                    </span>
-                  </div>
-                </div>
+          {collectionStatus?.collectors &&
+            Object.entries(collectionStatus.collectors).map(([name, collector]) => {
+              const cred = credentials.find((c) => c.service_name === name);
+              const sourceCount = getSourceCount(name);
 
-                {/* Card Body */}
-                <div className="p-6">
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-blue-600">{collector.run_count}</p>
-                      <p className="text-xs text-gray-500">수집 횟수</p>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-red-600">{collector.error_count}</p>
-                      <p className="text-xs text-gray-500">오류 횟수</p>
-                    </div>
-                    <div className="text-center p-3 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-green-600">{sourceCount.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">누적 수집</p>
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">사용자명:</span>
-                      <span className="font-medium">{cred?.username || '-'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">수집 주기:</span>
-                      <span className="font-medium">{formatInterval(collector.interval_seconds)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">마지막 수집:</span>
-                      <span className="font-medium">
-                        {collector.last_run
-                          ? new Date(collector.last_run).toLocaleString('ko-KR')
-                          : '없음'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">다음 수집:</span>
-                      <span className="font-medium text-blue-600">
-                        {collector.next_run
-                          ? new Date(collector.next_run).toLocaleString('ko-KR')
-                          : '대기 중'}
+              return (
+                <div key={name} className="bg-white rounded-lg shadow-lg overflow-hidden">
+                  {/* Card Header with Color */}
+                  <div
+                    className={`px-6 py-4 ${
+                      name === 'REGTECH'
+                        ? 'bg-gradient-to-r from-pink-500 to-pink-600'
+                        : name === 'SECUDIUM'
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                          : 'bg-gradient-to-r from-gray-500 to-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xl font-bold text-white">{name}</h4>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-semibold ${
+                          collector.enabled ? 'bg-white/20 text-white' : 'bg-red-500 text-white'
+                        }`}
+                      >
+                        {collector.enabled ? '활성' : '비활성'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Connection Status */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-2">
-                      {getConnectionStatusIcon(cred?.connection_status)}
-                      <span className="text-sm text-gray-600">연결 상태</span>
+                  {/* Card Body */}
+                  <div className="p-6">
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">{collector.run_count}</p>
+                        <p className="text-xs text-gray-500">수집 횟수</p>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-2xl font-bold text-red-600">{collector.error_count}</p>
+                        <p className="text-xs text-gray-500">오류 횟수</p>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-2xl font-bold text-green-600">
+                          {sourceCount.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">누적 수집</p>
+                      </div>
                     </div>
-                    {getConnectionStatusBadge(cred?.connection_status)}
-                  </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => testConnection(name)}
-                      disabled={testingConnection[name] || !collector.enabled}
-                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                    >
-                      {testingConnection[name] ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          테스트 중...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          연결 테스트
-                        </>
-                      )}
-                    </button>
+                    {/* Info */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">사용자명:</span>
+                        <span className="font-medium">{cred?.username || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">수집 주기:</span>
+                        <span className="font-medium">
+                          {formatInterval(collector.interval_seconds)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">마지막 수집:</span>
+                        <span className="font-medium">
+                          {collector.last_run
+                            ? new Date(collector.last_run).toLocaleString('ko-KR')
+                            : '없음'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">다음 수집:</span>
+                        <span className="font-medium text-blue-600">
+                          {collector.next_run
+                            ? new Date(collector.next_run).toLocaleString('ko-KR')
+                            : '대기 중'}
+                        </span>
+                      </div>
+                    </div>
 
-                    <button
-                      onClick={() => triggerCollection(name)}
-                      disabled={triggeringCollection[name] || !collector.enabled}
-                      className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                    >
-                      {triggeringCollection[name] ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          수집 중...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          즉시 수집
-                        </>
-                      )}
-                    </button>
+                    {/* Connection Status */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        {getConnectionStatusIcon(cred?.connection_status)}
+                        <span className="text-sm text-gray-600">연결 상태</span>
+                      </div>
+                      {getConnectionStatusBadge(cred?.connection_status)}
+                    </div>
 
-                    <button
-                      onClick={() => openEditModal(name)}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm flex items-center"
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      설정
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => testConnection(name)}
+                        disabled={testingConnection[name] || !collector.enabled}
+                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                        {testingConnection[name] ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            테스트 중...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            연결 테스트
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => triggerCollection(name)}
+                        disabled={triggeringCollection[name] || !collector.enabled}
+                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                        {triggeringCollection[name] ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            수집 중...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            즉시 수집
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => openEditModal(name)}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm flex items-center"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        설정
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
 
       {/* Credential Edit Modal */}
       {showCredentialModal && editingService && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => { setShowCredentialModal(false); setEditingService(null); }}
-          onKeyDown={(e) => { if (e.key === 'Escape') { setShowCredentialModal(false); setEditingService(null); } }}
+          onClick={() => {
+            setShowCredentialModal(false);
+            setEditingService(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setShowCredentialModal(false);
+              setEditingService(null);
+            }
+          }}
           role="presentation"
         >
-          <div 
+          <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="credential-modal-title"
             className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="credential-modal-title" className="text-xl font-bold text-gray-900 mb-4">{editingService} 인증 정보 수정</h3>
+            <h3 id="credential-modal-title" className="text-xl font-bold text-gray-900 mb-4">
+              {editingService} 인증 정보 수정
+            </h3>
 
             <div className="space-y-4">
               <div>
@@ -521,7 +579,9 @@ export default function CollectionManagementClient() {
                 <input
                   type="text"
                   value={credentialForm.username}
-                  onChange={(e) => setCredentialForm({ ...credentialForm, username: e.target.value })}
+                  onChange={(e) =>
+                    setCredentialForm({ ...credentialForm, username: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="사용자명 입력"
                 />
@@ -532,18 +592,24 @@ export default function CollectionManagementClient() {
                 <input
                   type="password"
                   value={credentialForm.password}
-                  onChange={(e) => setCredentialForm({ ...credentialForm, password: e.target.value })}
+                  onChange={(e) =>
+                    setCredentialForm({ ...credentialForm, password: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="새 비밀번호 입력 (변경 시만)"
                 />
-                <p className="text-xs text-gray-500 mt-1">비밀번호를 변경하지 않으려면 비워두세요</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  비밀번호를 변경하지 않으려면 비워두세요
+                </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">수집 주기</label>
                 <select
                   value={credentialForm.collection_interval}
-                  onChange={(e) => setCredentialForm({ ...credentialForm, collection_interval: e.target.value })}
+                  onChange={(e) =>
+                    setCredentialForm({ ...credentialForm, collection_interval: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="hourly">시간별</option>
@@ -557,7 +623,9 @@ export default function CollectionManagementClient() {
                   type="checkbox"
                   id="enabled"
                   checked={credentialForm.enabled}
-                  onChange={(e) => setCredentialForm({ ...credentialForm, enabled: e.target.checked })}
+                  onChange={(e) =>
+                    setCredentialForm({ ...credentialForm, enabled: e.target.checked })
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="enabled" className="ml-2 block text-sm text-gray-700">
@@ -578,7 +646,12 @@ export default function CollectionManagementClient() {
                 onClick={() => {
                   setShowCredentialModal(false);
                   setEditingService(null);
-                  setCredentialForm({ username: '', password: '', enabled: true, collection_interval: 'daily' });
+                  setCredentialForm({
+                    username: '',
+                    password: '',
+                    enabled: true,
+                    collection_interval: 'daily',
+                  });
                 }}
                 className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition"
               >

@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { Settings, History, Key, Database, List } from 'lucide-react';
+import { Settings, History, Database } from 'lucide-react';
 import CollectionManagementClient from './CollectionManagementClient';
 import CollectionHistoryClient from './CollectionHistoryClient';
-import CredentialsManagementClient from './CredentialsManagementClient';
-import CollectedDataClient from './CollectedDataClient';
 import PageHeader from '@/components/ui/PageHeader';
 import Tabs from '@/components/ui/Tabs';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -15,8 +13,6 @@ export default function CollectionPage() {
 
   const tabs = [
     { id: 'management', label: '수집 관리', icon: Settings },
-    { id: 'data', label: '수집 데이터', icon: List },
-    { id: 'credentials', label: '인증정보', icon: Key },
     { id: 'history', label: '수집 이력', icon: History },
   ];
 
@@ -31,15 +27,7 @@ export default function CollectionPage() {
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
       <Suspense fallback={<LoadingSpinner message="데이터 로딩 중..." />}>
-        {activeTab === 'management' ? (
-          <CollectionManagementClient />
-        ) : activeTab === 'data' ? (
-          <CollectedDataClient />
-        ) : activeTab === 'credentials' ? (
-          <CredentialsManagementClient />
-        ) : (
-          <CollectionHistoryClient />
-        )}
+        {activeTab === 'management' ? <CollectionManagementClient /> : <CollectionHistoryClient />}
       </Suspense>
     </main>
   );
