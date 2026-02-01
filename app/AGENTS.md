@@ -114,6 +114,21 @@ def _init_my_service(self):
 | `from run_app import app` | `current_app` 프록시 | 전역 객체 금지 |
 | SQL 문자열 연결 | 파라미터화 쿼리 | SQL Injection |
 | `app/core/main.py` 복원 | — | **삭제됨** |
+| Hardcoded URLs | 환경변수 사용 | Docker 호환성 |
+
+---
+
+## KNOWN ISSUES (수정 필요)
+
+### Hardcoded URLs (5 violations)
+
+| 파일 | 라인 | 문제 |
+|------|------|------|
+| `routes/api/collection/utils.py` | 13 | Hardcoded collector URL |
+| `routes/api/blacklist/collection.py` | 54 | Hardcoded collector URL |
+| `services/blacklist_service.py` | 420, 462, 510 | localhost/container 혼용 |
+
+**수정 방향**: `COLLECTOR_URL` 환경변수 사용
 
 ---
 

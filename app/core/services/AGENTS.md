@@ -33,13 +33,33 @@ services/
 ## LIFECYCLE (초기화 순서 - 엄격)
 
 ```
-1. Infra       → database_service
+1. Infra       → database_service, redis_service
 2. Dependents  → blacklist_service, analytics_service
 3. Collection  → collection_service, scheduler_service
-4. Integration → fortimanager_service
-5. Config      → credential_service
-6. Business    → scoring_service
+4. Integration → fortimanager_service, fortigate_service
+5. Config      → credential_service, secure_credential_service
+6. Business    → scoring_service, export_service
+7. Admin       → admin_service, monitoring_service
 ```
+
+### 전체 서비스 목록 (14개)
+
+| 서비스 | 의존성 | 역할 |
+|--------|--------|------|
+| `database_service` | - | DB 커넥션 풀 |
+| `redis_service` | - | 캐시/세션 |
+| `blacklist_service` | db, redis | IP 비즈니스 로직 |
+| `analytics_service` | db | 통계/집계 |
+| `collection_service` | db | 수집 조정 |
+| `scheduler_service` | collection | 백그라운드 작업 |
+| `fortimanager_service` | db | 장비 연동 |
+| `fortigate_service` | db | 장비 연동 |
+| `credential_service` | db | 자격증명 관리 |
+| `secure_credential_service` | db | 암호화 자격증명 |
+| `scoring_service` | db | IP 점수 산정 |
+| `export_service` | db | 데이터 내보내기 |
+| `admin_service` | db | 관리자 기능 |
+| `monitoring_service` | db, redis | 헬스 모니터링 |
 
 ⚠️ **순서 변경 금지** — 의존성 그래프 기반 순서.
 

@@ -114,6 +114,28 @@ def force_my_source():
 | `time.sleep()` 루프 | APScheduler 사용 | 메인 스레드 블로킹 |
 | 무한 재시도 | Backoff + 최대 횟수 | 리소스 고갈 |
 | 동기 HTTP 대량 호출 | `aiohttp` / ThreadPool | 성능 |
+| Hardcoded URLs | 환경변수 | Docker 호환성 |
+| Mixed sync/async | 일관된 패턴 선택 | 데드락 위험 |
+
+---
+
+## KNOWN ISSUES (수정 필요)
+
+### Hardcoded URLs (2 violations)
+
+| 파일 | 라인 | 문제 |
+|------|------|------|
+| `fortimanager_uploader.py` | 36, 77 | Hardcoded app URL |
+
+### Async 패턴 이슈
+
+| 파일 | Lines | 문제 |
+|------|-------|------|
+| `core/regtech_collector.py` | 922 | Magic numbers, hardcoded URLs |
+| `core/multi_source_collector.py` | 766 | Mixed sync/async, 데드락 위험 |
+| `scheduler.py` | 603 | `time.sleep()` 블로킹 |
+
+**수정 방향**: 환경변수 사용, 일관된 async 패턴
 
 ---
 

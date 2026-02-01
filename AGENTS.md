@@ -239,6 +239,38 @@ postgres/migrations/    # Raw SQL migrations (no ORM)
 - **Communication**: DB, Redis, HTTP only (no shared code)
 - **Contracts**: See `docs/references/api-reference.md`
 
+## KNOWN ISSUES (Fix Required)
+
+### Hardcoded URLs (11 violations across 9 files)
+
+| File | Line | Issue |
+|------|------|-------|
+| `app/core/routes/api/collection/utils.py` | 13 | Hardcoded collector URL |
+| `app/core/routes/api/blacklist/collection.py` | 54 | Hardcoded collector URL |
+| `app/core/services/blacklist_service.py` | 420, 462, 510 | Mixed localhost/container names |
+| `collector/fortimanager_uploader.py` | 36, 77 | Hardcoded app URL |
+| `frontend/next.config.ts` | 7 | Hardcoded API URL |
+
+**Root cause**: docker-compose uses host network but code mixes `localhost:8545`, `blacklist-collector:8545`, `blacklist-app:443`.
+
+**Fix**: Use environment variables (`COLLECTOR_URL`, `API_URL`).
+
+---
+
+## COMPLEXITY HOTSPOTS
+
+Files requiring extra care when modifying:
+
+| File | Lines | Risk | Notes |
+|------|-------|------|-------|
+| `app/core/routes/api/ip_management_api.py` | 1050 | HIGH | IP CRUD, complex validation |
+| `collector/core/regtech_collector.py` | 922 | HIGH | Hardcoded URLs, magic numbers |
+| `app/core/services/blacklist_service.py` | 820 | HIGH | Core logic, hardcoded URLs |
+| `frontend/app/ip-management/IPManagementClient.tsx` | 893 | MEDIUM | Large React component |
+| `collector/core/multi_source_collector.py` | 766 | MEDIUM | Mixed sync/async |
+
+---
+
 ## NOTES
 
 - SQLAlchemy is in requirements.txt but **usage is forbidden**
