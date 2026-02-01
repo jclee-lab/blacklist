@@ -160,9 +160,11 @@ jobs:
   # ===========================================================================
   e2e:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lxc220]
     needs: build
-    if: github.ref == 'refs/heads/airgap'
+    if: |
+      needs.build.result == 'success' &&
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/airgap')
     continue-on-error: true
     
     steps:
@@ -171,17 +173,17 @@ jobs:
 
       - name: Run E2E Tests
         run: |
-          chmod +x tests/e2e_test.sh
+          cd ${{ env.DEPLOY_PATH }}
+          chmod +x tests/e2e_test.sh 2>/dev/null || true
           
-          # Note: This requires network access to LXC 220
-          # For GitHub-hosted runners, this will likely fail
-          # Use self-hosted runner with VPN/network access for production
-          
-          echo "E2E tests require network access to ${LXC_HOST}"
-          echo "Skipping for GitHub-hosted runner"
-          
-          # Uncomment for self-hosted runner:
-          # ./tests/e2e_test.sh https://${LXC_HOST}
+          # Run E2E tests against local deployment
+          if [ -f "tests/e2e_test.sh" ]; then
+            ./tests/e2e_test.sh https://localhost
+          else
+            echo "E2E test script not found, checking container health instead"
+            docker ps --format 'table {{.Names}}\t{{.Status}}' | grep blacklist
+            curl -sfk https://localhost/ -o /dev/null && echo "Frontend responding OK"
+          fi
 
   # ===========================================================================
   # Package Airgap Bundle
@@ -190,7 +192,9 @@ jobs:
     name: Create Airgap Bundle
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/airgap' || startsWith(github.ref, 'refs/tags/')
+    if: |
+      needs.build.result == 'success' &&
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/airgap' || startsWith(github.ref, 'refs/tags/'))
     
     steps:
       - name: Checkout code
