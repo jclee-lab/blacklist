@@ -43,6 +43,37 @@ class CollectionScheduler:
         # 자동 수집 비활성화 플래그 (환경변수)
         self.auto_collection_disabled = os.getenv("DISABLE_AUTO_COLLECTION", "false").lower() == "true"
 
+        # Load initial stats from database on init
+        self._load_initial_stats()
+
+    def _load_initial_stats(self):
+        """Load last collection time and run counts from database to persist across restarts"""
+        try:
+            stats = db_service.get_collection_stats()
+            if stats:
+                # Load last collection time
+                if stats.get("latest_collection"):
+                    last_collection = stats["latest_collection"]
+                    # Convert datetime to ISO string if needed
+                    if hasattr(last_collection, "isoformat"):
+                        self.collection_stats["last_run"] = last_collection.isoformat()
+                        self.collection_stats["last_success"] = last_collection.isoformat()
+                    else:
+                        self.collection_stats["last_run"] = str(last_collection)
+                        self.collection_stats["last_success"] = str(last_collection)
+                    logger.info(f"📅 Loaded last collection time from DB: {self.collection_stats['last_run']}")
+                
+                # Load run counts
+                if stats.get("total_collections"):
+                    self.collection_stats["total_runs"] = stats["total_collections"]
+                if stats.get("successful_collections"):
+                    self.collection_stats["successful_runs"] = stats["successful_collections"]
+                if stats.get("failed_collections"):
+                    self.collection_stats["failed_runs"] = stats["failed_collections"]
+                logger.info(f"📊 Loaded run counts from DB: total={self.collection_stats['total_runs']}, success={self.collection_stats['successful_runs']}, failed={self.collection_stats['failed_runs']}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load initial stats from DB: {e}")
+
     def start(self):
         """적응형 스케줄러 시작"""
         if self.running:

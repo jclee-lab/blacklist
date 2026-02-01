@@ -582,11 +582,28 @@ class DatabaseService:
                 cursor.close()
 
                 if result:
+                    # Get collection run counts from collection_history
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        SELECT 
+                            COUNT(*) as total_collections,
+                            COUNT(*) FILTER (WHERE success = true) as successful_collections,
+                            COUNT(*) FILTER (WHERE success = false) as failed_collections
+                        FROM collection_history
+                        """
+                    )
+                    history_result = cursor.fetchone()
+                    cursor.close()
+                    
                     return {
                         "total_ips": result[0],
                         "active_ips": result[1],
                         "latest_collection": result[2],
                         "source_breakdown": result[3] or {},
+                        "total_collections": history_result[0] if history_result else 0,
+                        "successful_collections": history_result[1] if history_result else 0,
+                        "failed_collections": history_result[2] if history_result else 0,
                         "cache_size": len(self._ip_cache),
                         "performance_mode": "optimized",
                     }

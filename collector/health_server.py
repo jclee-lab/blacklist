@@ -253,17 +253,32 @@ class HealthServer:
                 ), 500
 
     def _get_collector_status(self):
-        """Get current collector status"""
+        """Get current collector status from scheduler stats"""
         status = {}
-        for name, collector in self.collectors.items():
-            status[name] = {
-                "enabled": collector.get("enabled", False),
-                "run_count": collector.get("run_count", 0),
-                "error_count": collector.get("error_count", 0),
-                "interval_seconds": collector.get("interval", 0),
-                "last_run": collector.get("last_run").isoformat() if collector.get("last_run") else None,
-                "next_run": collector.get("next_run").isoformat() if collector.get("next_run") else None,
+
+        # Use scheduler collection_stats if available (primary source)
+        if self.scheduler:
+            stats = self.scheduler.collection_stats
+            status["REGTECH"] = {
+                "enabled": True,
+                "run_count": stats.get("total_runs", 0),
+                "error_count": stats.get("failed_runs", 0),
+                "interval_seconds": stats.get("adaptive_interval", 86400),
+                "last_run": stats.get("last_run"),  # Already ISO string or None
+                "next_run": self.scheduler._get_next_run_time(),
             }
+        else:
+            # Fallback to collectors dict (legacy, usually empty)
+            for name, collector in self.collectors.items():
+                status[name] = {
+                    "enabled": collector.get("enabled", False),
+                    "run_count": collector.get("run_count", 0),
+                    "error_count": collector.get("error_count", 0),
+                    "interval_seconds": collector.get("interval", 0),
+                    "last_run": collector.get("last_run").isoformat() if collector.get("last_run") else None,
+                    "next_run": collector.get("next_run").isoformat() if collector.get("next_run") else None,
+                }
+
         return status
 
     def start(self):
