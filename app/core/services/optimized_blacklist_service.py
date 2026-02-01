@@ -36,7 +36,7 @@ class OptimizedBlacklistService:
                     COUNT(DISTINCT country) as countries,
                     MAX(updated_at) as last_update,
                     MIN(updated_at) as first_update,
-                    COUNT(*) FILTER (WHERE updated_at >= NOW() - INTERVAL '24 hours') as recent_additions,
+                    COUNT(*) FILTER (WHERE detection_date >= CURRENT_DATE - INTERVAL '1 day') as recent_additions,
                     COUNT(*) FILTER (WHERE detection_count > 5) as high_confidence,
                     ROUND(AVG(confidence_level)::numeric, 2) as avg_confidence
                 FROM blacklist_ips_with_auto_inactive

@@ -55,11 +55,10 @@ def get_dashboard_stats():
         row = cursor.fetchone()
         active_ips = row["count"] if row else 0
 
-        # Recent additions (last 24 hours) - based on when IP was added to DB
         cursor.execute(
             """
             SELECT COUNT(*) as count FROM blacklist_ips_with_auto_inactive
-            WHERE created_at >= NOW() - INTERVAL '24 hours'
+            WHERE detection_date >= CURRENT_DATE - INTERVAL '1 day'
         """
         )
         row = cursor.fetchone()
