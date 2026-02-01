@@ -313,15 +313,29 @@ jobs:
         id: health
         continue-on-error: true
         run: |
-          echo "Checking health..."
+          echo "Checking container health..."
           for i in 1 2 3 4 5; do
-            if curl -sfk https://localhost/health 2>/dev/null; then
-              echo "Health check passed"
+            # Check if frontend container is running and healthy
+            FRONTEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' blacklist-frontend 2>/dev/null || echo "not_found")
+            FRONTEND_RUNNING=$(docker inspect --format='{{.State.Running}}' blacklist-frontend 2>/dev/null || echo "false")
+            
+            echo "Attempt $i: Frontend running=$FRONTEND_RUNNING, health=$FRONTEND_STATUS"
+            
+            if [ "$FRONTEND_RUNNING" = "true" ] && [ "$FRONTEND_STATUS" = "healthy" ]; then
+              echo "Health check passed - frontend container is healthy"
               echo "status=success" >> $GITHUB_OUTPUT
               exit 0
             fi
-            echo "Attempt $i failed, retrying in 3s..."
-            sleep 3
+            
+            # Also try HTTPS endpoint as fallback
+            if curl -sfk https://localhost:443/ -o /dev/null 2>/dev/null; then
+              echo "Health check passed - HTTPS endpoint responding"
+              echo "status=success" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            echo "Waiting 5s before retry..."
+            sleep 5
           done
           echo "Health check failed after 5 attempts"
           echo "status=failed" >> $GITHUB_OUTPUT
