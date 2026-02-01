@@ -13,9 +13,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, airgap]
+    branches: [main, master, airgap]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 env:
   NODE_VERSION: '20'
