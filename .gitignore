@@ -73,3 +73,4 @@ htmlcov/
 dist/
 build/
 *.egg
+blacklist-airgap.tar.gz
