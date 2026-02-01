@@ -243,7 +243,7 @@ jobs:
   # ===========================================================================
   deploy:
     name: Deploy to LXC 220
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lxc220]
     needs: build
     if: |
       always() &&
@@ -254,9 +254,6 @@ jobs:
       url: https://192.168.50.220
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download frontend image
         if: inputs.deploy_type != 'rollback'
         uses: actions/download-artifact@v4
@@ -264,45 +261,34 @@ jobs:
           name: frontend-image
           path: /tmp
 
-      - name: Setup SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ env.PVE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
-
-      - name: Verify SSH connection
-        run: |
-          ssh -o ConnectTimeout=10 root@${{ env.PVE_HOST }} "echo 'SSH connection successful'"
-
       - name: Get current image tag (for rollback)
         id: current
         run: |
-          CURRENT_TAG=$(ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- docker images --format '{{.Tag}}' ${{ env.FRONTEND_IMAGE }} | head -1" || echo "unknown")
+          CURRENT_TAG=$(docker images --format '{{.Tag}}' ${{ env.FRONTEND_IMAGE }} 2>/dev/null | head -1 || echo "unknown")
           echo "tag=${CURRENT_TAG}" >> $GITHUB_OUTPUT
           echo "Current running tag: ${CURRENT_TAG}"
 
-      - name: Transfer image to LXC
+      - name: Load Docker image
         if: inputs.deploy_type != 'rollback'
         run: |
-          echo "Transferring image to LXC ${{ env.LXC_ID }}..."
-          cat /tmp/frontend-image.tar | ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- docker load"
-          echo "Image transfer complete"
+          echo "Loading Docker image..."
+          docker load < /tmp/frontend-image.tar
+          echo "Image loaded successfully"
 
       - name: Deploy frontend container
         if: inputs.deploy_type == 'frontend' || inputs.deploy_type == '' || github.event_name == 'push'
         run: |
-          echo "Deploying frontend to LXC ${{ env.LXC_ID }}..."
-          ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- bash -c 'cd ${{ env.DEPLOY_PATH }} && docker compose up -d blacklist-frontend'"
+          echo "Deploying frontend..."
+          cd ${{ env.DEPLOY_PATH }}
+          docker compose up -d blacklist-frontend
           echo "Frontend deployment complete"
 
       - name: Deploy all services
         if: inputs.deploy_type == 'full'
         run: |
-          echo "Deploying all services to LXC ${{ env.LXC_ID }}..."
-          ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- bash -c 'cd ${{ env.DEPLOY_PATH }} && docker compose up -d'"
+          echo "Deploying all services..."
+          cd ${{ env.DEPLOY_PATH }}
+          docker compose up -d
           echo "Full deployment complete"
 
       - name: Rollback to previous version
@@ -314,27 +300,28 @@ jobs:
             exit 1
           fi
           echo "Rolling back to ${ROLLBACK_TAG}..."
-          ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- bash -c 'cd ${{ env.DEPLOY_PATH }} && docker compose stop blacklist-frontend && docker tag ${{ env.FRONTEND_IMAGE }}:${ROLLBACK_TAG} ${{ env.FRONTEND_IMAGE }}:latest && docker compose up -d blacklist-frontend'"
+          cd ${{ env.DEPLOY_PATH }}
+          docker compose stop blacklist-frontend
+          docker tag ${{ env.FRONTEND_IMAGE }}:${ROLLBACK_TAG} ${{ env.FRONTEND_IMAGE }}:latest
+          docker compose up -d blacklist-frontend
           echo "Rollback complete"
 
       - name: Wait for container startup
-        run: |
-          echo "Waiting for container to start..."
-          sleep 10
+        run: sleep 5
 
       - name: Health check
         id: health
         continue-on-error: true
         run: |
-          echo "Checking health at https://${{ env.LXC_HOST }}/health..."
+          echo "Checking health..."
           for i in 1 2 3 4 5; do
-            if ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- curl -sfk https://localhost/health" 2>/dev/null; then
+            if curl -sfk https://localhost/health 2>/dev/null; then
               echo "Health check passed"
               echo "status=success" >> $GITHUB_OUTPUT
               exit 0
             fi
-            echo "Attempt $i failed, retrying in 5s..."
-            sleep 5
+            echo "Attempt $i failed, retrying in 3s..."
+            sleep 3
           done
           echo "Health check failed after 5 attempts"
           echo "status=failed" >> $GITHUB_OUTPUT
@@ -344,7 +331,10 @@ jobs:
         if: steps.health.outputs.status == 'failed' && steps.current.outputs.tag != 'unknown'
         run: |
           echo "Auto-rollback to previous version: ${{ steps.current.outputs.tag }}"
-          ssh root@${{ env.PVE_HOST }} "pct exec ${{ env.LXC_ID }} -- bash -c 'cd ${{ env.DEPLOY_PATH }} && docker compose stop blacklist-frontend && docker tag ${{ env.FRONTEND_IMAGE }}:${{ steps.current.outputs.tag }} ${{ env.FRONTEND_IMAGE }}:latest && docker compose up -d blacklist-frontend'"
+          cd ${{ env.DEPLOY_PATH }}
+          docker compose stop blacklist-frontend
+          docker tag ${{ env.FRONTEND_IMAGE }}:${{ steps.current.outputs.tag }} ${{ env.FRONTEND_IMAGE }}:latest
+          docker compose up -d blacklist-frontend
           echo "::error::Deployment failed, rolled back to ${{ steps.current.outputs.tag }}"
           exit 1
 
@@ -359,5 +349,3 @@ jobs:
           echo "| **Image** | ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Type** | ${{ inputs.deploy_type || 'frontend' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 [View Dashboard](https://${{ env.LXC_HOST }})" >> $GITHUB_STEP_SUMMARY
