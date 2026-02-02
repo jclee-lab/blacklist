@@ -29,13 +29,12 @@ tar -xzf blacklist-*.tar.gz && ./install.sh
 TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name")
 curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
 
-# PowerShell (Windows)
+# PowerShell (direct internet access)
 $TAG = (Invoke-RestMethod "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest").tag_name
-Invoke-WebRequest "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -OutFile "blacklist-$TAG-airgap.tar.gz"
+curl.exe -sL "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
 
-# via SSH Jump Host
-ssh jump3 'TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name") && \
-  curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"'
+# PowerShell (air-gapped network via jump host)
+.\download.ps1
 ```
 
 ### Development
@@ -81,6 +80,6 @@ Full documentation: [API Reference](https://github.com/jclee-homelab/blacklist/w
 
 ## Version
 
-**v3.5.7** (February 2026) - Production Stable
+**v3.5.10** (February 2026) - Production Stable
 
 [Releases](https://github.com/jclee-homelab/blacklist/releases) · [Changelog](CHANGELOG.md)
