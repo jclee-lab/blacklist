@@ -130,30 +130,17 @@ class RegtechCollector:
         logger.info(f"🔐 REGTECH 로그인 시도: {username}")
 
         try:
-            # Step 0: loginForm GET (세션 쿠키 획득)
-            self.session.get(f"{self.base_url}/login/loginForm", timeout=30)
+            # Step 0: loginForm GET (세션 쿠키 획득 + 헤더 설정)
+            login_page_url = f"{self.base_url}/login/loginForm"
+            self.session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "ko-KR,ko;q=0.9",
+                "Referer": login_page_url,
+            })
+            self.session.get(login_page_url, timeout=30)
 
-            # Step 1: findOneMember (회원 검증 AJAX - 실제 브라우저 흐름)
-            verify_payload = urllib.parse.urlencode({"memberId": username, "memberPw": password})
-            logger.info("📤 Step 1: /member/findOneMember 회원 검증")
-
-            verify_response = self.session.post(
-                f"{self.base_url}/member/findOneMember",
-                data=verify_payload,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=30,
-            )
-
-            logger.info(f"📊 Step 1 응답: Status={verify_response.status_code}")
-
-            if verify_response.status_code != 200:
-                logger.warning(f"⚠️ 회원 검증 실패: HTTP {verify_response.status_code}")
-                self.auth_rate_limiter.on_failure(error_code=verify_response.status_code)
-                self._auth_cache[auth_key] = (time.time(), False)
-                logger.error("❌ REGTECH 인증 실패")
-                return False
-
-            # Step 2: addLogin (실제 로그인 form submit)
+            # Step 1: addLogin (로그인 form submit - policy_monitor.py 방식)
             login_payload = {
                 "username": username,
                 "password": password,
@@ -163,41 +150,35 @@ class RegtechCollector:
                 "token": "",
                 "memberId": "",
             }
-            encoded_data = urllib.parse.urlencode(login_payload)
-            logger.info("📤 Step 2: /login/addLogin 로그인 요청")
+            logger.info("📤 Step 1: /login/addLogin 로그인 요청")
 
             response = self.session.post(
                 f"{self.base_url}/login/addLogin",
-                data=encoded_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data=login_payload,
                 timeout=30,
-                allow_redirects=False,
+                allow_redirects=True,
             )
 
-            status_code = response.status_code
-            location = response.headers.get("Location", "")
-            jwt_cookie = None
+            logger.info(f"📊 Step 1 응답: Status={response.status_code}, URL={response.url}")
 
-            for cookie in response.cookies:
-                if cookie.name == "regtech-va" and cookie.value:
-                    jwt_cookie = cookie.value
-                    self.session.cookies.set("regtech-va", jwt_cookie, domain="regtech.fsec.or.kr")
-                elif cookie.name == "regtech-front" and cookie.value:
-                    self.session.cookies.set("regtech-front", cookie.value, domain="regtech.fsec.or.kr")
-
-            logger.info(f"📊 Step 2 응답: Status={status_code}, Location={location}, JWT={jwt_cookie is not None}")
-
-            if status_code == 302 and (jwt_cookie or "/main/main" in location):
+            # 인증 성공 확인 (policy_monitor.py 방식)
+            if "로그아웃" in response.text or "마이페이지" in response.text:
                 self.authenticated = True
-                logger.info("✅ REGTECH 인증 성공")
-                logger.info(f"🍪 총 세션 쿠키: {len(self.session.cookies)}개")
+                logger.info("✅ REGTECH 인증 성공 (로그아웃 버튼 확인)")
                 self._auth_cache[auth_key] = (time.time(), True)
-                self._jwt_expiry = time.time() + 3600  # 1시간 유효 (REGTECH 기본)
+                self._jwt_expiry = time.time() + 3600
+                self.auth_rate_limiter.on_success()
+                return True
+            elif "/main" in response.url:
+                self.authenticated = True
+                logger.info("✅ REGTECH 인증 성공 (메인 페이지 리다이렉트)")
+                self._auth_cache[auth_key] = (time.time(), True)
+                self._jwt_expiry = time.time() + 3600
                 self.auth_rate_limiter.on_success()
                 return True
             else:
-                logger.warning(f"⚠️ 인증 실패: {status_code}, Location: {location}")
-                self.auth_rate_limiter.on_failure(error_code=status_code if status_code >= 400 else None)
+                logger.warning(f"⚠️ 인증 실패: redirect to {response.url}")
+                self.auth_rate_limiter.on_failure()
 
         except Exception as e:
             logger.error(f"❌ 인증 오류: {e}")
