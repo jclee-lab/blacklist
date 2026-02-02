@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.4] - 2026-02-02
+
+### Fixed
+- **GitHub Release Workflow**: Fixed YAML syntax error in heredoc script
+
+---
+
 ## [3.5.3] - 2026-02-02
 
 ### Added
