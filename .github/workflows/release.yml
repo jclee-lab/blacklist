@@ -242,6 +242,7 @@ jobs:
           body_path: release_notes.md
           files: |
             release-assets/*
+            download.ps1
           draft: false
           prerelease: ${{ contains(needs.package.outputs.version, '-') }}
           generate_release_notes: true

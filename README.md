@@ -1,15 +1,6 @@
 # 🛡️ REGTECH Blacklist Intelligence Platform
 
-> **✅ REPOSITORY MIGRATED TO GITLAB**
->
-> This repository is actively maintained on **GitLab**: `https://gitlab.<YOUR_DOMAIN>/nextrade/blacklist`
->
-> ```bash
-> # Optimized SSH Clone (Port 2022)
-> git clone git@gitlab.<YOUR_DOMAIN>:nextrade/blacklist.git
-> ```
-
-[![🤖 OpenCode AI Integration](https://img.shields.io/badge/OpenCode%20AI-Automated-blue)](https://OpenCode.ai/code)
+[![GitHub Release](https://img.shields.io/github/v/release/jclee-homelab/blacklist)](https://github.com/jclee-homelab/blacklist/releases/latest)
 [![Docker](https://img.shields.io/badge/Docker-Containerized-blue)](#)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
@@ -17,20 +8,26 @@ A comprehensive Flask-based threat intelligence platform that collects, manages,
 
 ## 🚀 Quick Start
 
-### Optimized SSH Clone
-The repository is optimized for SSH access via port **2022**. If you have configured your SSH global settings as provided, you can clone using:
+### Installation (Air-Gap Deployment)
 
 ```bash
-# 1. Clone with LFS support (important for images)
-git clone git@gitlab.<YOUR_DOMAIN>:nextrade/blacklist.git
-cd blacklist
+# Option 1: GitHub CLI
+gh release download --repo jclee-homelab/blacklist
 
-# 2. Ensure LFS binaries are downloaded
-git lfs install
-git lfs pull
+# Option 2: curl (auto-detect latest)
+TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name")
+curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
+
+# Option 3: PowerShell (Windows)
+$TAG = (Invoke-RestMethod "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest").tag_name
+Invoke-WebRequest "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -OutFile "blacklist-$TAG-airgap.tar.gz"
+
+# Deploy
+tar -xzf blacklist-$TAG-airgap.tar.gz
+./install.sh
 ```
 
-### Start Services (Production-ready)
+### Development Setup
 ```bash
 # Start all services with Traefik v3 orchestration
 make dev
@@ -101,11 +98,10 @@ make dev
 - **Redis Caching**: High-performance API responses using Redis-backed caching.
 - **Interactive Web UI**: Next.js 15 based modern frontend.
 
-### 📦 **Air-Gap Deployment (v3.1)**
-- **Self-contained Package**: `blacklist-airgap-v3.tar.gz` includes all 6 Docker images.
-- **Traefik v3 Integration**: Modern reverse proxy with automated SSL (.pem) support.
-- **Bind Mounts**: Local data persistence in `dist/data/` for easier backups.
-- **One-click Deploy**: `./deploy-airgap.sh` automates image loading and container startup.
+### 📦 **Air-Gap Deployment**
+- **GitHub Releases**: Auto-built airgap bundles with all 5 Docker images
+- **One-liner Install**: `./install.sh` for instant deployment
+- **Multi-platform**: Linux (curl), Windows (PowerShell), SSH jump host support
 
 ## 🏗️ Architecture Overview
 
@@ -123,17 +119,19 @@ Traefik v3.0 (Reverse Proxy / SSL)
 
 ## 📦 Air-Gap Deployment (Offline)
 
-For environments without internet access:
+For environments without internet access, download the latest release:
 
 ```bash
-# 1. Download/Transfer package
-# blacklist-airgap-v3.tar.gz (approx. 854MB)
+# GitHub CLI
+gh release download --repo jclee-homelab/blacklist
 
-# 2. Extract and Deploy
-tar -xzf blacklist-airgap-v3.tar.gz
-cd dist
-chmod +x deploy-airgap.sh
-./deploy-airgap.sh
+# curl (auto-detect latest version)
+TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name")
+curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
+
+# Deploy
+tar -xzf blacklist-$TAG-airgap.tar.gz
+./install.sh
 ```
 
 **Requirements:** Docker & Docker Compose V2 only.
@@ -160,9 +158,9 @@ Credentials for REGTECH are managed securely via the Web UI:
 ---
 
 ## 🎯 Version Information
-- **Current Version**: 3.1.0 (December 2025)
+- **Current Version**: 3.5.6 (February 2026)
 - **Status**: Production Stable
-- **Maintenance**: SECUDIUM support removed; REGTECH focus.
+- **Releases**: [GitHub Releases](https://github.com/jclee-homelab/blacklist/releases)
 
 <div align="center">
   Built with ❤️ for cybersecurity professionals.
