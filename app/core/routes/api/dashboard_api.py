@@ -58,7 +58,7 @@ def get_dashboard_stats():
         cursor.execute(
             """
             SELECT COUNT(*) as count FROM blacklist_ips_with_auto_inactive
-            WHERE detection_date >= CURRENT_DATE - INTERVAL '1 day'
+            WHERE last_seen >= CURRENT_DATE - INTERVAL '1 day'
         """
         )
         row = cursor.fetchone()
@@ -72,7 +72,7 @@ def get_dashboard_stats():
         # Last update
         cursor.execute(
             """
-            SELECT MAX(detection_date) as last_update
+            SELECT MAX(last_seen) as last_update
             FROM blacklist_ips_with_auto_inactive
         """
         )
