@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.2] - 2026-02-02
+
+### Added
+- **LXC 220 CI/CD Deployment**
+  - Self-hosted GitLab runner on LXC 220
+  - SSH-based deployment to production environment
+  - E2E tests and airgap bundle automation on master branch
+
+### Fixed
+- **Collector Stats Persistence** - `last_run` and `run_count` now persist across container restarts (fixes "마지막 업데이트: 없음" bug)
+- **Dashboard 24h Statistics** - Correctly use `detection_date` for recent additions count
+- **Database Schema**
+  - Added `display_order` column to `system_settings`
+  - Added `fortigate_devices` table
+- **CI/CD Health Check** - Use container status instead of HTTP endpoint for reliability
+
+### Changed
+- **CI/CD Workflow Cleanup**
+  - Removed legacy workflows (xwiki-auto-sync, docker-build-portainer-deploy, offline-package-build, frontend-tests)
+  - Consolidated into unified `.gitlab-ci.yml`
+  - Cloudflare Workers deploy set to manual trigger only
+
+### Removed
+- Orphaned client components from frontend
+- Duplicate/unused UI elements (refactored)
+
+---
+
 ## [3.5.1] - 2026-01-06
 
 ### Added
