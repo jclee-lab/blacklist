@@ -19,7 +19,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from collector.config import CollectorConfig
-from core.rate_limiter import regtech_rate_limiter
+from core.rate_limiter import regtech_rate_limiter, auth_rate_limiter
 from core.regtech_parsers import (
     parse_html_response,
 )
@@ -61,9 +61,11 @@ class RegtechCollector:
         self._data_cache = {}
         self._auth_cache = {}
         self._cache_ttl = 3600
+        self._jwt_expiry: Optional[float] = None
+        self._last_credentials: Optional[tuple] = None
 
-        # Rate Limiter 통합
         self.rate_limiter = regtech_rate_limiter
+        self.auth_rate_limiter = auth_rate_limiter
         logger.info("🚦 Rate Limiter 통합: API 차단 방지 활성화")
 
     def _find_member(self, username: str) -> Optional[str]:
@@ -99,16 +101,20 @@ class RegtechCollector:
     def authenticate(self, username: str, password: str) -> bool:
         """REGTECH 2단계 인증: findOneMember → addLogin"""
         auth_key = f"{username}:{hash(password)}"
+        self._last_credentials = (username, password)
 
         if auth_key in self._auth_cache:
             cache_time, is_valid = self._auth_cache[auth_key]
             if time.time() - cache_time < self._cache_ttl and is_valid:
-                self.authenticated = True
-                logger.info("✅ 캐시된 REGTECH 인증 사용")
-                return True
+                if self._is_jwt_valid():
+                    self.authenticated = True
+                    logger.info("✅ 캐시된 REGTECH 인증 사용")
+                    return True
+                else:
+                    logger.info("🔄 JWT 만료 - 재인증 필요")
 
-        if not self.rate_limiter.wait_if_needed():
-            logger.warning("Rate Limiter wait failed")
+        if not self.auth_rate_limiter.wait_if_needed():
+            logger.warning("🔒 인증 Rate Limiter 차단 (잠금 상태)")
             return False
 
         self.session.cookies.clear()
@@ -142,7 +148,7 @@ class RegtechCollector:
 
             if verify_response.status_code != 200:
                 logger.warning(f"⚠️ 회원 검증 실패: HTTP {verify_response.status_code}")
-                self.rate_limiter.on_failure(error_code=verify_response.status_code)
+                self.auth_rate_limiter.on_failure(error_code=verify_response.status_code)
                 self._auth_cache[auth_key] = (time.time(), False)
                 logger.error("❌ REGTECH 인증 실패")
                 return False
@@ -178,18 +184,36 @@ class RegtechCollector:
                 logger.info("✅ REGTECH 인증 성공")
                 logger.info(f"🍪 총 세션 쿠키: {len(self.session.cookies)}개")
                 self._auth_cache[auth_key] = (time.time(), True)
-                self.rate_limiter.on_success()
+                self._jwt_expiry = time.time() + 3600  # 1시간 유효 (REGTECH 기본)
+                self.auth_rate_limiter.on_success()
                 return True
             else:
                 logger.warning(f"⚠️ 인증 실패: {status_code}, Location: {location}")
-                self.rate_limiter.on_failure(error_code=status_code if status_code >= 400 else None)
+                self.auth_rate_limiter.on_failure(error_code=status_code if status_code >= 400 else None)
 
         except Exception as e:
             logger.error(f"❌ 인증 오류: {e}")
-            self.rate_limiter.on_failure()
+            self.auth_rate_limiter.on_failure()
 
         self._auth_cache[auth_key] = (time.time(), False)
         logger.error("❌ REGTECH 인증 실패")
+        return False
+
+    def _is_jwt_valid(self) -> bool:
+        """Check if current JWT token is still valid (5분 여유)"""
+        if not self._jwt_expiry:
+            return False
+        # 5분 여유두고 만료 체크
+        return time.time() < (self._jwt_expiry - 300)
+
+    def _ensure_authenticated(self) -> bool:
+        """Ensure valid authentication, re-auth if needed"""
+        if self.authenticated and self._is_jwt_valid():
+            return True
+        if self._last_credentials:
+            logger.info("🔄 세션 만료 - 자동 재인증 시도")
+            return self.authenticate(*self._last_credentials)
+        logger.warning("⚠️ 저장된 인증 정보 없음 - 재인증 필요")
         return False
 
     def collect_blacklist_data(
@@ -200,7 +224,7 @@ class RegtechCollector:
         max_pages: int = 100,
     ) -> List[Dict[str, Any]]:
         """스마트 다단계 날짜 범위 블랙리스트 데이터 수집 - Excel 우선"""
-        if not self.authenticated:
+        if not self._ensure_authenticated():
             logger.error("❌ 인증되지 않은 상태에서 수집 시도")
             return []
 

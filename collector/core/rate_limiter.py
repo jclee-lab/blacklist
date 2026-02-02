@@ -1,4 +1,4 @@
-﻿"""
+"""
 Rate Limiter Module
 Token Bucket 알고리즘 기반 API 요청 제한
 외부 API 차단 방지를 위한 지능형 레이트 리미터
@@ -306,6 +306,124 @@ class AdaptiveRateLimiter(RateLimiter):
             self.failure_streak = 0
 
 
+class AuthRateLimiter(RateLimiter):
+    """
+    인증 전용 레이트 리미터
+
+    특징:
+    - 매우 보수적인 속도 (계정 잠금 방지)
+    - 연속 실패 시 장시간 대기
+    - 인증 성공 시에만 리셋
+    """
+
+    def __init__(
+        self,
+        requests_per_second: float = 0.2,  # 5초에 1번 (매우 보수적)
+        max_attempts: int = 3,  # 최대 3회 시도
+        lockout_duration: float = 600.0,  # 10분 잠금
+        **kwargs,
+    ):
+        """
+        인증 전용 레이트 리미터 초기화
+
+        Args:
+            requests_per_second: 초당 허용 요청 수 (기본 0.2 = 5초 간격)
+            max_attempts: 연속 실패 허용 횟수
+            lockout_duration: 최대 시도 초과 시 잠금 시간 (초)
+        """
+        super().__init__(
+            requests_per_second=requests_per_second,
+            burst_size=1,  # 인증은 버스트 불허
+            backoff_factor=3.0,  # 더 공격적인 백오프
+            max_backoff=lockout_duration,
+            **kwargs,
+        )
+        self.max_attempts = max_attempts
+        self.lockout_duration = lockout_duration
+        self.consecutive_failures = 0
+        self.locked_until: float = 0.0
+
+        logger.info(
+            f"🔐 인증 레이트 리미터 초기화: {requests_per_second} req/s, 최대 {max_attempts}회 시도"
+        )
+
+    def wait_if_needed(self) -> bool:
+        """인증 요청 전 대기 (잠금 상태 확인)"""
+        with self.lock:
+            now = time.time()
+
+            # 잠금 상태 확인
+            if self.locked_until > now:
+                remaining = self.locked_until - now
+                logger.warning(
+                    f"🔒 인증 잠금 상태: {remaining:.0f}초 남음 (연속 {self.consecutive_failures}회 실패)"
+                )
+                return False
+
+            # 연속 실패 횟수에 따른 추가 대기
+            if self.consecutive_failures > 0:
+                extra_wait = min(30.0, self.consecutive_failures * 5.0)
+                logger.info(f"⏳ 인증 실패 {self.consecutive_failures}회 → {extra_wait:.0f}초 추가 대기")
+                time.sleep(extra_wait)
+
+        return self.acquire(tokens=1)
+
+    def on_success(self):
+        """인증 성공 - 모든 상태 리셋"""
+        with self.lock:
+            if self.consecutive_failures > 0:
+                logger.info(
+                    f"✅ 인증 성공 - 실패 카운터 리셋 (이전: {self.consecutive_failures}회 실패)"
+                )
+            self.consecutive_failures = 0
+            self.locked_until = 0.0
+            self.failure_count = 0
+            self.current_backoff = 0.0
+
+    def on_failure(self, error_code: Optional[int] = None):
+        """인증 실패 - 잠금 여부 결정"""
+        with self.lock:
+            self.consecutive_failures += 1
+            self.failure_count += 1
+
+            logger.warning(
+                f"⚠️ 인증 실패 #{self.consecutive_failures}/{self.max_attempts}"
+            )
+
+            # 최대 시도 횟수 초과 시 잠금
+            if self.consecutive_failures >= self.max_attempts:
+                self.locked_until = time.time() + self.lockout_duration
+                logger.error(
+                    f"🔒 인증 잠금 활성화: {self.lockout_duration:.0f}초 동안 인증 차단"
+                )
+            else:
+                # 점진적 백오프
+                backoff = min(60.0, (self.backoff_factor ** self.consecutive_failures) * 2)
+                logger.info(f"⏸️ 인증 백오프: {backoff:.0f}초 대기")
+                time.sleep(backoff)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """인증 레이트 리미터 통계"""
+        stats = super().get_stats()
+        with self.lock:
+            now = time.time()
+            stats.update({
+                "consecutive_failures": self.consecutive_failures,
+                "max_attempts": self.max_attempts,
+                "is_locked": self.locked_until > now,
+                "locked_remaining": max(0, self.locked_until - now),
+            })
+        return stats
+
+    def reset(self):
+        """완전 리셋 (관리자용)"""
+        super().reset()
+        with self.lock:
+            self.consecutive_failures = 0
+            self.locked_until = 0.0
+            logger.info("🔓 인증 레이트 리미터 완전 리셋")
+
+
 # 전역 인스턴스 (REGTECH 최적화 설정)
 regtech_rate_limiter = AdaptiveRateLimiter(
     initial_rate=2.0,  # 초당 2개 요청 (0.5초 간격)
@@ -314,4 +432,11 @@ regtech_rate_limiter = AdaptiveRateLimiter(
     burst_size=5,  # 버스트 5개까지 허용
     backoff_factor=2.0,  # 실패 시 2배씩 증가
     max_backoff=300.0,  # 최대 5분 대기
+)
+
+# 인증 전용 레이트 리미터 (더 보수적)
+auth_rate_limiter = AuthRateLimiter(
+    requests_per_second=0.2,  # 5초에 1번
+    max_attempts=3,  # 3회 연속 실패 시 잠금
+    lockout_duration=600.0,  # 10분 잠금
 )
