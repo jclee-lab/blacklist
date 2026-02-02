@@ -1,0 +1,263 @@
+# GitHub Release Workflow
+# =======================
+# Automatically creates GitHub Release with airgap bundle on tag push
+#
+# Triggers: Tag push (v*)
+# Artifacts: Source code + Docker images tarball + install script
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FRONTEND_IMAGE: blacklist-frontend
+
+jobs:
+  # ===========================================================================
+  # Build All Docker Images
+  # ===========================================================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/frontend-image.tar
+
+      - name: Build app image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: ./app/Dockerfile
+          push: false
+          tags: blacklist-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/app-image.tar
+
+      - name: Build collector image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./collector
+          file: ./collector/Dockerfile
+          push: false
+          tags: blacklist-collector:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/collector-image.tar
+
+      - name: Build postgres image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./postgres
+          file: ./postgres/Dockerfile
+          push: false
+          tags: blacklist-postgres:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/postgres-image.tar
+
+      - name: Build redis image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./redis
+          file: ./redis/Dockerfile
+          push: false
+          tags: blacklist-redis:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/redis-image.tar
+
+      - name: Upload image artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: /tmp/*-image.tar
+          retention-days: 1
+
+  # ===========================================================================
+  # Create Airgap Bundle
+  # ===========================================================================
+  package:
+    name: Create Airgap Bundle
+    runs-on: ubuntu-latest
+    needs: build
+    
+    outputs:
+      bundle_name: ${{ steps.bundle.outputs.name }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: /tmp/images
+
+      - name: Prepare airgap bundle
+        id: bundle
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUNDLE_DIR="blacklist-${VERSION}"
+          BUNDLE_NAME="blacklist-${VERSION}-airgap.tar.gz"
+          
+          mkdir -p ${BUNDLE_DIR}/images
+          
+          # Compress Docker images
+          echo "Compressing Docker images..."
+          for img in /tmp/images/*-image.tar; do
+            name=$(basename $img .tar | sed 's/-image//')
+            echo "  - ${name}"
+            gzip -c $img > ${BUNDLE_DIR}/images/${name}.tar.gz
+          done
+          
+          # Copy docker-compose and install script
+          cp docker-compose.yml ${BUNDLE_DIR}/
+          
+          # Create install script
+          cat > ${BUNDLE_DIR}/install.sh << 'INSTALL_EOF'
+#!/bin/bash
+set -e
+
+echo "==================================="
+echo "Blacklist Platform - Airgap Install"
+echo "==================================="
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "[1/3] Loading Docker images..."
+for img in images/*.tar.gz; do
+  echo "  Loading $(basename $img .tar.gz)..."
+  gunzip -c "$img" | docker load
+done
+
+echo "[2/3] Starting services..."
+docker compose up -d
+
+echo "[3/3] Waiting for health checks..."
+sleep 10
+
+echo ""
+echo "==================================="
+echo "Installation complete!"
+echo ""
+echo "Services:"
+echo "  - Frontend:  https://localhost"
+echo "  - API:       http://localhost:2542"
+echo "  - Collector: http://localhost:8545"
+echo "==================================="
+INSTALL_EOF
+          chmod +x ${BUNDLE_DIR}/install.sh
+          
+          # Generate checksums
+          cd ${BUNDLE_DIR}/images
+          sha256sum *.tar.gz > checksums.sha256
+          cd ../..
+          
+          # Create final bundle
+          echo "Creating bundle: ${BUNDLE_NAME}"
+          tar -czvf ${BUNDLE_NAME} ${BUNDLE_DIR}/
+          
+          # Generate bundle checksum
+          sha256sum ${BUNDLE_NAME} > ${BUNDLE_NAME}.sha256
+          
+          echo "Bundle size: $(ls -lh ${BUNDLE_NAME} | awk '{print $5}')"
+          echo "name=${BUNDLE_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: airgap-bundle
+          path: |
+            blacklist-*-airgap.tar.gz
+            blacklist-*-airgap.tar.gz.sha256
+          retention-days: 90
+
+  # ===========================================================================
+  # Create GitHub Release
+  # ===========================================================================
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: package
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download airgap bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: airgap-bundle
+          path: ./release-assets
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ needs.package.outputs.version }}"
+          VERSION_NO_V="${VERSION#v}"
+          
+          # Extract section from CHANGELOG.md
+          NOTES=$(awk "/^## \[${VERSION_NO_V}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${VERSION}"
+          fi
+          
+          # Save to file (multiline output)
+          echo "$NOTES" > release_notes.md
+          echo "Release notes extracted for ${VERSION}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.package.outputs.version }}
+          name: Blacklist ${{ needs.package.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            release-assets/*
+          draft: false
+          prerelease: ${{ contains(needs.package.outputs.version, '-') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
