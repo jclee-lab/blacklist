@@ -124,3 +124,11 @@ services:
       SSL_CERT_PATH: /app/ssl/server.crt
     volumes:
       - ./ssl:/app/ssl:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "const https=require('https');const r=https.request({hostname:'localhost',port:443,path:'/',rejectUnauthorized:false},(res)=>{process.exit(res.statusCode===200?0:1)});r.on('error',()=>process.exit(1));r.end();"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
