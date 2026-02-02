@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.3] - 2026-02-02
+
+### Added
+- **GitHub Releases Automation**: Tag push now auto-creates GitHub Release with airgap bundle
+  - All 5 Docker images packaged (frontend, app, collector, postgres, redis)
+  - `install.sh` for air-gapped deployment
+  - SHA256 checksums included
+
+---
+
 ## [3.5.2] - 2026-02-02
 
 ### Added
