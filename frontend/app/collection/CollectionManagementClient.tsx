@@ -184,16 +184,14 @@ export default function CollectionManagementClient() {
 
   const openEditModal = (serviceName: string) => {
     const cred = credentials.find((c) => c.service_name === serviceName);
-    if (cred) {
-      setEditingService(serviceName);
-      setCredentialForm({
-        username: cred.username,
-        password: '',
-        enabled: cred.enabled,
-        collection_interval: cred.collection_interval || 'daily',
-      });
-      setShowCredentialModal(true);
-    }
+    setEditingService(serviceName);
+    setCredentialForm({
+      username: cred?.username || '',
+      password: '',
+      enabled: cred?.enabled ?? true,
+      collection_interval: cred?.collection_interval || 'daily',
+    });
+    setShowCredentialModal(true);
   };
 
   const saveCredentials = async () => {

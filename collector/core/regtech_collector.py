@@ -154,7 +154,15 @@ class RegtechCollector:
                 return False
 
             # Step 2: addLogin (실제 로그인 form submit)
-            login_payload = {"username": username, "password": password}
+            login_payload = {
+                "username": username,
+                "password": password,
+                "login_error": "",
+                "smsTimeExcess": "N",
+                "txId": "",
+                "token": "",
+                "memberId": "",
+            }
             encoded_data = urllib.parse.urlencode(login_payload)
             logger.info("📤 Step 2: /login/addLogin 로그인 요청")
 
