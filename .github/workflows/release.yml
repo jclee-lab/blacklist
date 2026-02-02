@@ -145,7 +145,7 @@ jobs:
             gzip -c $img > ${BUNDLE_DIR}/images/${name}.tar.gz
           done
           
-          cp deploy/docker/docker-compose.yml ${BUNDLE_DIR}/
+          cp deploy/airgap/docker-compose.yml ${BUNDLE_DIR}/
           
           cat > ${BUNDLE_DIR}/install.sh << 'EOF'
           #!/bin/bash

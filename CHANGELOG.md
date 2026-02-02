@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.16] - 2026-02-03
+
+### Fixed
+- **CI/CD**: Fixed airgap bundle to include correct docker-compose.yml with SSL configuration
+
+---
+
 ## [3.5.15] - 2026-02-03
 
 ### Fixed
