@@ -38,11 +38,27 @@ git push origin master v3.6.0
 ### Air-Gap Deployment
 
 ```bash
-# Download release bundle
+# Option 1: GitHub CLI (requires gh installed)
 gh release download v3.6.0 --repo jclee-homelab/blacklist
 
+# Option 2: curl - latest version auto-detect (jq required)
+TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name")
+curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
+
+# Option 3: curl - latest version (no jq)
+TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | grep "tag_name" | sed -E 's/.*"([^"]+)".*/\1/')
+curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
+
+# Option 4: via SSH jump host
+ssh jump3 'TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name") && \
+  curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"'
+
+# Option 5: PowerShell (Windows)
+$TAG = (Invoke-RestMethod "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest").tag_name
+Invoke-WebRequest "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -OutFile "blacklist-$TAG-airgap.tar.gz"
+
 # Deploy
-tar -xzf blacklist-v3.6.0-airgap.tar.gz
+tar -xzf blacklist-$TAG-airgap.tar.gz
 ./install.sh
 ```
 
