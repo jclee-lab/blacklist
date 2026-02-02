@@ -121,26 +121,13 @@ class HealthServer:
                 if source_upper not in ["REGTECH", "SECUDIUM"]:
                     return jsonify({"success": False, "error": f"Invalid source: {source_upper}"}), 400
 
-                # Get credentials from database
+                # Get credentials from database (with automatic decryption)
                 from core.database import DatabaseService
 
                 db = DatabaseService()
-                with db.get_connection() as conn:
-                    cursor = conn.cursor()
+                credentials = db.get_collection_credentials(source_upper)
 
-                    cursor.execute(
-                        """
-                        SELECT username, password, enabled
-                        FROM collection_credentials
-                        WHERE service_name = %s
-                    """,
-                        (source_upper,),
-                    )
-
-                    row = cursor.fetchone()
-                    cursor.close()
-
-                if not row:
+                if not credentials:
                     return jsonify(
                         {
                             "success": False,
@@ -148,7 +135,9 @@ class HealthServer:
                         }
                     ), 404
 
-                username, password, enabled = row
+                username = credentials.get("username")
+                password = credentials.get("password")
+                enabled = credentials.get("enabled", False)
 
                 if not enabled:
                     return jsonify(
