@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.7] - 2026-02-02
+
+### Added
+- **download.ps1**: PowerShell script for Windows air-gap deployment
+- **GitHub Wiki**: Complete documentation (Installation, API Reference, Development, Troubleshooting)
+
+### Changed
+- **README.md**: Updated to v3.5.6, added multiple download options (curl, ssh jump, PowerShell)
+- **Release workflow**: Include download.ps1 in release assets
+
+---
+
 ## [3.5.6] - 2026-02-02
 
 ### Fixed
