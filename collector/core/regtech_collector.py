@@ -97,6 +97,7 @@ class RegtechCollector:
             return None
 
     def authenticate(self, username: str, password: str) -> bool:
+        """REGTECH 2단계 인증: findOneMember → addLogin"""
         auth_key = f"{username}:{hash(password)}"
 
         if auth_key in self._auth_cache:
@@ -122,10 +123,35 @@ class RegtechCollector:
 
         logger.info(f"🔐 REGTECH 로그인 시도: {username}")
 
-        login_payload = {"username": username, "password": password}
-        encoded_data = urllib.parse.urlencode(login_payload)
-
         try:
+            # Step 0: loginForm GET (세션 쿠키 획득)
+            self.session.get(f"{self.base_url}/login/loginForm", timeout=30)
+
+            # Step 1: findOneMember (회원 검증 AJAX - 실제 브라우저 흐름)
+            verify_payload = urllib.parse.urlencode({"memberId": username, "memberPw": password})
+            logger.info("📤 Step 1: /member/findOneMember 회원 검증")
+
+            verify_response = self.session.post(
+                f"{self.base_url}/member/findOneMember",
+                data=verify_payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=30,
+            )
+
+            logger.info(f"📊 Step 1 응답: Status={verify_response.status_code}")
+
+            if verify_response.status_code != 200:
+                logger.warning(f"⚠️ 회원 검증 실패: HTTP {verify_response.status_code}")
+                self.rate_limiter.on_failure(error_code=verify_response.status_code)
+                self._auth_cache[auth_key] = (time.time(), False)
+                logger.error("❌ REGTECH 인증 실패")
+                return False
+
+            # Step 2: addLogin (실제 로그인 form submit)
+            login_payload = {"username": username, "password": password}
+            encoded_data = urllib.parse.urlencode(login_payload)
+            logger.info("📤 Step 2: /login/addLogin 로그인 요청")
+
             response = self.session.post(
                 f"{self.base_url}/login/addLogin",
                 data=encoded_data,
@@ -145,7 +171,7 @@ class RegtechCollector:
                 elif cookie.name == "regtech-front" and cookie.value:
                     self.session.cookies.set("regtech-front", cookie.value, domain="regtech.fsec.or.kr")
 
-            logger.info(f"📊 응답: Status={status_code}, Location={location}, JWT={jwt_cookie is not None}")
+            logger.info(f"📊 Step 2 응답: Status={status_code}, Location={location}, JWT={jwt_cookie is not None}")
 
             if status_code == 302 and (jwt_cookie or "/main/main" in location):
                 self.authenticated = True
