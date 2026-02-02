@@ -8,74 +8,50 @@
 
 ## CI/CD PIPELINE
 
-GitLab CI primary. 9 stages, air-gap first architecture.
+GitHub Actions. Auto-release on tag push.
 
+### Release Workflow (`.github/workflows/release.yml`)
+
+Triggered on tag push `v*`. Creates GitHub Release with airgap bundle.
+
+| Job | Purpose |
+|-----|---------|
+| **build** | Build all 5 Docker images (frontend, app, collector, postgres, redis) |
+| **package** | Create airgap bundle (`blacklist-vX.X.X-airgap.tar.gz`) |
+| **release** | Upload to GitHub Releases with changelog |
+
+### Creating a Release
+
+```bash
+# 1. Update VERSION and CHANGELOG.md
+echo "3.6.0" > VERSION
+
+# 2. Commit, tag, push
+git add VERSION CHANGELOG.md
+git commit -m "chore: release v3.6.0"
+git tag -a v3.6.0 -m "Release v3.6.0"
+git push origin master v3.6.0
+
+# 3. GitHub Actions automatically creates release
 ```
-validate → lint → security → test → build → package → deploy → notify → cleanup
-```
-
-### Stages
-
-| Stage | Jobs | Purpose |
-|-------|------|---------|
-| **validate** | `validate:environment` | Pipeline type, branch info |
-| **lint** | `lint:python`, `lint:typescript`, `lint:dockerfile` | Ruff, ESLint, Hadolint |
-| **security** | `security:python-scan`, `security:javascript-scan`, `security:secret-detection`, `security:container-scan` | pip-audit, npm audit, detect-secrets, Trivy |
-| **test** | `test:backend-unit`, `test:backend-integration`, `test:frontend-unit`, `test:frontend-e2e` | Pytest + Playwright |
-| **build** | `build:postgres`, `build:redis`, `build:collector`, `build:app`, `build:frontend` | Parallel Docker builds |
-| **package** | `package:airgap-images` | Export tarballs → push to `airgap` branch |
-| **deploy** | `deploy:local`, `deploy:airgap`, `deploy:rollback` | Manual deployment triggers |
-| **notify** | `notify:slack` | Pipeline status to Slack |
-| **cleanup** | `cleanup:registry`, `cleanup:docker` | Prune old images |
-
-### Triggers
-
-| Trigger | Pipeline Type | Stages Run |
-|---------|---------------|------------|
-| Push to `main`/`master` | `production` | All 9 stages |
-| Merge Request | `merge_request` | lint + security + test only |
-| Tag `v*` | `release` | All + GitLab Release creation |
-| Schedule | `schedule` | Security scan only |
 
 ### Air-Gap Deployment
 
-#### Push (CI creates package → pushes to `airgap` branch)
-
-Automatic on `production`/`release` pipelines via `package:airgap-images` job:
-
-1. Pull all 5 images from registry
-2. `docker save` → gzip tarballs (parallel)
-3. Create `dist/install.sh` + `airgap-deployment.tar.gz`
-4. Force-push to `airgap` branch (replaces all content)
-
 ```bash
-# Manual trigger (if needed)
-git tag v1.0.0 && git push origin v1.0.0  # triggers release pipeline
+# Download release bundle
+gh release download v3.6.0 --repo jclee-homelab/blacklist
+
+# Deploy
+tar -xzf blacklist-v3.6.0-airgap.tar.gz
+./install.sh
 ```
 
-#### Pull (deploy to air-gapped environment)
-
-```bash
-# Clone airgap branch (contains install.sh + images tarball)
-git clone -b airgap git@gitlab.jclee.me:nextrade/blacklist.git
-cd blacklist && ./install.sh
-```
-
-#### What's in the airgap branch
+### Release Assets
 
 | File | Purpose |
 |------|---------|
-| `install.sh` | Loads images + starts services |
-| `airgap-deployment.tar.gz` | All 5 images + docker-compose.yml |
-
-### Key Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `CI_REGISTRY` | `registry.jclee.me` |
-| `SLACK_WEBHOOK_URL` | Pipeline notifications |
-| `LOCAL_DEPLOY_HOST` | SSH deploy target |
-| `ROLLBACK_TAG` | Version for rollback job |
+| `blacklist-vX.X.X-airgap.tar.gz` | All 5 Docker images + docker-compose.yml + install.sh |
+| `blacklist-vX.X.X-airgap.tar.gz.sha256` | Checksum for verification |
 
 ## COMMANDS
 
