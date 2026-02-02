@@ -25,8 +25,8 @@ Threat intelligence platform for collecting, managing, and analyzing IP blacklis
 gh release download --repo jclee-homelab/blacklist
 tar -xzf blacklist-*.tar.gz && ./install.sh
 
-# curl (auto-detect latest)
-TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name")
+# curl (auto-detect latest, no jq required)
+TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | grep "tag_name" | sed -E 's/.*"([^"]+)".*/\1/')
 curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
 
 # PowerShell (direct internet access)
@@ -80,6 +80,6 @@ Full documentation: [API Reference](https://github.com/jclee-homelab/blacklist/w
 
 ## Version
 
-**v3.5.10** (February 2026) - Production Stable
+**v3.5.11** (February 2026) - Production Stable
 
 [Releases](https://github.com/jclee-homelab/blacklist/releases) · [Changelog](CHANGELOG.md)

@@ -13,8 +13,8 @@ $JUMP_HOST = "jump3"
 
 Write-Host "Fetching latest release via $JUMP_HOST..." -ForegroundColor Cyan
 
-# Get latest tag from GitHub API via jump3
-$TAG = ssh $JUMP_HOST "curl -s 'https://api.github.com/repos/$OWNER/$REPO/releases/latest' | jq -r '.tag_name'"
+# Get latest tag from GitHub API via jump3 (no jq required)
+$TAG = ssh $JUMP_HOST "curl -s 'https://api.github.com/repos/$OWNER/$REPO/releases/latest' | grep 'tag_name' | sed -E 's/.*`"([^`"]+)`".*/\1/'"
 $TAG = $TAG.Trim()
 
 if (-not $TAG -or $TAG -eq "null") {

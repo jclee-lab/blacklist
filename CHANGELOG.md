@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.11] - 2026-02-02
+
+### Changed
+- **AGENTS.md**: SSH jump host download command no longer requires jq (uses grep+cut)
+
+---
+
 ## [3.5.7] - 2026-02-02
 
 ### Added

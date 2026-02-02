@@ -49,9 +49,8 @@ curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blac
 TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | grep "tag_name" | sed -E 's/.*"([^"]+)".*/\1/')
 curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"
 
-# Option 4: via SSH jump host
-ssh jump3 'TAG=$(curl -s "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest" | jq -r ".tag_name") && \
-  curl -#L "https://github.com/jclee-homelab/blacklist/releases/download/$TAG/blacklist-$TAG-airgap.tar.gz" -o "blacklist-$TAG-airgap.tar.gz"'
+# Option 4: via SSH jump host (no jq)
+ssh jump3 "TAG=\$(curl -s 'https://api.github.com/repos/jclee-homelab/blacklist/releases/latest' | grep 'tag_name' | cut -d'\"' -f4) && curl -#L \"https://github.com/jclee-homelab/blacklist/releases/download/\$TAG/blacklist-\$TAG-airgap.tar.gz\" -o \"blacklist-\$TAG-airgap.tar.gz\""
 
 # Option 5: PowerShell (Windows)
 $TAG = (Invoke-RestMethod "https://api.github.com/repos/jclee-homelab/blacklist/releases/latest").tag_name
