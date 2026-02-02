@@ -40,7 +40,7 @@ jobs:
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./frontend
           file: ./frontend/Dockerfile
           push: false
           tags: |
@@ -75,7 +75,7 @@ jobs:
       - name: Build postgres image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./postgres
           file: ./postgres/Dockerfile
           push: false
           tags: blacklist-postgres:latest
@@ -86,7 +86,7 @@ jobs:
       - name: Build redis image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./redis
           file: ./redis/Dockerfile
           push: false
           tags: blacklist-redis:latest

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.6] - 2026-02-02
+
+### Fixed
+- **GitHub Release Workflow**: Use correct Docker build context per Dockerfile (frontend: `./frontend`, postgres: `./postgres`, redis: `./redis`, app/collector: `.`)
+
+---
+
 ## [3.5.5] - 2026-02-02
 
 ### Fixed
