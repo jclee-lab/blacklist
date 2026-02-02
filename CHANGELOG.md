@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.15] - 2026-02-03
+
+### Fixed
+- **Analytics**: Fixed GROUP BY clause mismatch in detection-timeline query (GROUP BY source instead of data_source)
+- **Docker**: Fixed frontend healthcheck - use node https.request instead of busybox wget (SSL cert issues)
+- **API**: Dashboard stats now use `last_seen` instead of `detection_date` for accurate last update time
+- **Frontend**: Corrected trigger collection API path (`/collection/trigger/${serviceName}`)
+
+---
+
 ## [3.5.14] - 2026-02-03
 
 ### Fixed
