@@ -2,29 +2,44 @@
  * Playwright E2E Testing Configuration
  *
  * TEST DISCOVERY PATTERN:
- * - testDir: './e2e' (symlink)
- * - Symlink target: frontend/e2e → ../tests/e2e
- * - Real test files location: /tests/e2e/**\/*.spec.ts
+ * - testDir: './e2e' (physical directory)
+ * - Test files: frontend/e2e/**\/*.spec.ts
  * - File pattern: Files with .spec.ts extension
  *
- * SYMLINK STRUCTURE:
- * └─ Why symlinks? To keep tests centralized in /tests/ while maintaining
- *    clean separation from source code in frontend/
+ * MIGRATION NOTE (2026-02-02):
+ * The test structure was migrated from centralized /tests/e2e/ (symlink-based)
+ * to frontend/e2e/ (physical directories) to better support CI/CD pipelines
+ * and Cloudflare Workers deployment. This was initiated in commit aec04a2.
  *
- * IMPORTANT: If you move tests from /tests/ to frontend/e2e/:
- * 1. DELETE the symlink: rm frontend/e2e
- * 2. CREATE real directory: mkdir -p frontend/e2e
- * 3. COPY test files: cp -r tests/e2e/* frontend/e2e/
- * 4. UPDATE all imports: Change ../../ to ../ (may not be needed for E2E)
- * 5. NO CONFIG CHANGE NEEDED: testDir: './e2e' works with physical dirs too
+ * Test files are now co-located with the frontend code they test.
+ *
+ * STRUCTURE:
+ * frontend/e2e/
+ * ├── homepage.spec.ts           # Dashboard homepage tests
+ * ├── ip-management.spec.ts      # IP management page tests
+ * ├── collection.spec.ts         # Data collection tests
+ * ├── accessibility.spec.ts      # WCAG accessibility tests
+ * ├── performance.spec.ts        # Performance/metrics tests
+ * ├── views.spec.ts              # View functionality tests
+ * ├── visual-regression.spec.ts  # Visual regression tests
+ * └── visual-regression.spec.ts-snapshots/  # Stored snapshots
  *
  * ENVIRONMENT VARIABLES:
- * - WEBKIT_ENABLED=true: Enable webkit/Safari tests (disabled by default)
+ * - WEBKIT_ENABLED=true: Enable webkit/Safari tests (disabled by default, slow)
  * - BASE_URL: Override test target URL (default: http://localhost:2543)
  * - CI: Enable CI-specific settings (retries, single worker)
  *
+ * RUNNING E2E TESTS:
+ * npm run test:e2e                          # All E2E tests
+ * npm run test:e2e -- --project=chromium   # Specific browser
+ * npm run test:e2e -- --ui                 # Interactive UI mode
+ * npm run test:e2e -- --debug               # Debug mode with inspector
+ * WEBKIT_ENABLED=true npm run test:e2e     # Enable Safari tests
+ * BASE_URL=http://staging.example.com npm run test:e2e  # Custom URL
+ *
  * @see https://playwright.dev/docs/test-configuration
- * @see ../../.sisyphus/guides/frontend-test-structure.md (migration guide)
+ * @see ./vitest.config.ts (Unit tests)
+ * @see ../../.sisyphus/guides/test-commands-quick-reference.md
  */
 
 import { defineConfig, devices } from '@playwright/test';
@@ -32,8 +47,8 @@ import { defineConfig, devices } from '@playwright/test';
 const webkitEnabled = process.env.WEBKIT_ENABLED === 'true';
 
 export default defineConfig({
-  // TEST DISCOVERY: Points to e2e symlink
-  // Symlink target: /tests/e2e/
+  // TEST DISCOVERY: Points to e2e directory
+  // Tests are now physically in frontend/e2e/
   testDir: './e2e',
 
   /* Global test timeout (default 30s is often too short for networkidle) */
@@ -56,19 +71,15 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
 
-  /* Reporter to use */
-  reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['json', { outputFile: 'test-results/results.json' }],
-    ['list'],
-  ],
+  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  reporter: 'html',
 
-  /* Shared settings for all the projects below */
+  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.BASE_URL || 'http://localhost:2543',
 
-    /* Collect trace when retrying the failed test */
+    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
 
     /* Screenshot on failure */
@@ -76,12 +87,6 @@ export default defineConfig({
 
     /* Video on failure */
     video: 'retain-on-failure',
-
-    /* Navigation timeout */
-    navigationTimeout: 30 * 1000,
-
-    /* Action timeout */
-    actionTimeout: 15 * 1000,
   },
 
   /* Configure projects for major browsers */
@@ -96,8 +101,6 @@ export default defineConfig({
       use: { ...devices['Desktop Firefox'] },
     },
 
-    // Webkit requires specific system dependencies (libxml2, etc.)
-    // Skip by default; enable with WEBKIT_ENABLED=true
     ...(webkitEnabled
       ? [
           {
@@ -113,22 +116,27 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
     },
 
-    // Mobile Safari uses webkit engine - same dependency issue
-    ...(webkitEnabled
-      ? [
-          {
-            name: 'Mobile Safari',
-            use: { ...devices['iPhone 12'] },
-          },
-        ]
-      : []),
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
+
+    /* Test against branded browsers. */
+    // {
+    //   name: 'Microsoft Edge',
+    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    // },
+    // {
+    //   name: 'Google Chrome',
+    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    // },
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:2543',
+    url: process.env.BASE_URL || 'http://localhost:2543',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 120000,
   },
 });

@@ -2,23 +2,39 @@
  * Vitest Configuration for Frontend Unit Tests
  *
  * TEST DISCOVERY PATTERN:
- * - Uses symlink: frontend/__tests__ → ../tests/unit
- * - Real test files location: /tests/unit/**
+ * - Uses physical directory: frontend/__tests__/
  * - Pattern: __tests__/**\/*.{test,spec}.{js,ts,jsx,tsx}
  *
- * SYMLINK STRUCTURE:
- * └─ Why symlinks? To keep tests centralized in /tests/ while maintaining
- *    clean separation from source code in frontend/
+ * MIGRATION NOTE (2026-02-02):
+ * The test structure was migrated from centralized /tests/unit/ (symlink-based)
+ * to frontend/__tests__/ (physical directories) to better support CI/CD pipelines
+ * and Cloudflare Workers deployment. This was initiated in commit aec04a2.
  *
- * IMPORTANT: If you move tests from /tests/ to frontend/__tests__/:
- * 1. DELETE the symlink: rm frontend/__tests__
- * 2. CREATE real directory: mkdir -p frontend/__tests__
- * 3. COPY test files: cp -r tests/unit/* frontend/__tests__/
- * 4. UPDATE all imports: Change ../../components to ../components
- * 5. NO CONFIG CHANGE NEEDED: This pattern works with physical dirs too
+ * Test files are now co-located with the frontend code they test.
+ *
+ * STRUCTURE:
+ * frontend/
+ * ├── __tests__/              # Unit tests (Vitest)
+ * │   └── components/
+ * │       └── NavBar.test.tsx
+ * ├── e2e/                    # E2E tests (Playwright)
+ * │   ├── homepage.spec.ts
+ * │   ├── ip-management.spec.ts
+ * │   └── ...
+ * ├── vitest.config.ts        # This file (Vitest config)
+ * ├── playwright.config.ts    # Playwright config
+ * └── vitest.setup.ts         # Vitest setup (JSX/DOM)
+ *
+ * RUNNING TESTS:
+ * npm run test                      # Run all unit tests
+ * npm run test:coverage             # With coverage report
+ * npm run test:e2e                  # Run all E2E tests
+ * npm run test:e2e -- --ui          # Interactive UI mode
+ * npm run test:all                  # Both unit and E2E
  *
  * @see https://vitest.dev/config/
- * @see ../../.sisyphus/guides/frontend-test-structure.md (migration guide)
+ * @see ./playwright.config.ts (E2E tests)
+ * @see ../../.sisyphus/guides/test-commands-quick-reference.md
  */
 
 import { defineConfig } from 'vitest/config';
@@ -37,8 +53,8 @@ export default defineConfig({
     // Setup file runs before all tests
     setupFiles: ['./vitest.setup.ts'],
 
-    // TEST DISCOVERY: Matches the __tests__ symlink
-    // Points to: /tests/unit/**/*.test.tsx and similar
+    // TEST DISCOVERY: Matches the __tests__ directory
+    // Finds all files matching: __tests__/**/*.test.tsx, __tests__/**/*.spec.ts, etc.
     include: ['__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}'],
 
     // Exclude from test discovery
