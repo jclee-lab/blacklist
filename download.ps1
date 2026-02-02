@@ -1,5 +1,7 @@
 # Blacklist Air-Gap Bundle Downloader (PowerShell)
 # Downloads the latest release from GitHub
+#
+# Usage: .\download.ps1
 
 $OWNER = "jclee-homelab"
 $REPO = "blacklist"
@@ -14,6 +16,8 @@ $filename = "blacklist-$TAG-airgap.tar.gz"
 $url = "https://github.com/$OWNER/$REPO/releases/download/$TAG/$filename"
 
 Write-Host "Downloading $filename..." -ForegroundColor Cyan
-Invoke-WebRequest $url -OutFile $filename
+curl.exe -sL $url -o $filename
 
 Write-Host "Done! Downloaded: $filename" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next: tar -xzf $filename && cd blacklist-$TAG && ./install.sh" -ForegroundColor Yellow
