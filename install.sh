@@ -1,1 +1,0 @@
-deploy/airgap/install.sh
