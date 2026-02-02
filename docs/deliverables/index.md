@@ -3,7 +3,7 @@
 | 항목 | 내용 |
 |------|------|
 | **문서번호** | REGTECH-BL-DEL-2026-001 |
-| **버전** | 3.5.2 |
+| **버전** | 3.5.11 |
 | **최종수정** | 2026-01-15 |
 | **프로젝트** | REGTECH Blacklist Intelligence Platform |
 
@@ -47,36 +47,36 @@
 
 | 번호 | 산출물명 | 파일명 | 버전 | 상태 | 설명 |
 |------|----------|--------|------|------|------|
-| D-001 | **요구사항 정의서** | [`01-REQUIREMENTS-SPECIFICATION.md`](./01-REQUIREMENTS-SPECIFICATION.md) | 3.5.2 | ✅ 완료 | 기능/비기능 요구사항 33+19개 정의 |
-| D-002 | **프로젝트 가이드** | [`../guides/project-guide.md`](../guides/project-guide.md) | 3.5.2 | ✅ 완료 | 프로젝트 개요 및 온보딩 가이드 |
+| D-001 | **요구사항 정의서** | [`01-REQUIREMENTS-SPECIFICATION.md`](./01-REQUIREMENTS-SPECIFICATION.md) | 3.5.11 | ✅ 완료 | 기능/비기능 요구사항 33+19개 정의 |
+| D-002 | **프로젝트 가이드** | [`../guides/project-guide.md`](../guides/project-guide.md) | 3.5.11 | ✅ 완료 | 프로젝트 개요 및 온보딩 가이드 |
 
 ### 2.2 설계 단계
 
 | 번호 | 산출물명 | 파일명 | 버전 | 상태 | 설명 |
 |------|----------|--------|------|------|------|
-| D-003 | **시스템 설계서** | [`02-SYSTEM-DESIGN.md`](./02-SYSTEM-DESIGN.md) | 3.5.2 | ✅ 완료 | 아키텍처, DB, 인터페이스 설계 |
-| D-004 | **API 명세서** | [`03-API-REFERENCE.md`](./03-API-REFERENCE.md) | 3.5.2 | ✅ 완료 | REST API 48개 엔드포인트 상세 명세 |
-| D-005 | **기술 정의서** | [`../architecture/final-report.md`](../architecture/final-report.md) | 3.5.2 | ✅ 완료 | 아키텍처 원칙, 기술 스택, 설계 상세 |
+| D-003 | **시스템 설계서** | [`02-SYSTEM-DESIGN.md`](./02-SYSTEM-DESIGN.md) | 3.5.11 | ✅ 완료 | 아키텍처, DB, 인터페이스 설계 |
+| D-004 | **API 명세서** | [`03-API-REFERENCE.md`](./03-API-REFERENCE.md) | 3.5.11 | ✅ 완료 | REST API 48개 엔드포인트 상세 명세 |
+| D-005 | **기술 정의서** | [`../architecture/final-report.md`](../architecture/final-report.md) | 3.5.11 | ✅ 완료 | 아키텍처 원칙, 기술 스택, 설계 상세 |
 
 ### 2.3 개발 단계
 
 | 번호 | 산출물명 | 파일명 | 버전 | 상태 | 설명 |
 |------|----------|--------|------|------|------|
-| D-006 | **설치 가이드** | [`04-INSTALLATION-GUIDE.md`](./04-INSTALLATION-GUIDE.md) | 3.5.2 | ✅ 완료 | 환경별 설치 절차 (개발/스테이징/운영/Air-Gap) |
-| D-007 | **운영 가이드** | [`05-OPERATIONS-GUIDE.md`](./05-OPERATIONS-GUIDE.md) | 3.5.2 | ✅ 완료 | 운영 절차, 모니터링, 장애대응 |
-| D-008 | **개발자 가이드** | [`../../AGENTS.md`](../../AGENTS.md) | 3.5.2 | ✅ 완료 | 개발 규칙, 패턴, 코드맵 |
-| D-013 | **OpenAPI 명세** | [`../references/openapi.yaml`](../references/openapi.yaml) | 3.5.2 | ✅ 완료 | REST API OpenAPI 3.1 스펙 |
-| D-014 | **운영 플레이북** | [`06-RUNBOOK.md`](./06-RUNBOOK.md) | 3.5.2 | ✅ 완료 | 장애대응, 정기점검, 백업/복구 |
-| D-015 | **환경 매트릭스** | [`09-ENVIRONMENT-MATRIX.md`](./09-ENVIRONMENT-MATRIX.md) | 3.5.2 | ✅ 완료 | 환경별 설정, URL, 환경변수 |
+| D-006 | **설치 가이드** | [`04-INSTALLATION-GUIDE.md`](./04-INSTALLATION-GUIDE.md) | 3.5.11 | ✅ 완료 | 환경별 설치 절차 (개발/스테이징/운영/Air-Gap) |
+| D-007 | **운영 가이드** | [`05-OPERATIONS-GUIDE.md`](./05-OPERATIONS-GUIDE.md) | 3.5.11 | ✅ 완료 | 운영 절차, 모니터링, 장애대응 |
+| D-008 | **개발자 가이드** | [`../../AGENTS.md`](../../AGENTS.md) | 3.5.11 | ✅ 완료 | 개발 규칙, 패턴, 코드맵 |
+| D-013 | **OpenAPI 명세** | [`../references/openapi.yaml`](../references/openapi.yaml) | 3.5.11 | ✅ 완료 | REST API OpenAPI 3.1 스펙 |
+| D-014 | **운영 플레이북** | [`06-RUNBOOK.md`](./06-RUNBOOK.md) | 3.5.11 | ✅ 완료 | 장애대응, 정기점검, 백업/복구 |
+| D-015 | **환경 매트릭스** | [`09-ENVIRONMENT-MATRIX.md`](./09-ENVIRONMENT-MATRIX.md) | 3.5.11 | ✅ 완료 | 환경별 설정, URL, 환경변수 |
 
 ### 2.4 검증/완료 단계
 
 | 번호 | 산출물명 | 파일명 | 버전 | 상태 | 설명 |
 |------|----------|--------|------|------|------|
-| D-009 | **테스트 결과서** | [`07-TEST-REPORT.md`](./07-TEST-REPORT.md) | 3.5.2 | ✅ 완료 | 테스트 수행 결과 및 커버리지 |
-| D-010 | **검증 체크리스트** | [`08-VERIFICATION-CHECKLIST.md`](./08-VERIFICATION-CHECKLIST.md) | 3.5.2 | ✅ 완료 | 요구사항 검증 체크리스트 |
-| D-011 | **개발 완료 보고서** | [`../reports/dev-completion-report.md`](../reports/dev-completion-report.md) | 3.5.2 | ✅ 완료 | 개발 결과 종합 보고서 |
-| D-012 | **산출물 목록** | [`index.md`](./index.md) | 3.5.2 | ✅ 완료 | 본 문서 |
+| D-009 | **테스트 결과서** | [`07-TEST-REPORT.md`](./07-TEST-REPORT.md) | 3.5.11 | ✅ 완료 | 테스트 수행 결과 및 커버리지 |
+| D-010 | **검증 체크리스트** | [`08-VERIFICATION-CHECKLIST.md`](./08-VERIFICATION-CHECKLIST.md) | 3.5.11 | ✅ 완료 | 요구사항 검증 체크리스트 |
+| D-011 | **개발 완료 보고서** | [`../reports/dev-completion-report.md`](../reports/dev-completion-report.md) | 3.5.11 | ✅ 완료 | 개발 결과 종합 보고서 |
+| D-012 | **산출물 목록** | [`index.md`](./index.md) | 3.5.11 | ✅ 완료 | 본 문서 |
 
 ---
 
@@ -175,8 +175,8 @@
 | 버전 | 일자 | 변경 내용 |
 |------|------|-----------|
 | 3.5.0 | 2026-01-08 | 초안 작성 |
-| 3.5.2 | 2026-01-10 | 전면 개정 - 업무개발 관점 재작성 |
-| 3.5.2 | 2026-01-15 | 누락 문서 생성, 전체 날짜/버전 통일 |
+| 3.5.11 | 2026-01-10 | 전면 개정 - 업무개발 관점 재작성 |
+| 3.5.11 | 2026-01-15 | 누락 문서 생성, 전체 날짜/버전 통일 |
 
 ---
 

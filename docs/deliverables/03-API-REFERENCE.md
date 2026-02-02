@@ -1,7 +1,7 @@
 # API 명세서 (API Specification)
 
 **프로젝트명:** REGTECH 블랙리스트 인텔리전스 플랫폼  
-**버전:** 3.5.2  
+**버전:** 3.5.11  
 **작성일:** 2026-01-15  
 **문서번호:** API-REGTECH-2026-001
 
@@ -505,7 +505,7 @@ GET /health
 ```json
 {
   "status": "healthy",
-  "version": "3.5.2",
+  "version": "3.5.11",
   "timestamp": "2026-01-15T06:40:00Z"
 }
 ```
