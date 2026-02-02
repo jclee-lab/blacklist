@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.14] - 2026-02-03
+
+### Fixed
+- **Collector**: Simplified REGTECH auth flow - removed failing `/member/findOneMember` step
+- **Collector**: Fixed password decryption in test auth endpoint - use `DatabaseService.get_collection_credentials()`
+
+---
+
 ## [3.5.13] - 2026-02-03
 
 ### Fixed
