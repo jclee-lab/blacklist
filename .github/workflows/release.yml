@@ -40,7 +40,7 @@ jobs:
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: .
           file: ./frontend/Dockerfile
           push: false
           tags: |
@@ -53,7 +53,7 @@ jobs:
       - name: Build app image
         uses: docker/build-push-action@v5
         with:
-          context: ./app
+          context: .
           file: ./app/Dockerfile
           push: false
           tags: blacklist-app:latest
@@ -64,7 +64,7 @@ jobs:
       - name: Build collector image
         uses: docker/build-push-action@v5
         with:
-          context: ./collector
+          context: .
           file: ./collector/Dockerfile
           push: false
           tags: blacklist-collector:latest
@@ -75,7 +75,7 @@ jobs:
       - name: Build postgres image
         uses: docker/build-push-action@v5
         with:
-          context: ./postgres
+          context: .
           file: ./postgres/Dockerfile
           push: false
           tags: blacklist-postgres:latest
@@ -86,7 +86,7 @@ jobs:
       - name: Build redis image
         uses: docker/build-push-action@v5
         with:
-          context: ./redis
+          context: .
           file: ./redis/Dockerfile
           push: false
           tags: blacklist-redis:latest
