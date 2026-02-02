@@ -167,7 +167,7 @@ def get_detection_timeline():
                 MAX(COALESCE(detection_date, created_at::date)) as last_detection
             FROM blacklist_ips_with_auto_inactive
             WHERE COALESCE(detection_date, created_at::date) >= CURRENT_DATE - INTERVAL '%s days'
-            GROUP BY data_source
+            GROUP BY source
             ORDER BY total_ips DESC
         """,
             (days_back,),
