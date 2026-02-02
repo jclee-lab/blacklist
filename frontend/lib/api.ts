@@ -190,7 +190,7 @@ export const triggerCollectionService = async (
   serviceName: string,
   options?: { force?: boolean }
 ) => {
-  const { data } = await collectionApi.post(`/collection/${serviceName}/trigger`, options || {});
+  const { data } = await collectionApi.post(`/collection/trigger/${serviceName}`, options || {});
   return data;
 };
 
