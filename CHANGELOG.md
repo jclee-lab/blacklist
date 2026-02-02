@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.13] - 2026-02-03
+
+### Fixed
+- **Collector**: REGTECH login_payload now includes all required form fields
+- **Frontend**: Settings button now works when no credentials exist yet
+
+---
+
 ## [3.5.11] - 2026-02-02
 
 ### Changed
