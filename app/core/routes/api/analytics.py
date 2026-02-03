@@ -73,7 +73,7 @@ def get_detection_timeline():
     """
     # Get and validate query parameters
     try:
-        days_back = int(request.args.get("days", 30))
+        days_back = int(request.args.get("days", 365))
     except ValueError as e:
         raise ValidationError(
             message="Days parameter must be a valid integer",

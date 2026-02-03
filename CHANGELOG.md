@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.17] - 2026-02-03
+
+### Fixed
+- **Analytics**: Changed detection-timeline default days from 30 to 365 to show full REGTECH detection history
+
+---
+
 ## [3.5.16] - 2026-02-03
 
 ### Fixed
