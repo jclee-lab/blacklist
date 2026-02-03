@@ -4,9 +4,31 @@ const fs = require('fs');
 const path = require('path');
 const { parse } = require('url');
 
-const sslKeyPath = process.env.SSL_KEY_PATH || '/app/ssl/server.key';
-const sslCertPath = process.env.SSL_CERT_PATH || '/app/ssl/server.crt';
-const port = parseInt(process.env.PORT, 10) || 443;
+// SSL Configuration with fallback paths
+const SSL_PATHS = [
+  // Environment variables (highest priority)
+  { key: process.env.SSL_KEY_PATH, cert: process.env.SSL_CERT_PATH },
+  // Standard container paths
+  { key: '/app/ssl/server.key', cert: '/app/ssl/server.crt' },
+  { key: '/app/ssl/privkey.pem', cert: '/app/ssl/fullchain.pem' },
+  { key: '/app/ssl/tls.key', cert: '/app/ssl/tls.crt' },
+  // Let's Encrypt style
+  { key: '/etc/letsencrypt/live/default/privkey.pem', cert: '/etc/letsencrypt/live/default/fullchain.pem' },
+];
+
+const findSSLCerts = () => {
+  for (const { key, cert } of SSL_PATHS) {
+    if (key && cert && fs.existsSync(key) && fs.existsSync(cert)) {
+      return { key, cert };
+    }
+  }
+  return null;
+};
+
+const sslPaths = findSSLCerts();
+const useHTTPS = sslPaths !== null;
+const defaultPort = useHTTPS ? 443 : 3000;
+const port = parseInt(process.env.PORT, 10) || defaultPort;
 const hostname = process.env.HOSTNAME || '0.0.0.0';
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://blacklist-app:2542';
 
@@ -66,12 +88,7 @@ const proxyRequest = (req, res, targetPath) => {
   req.pipe(proxyReq);
 };
 
-const httpsOptions = {
-  key: fs.readFileSync(sslKeyPath),
-  cert: fs.readFileSync(sslCertPath),
-};
-
-https.createServer(httpsOptions, async (req, res) => {
+const requestHandler = async (req, res) => {
   const parsedUrl = parse(req.url, true);
   const { pathname } = parsedUrl;
 
@@ -119,7 +136,22 @@ https.createServer(httpsOptions, async (req, res) => {
     res.statusCode = 500;
     res.end('Internal Server Error');
   }
-}).listen(port, hostname, () => {
-  console.log(`> HTTPS server ready on https://${hostname}:${port}`);
-  console.log(`> API proxy: ${apiUrl}`);
-});
+};
+
+if (useHTTPS) {
+  const httpsOptions = {
+    key: fs.readFileSync(sslPaths.key),
+    cert: fs.readFileSync(sslPaths.cert),
+  };
+  https.createServer(httpsOptions, requestHandler).listen(port, hostname, () => {
+    console.log(`> HTTPS server ready on https://${hostname}:${port}`);
+    console.log(`> SSL: ${sslPaths.key}, ${sslPaths.cert}`);
+    console.log(`> API proxy: ${apiUrl}`);
+  });
+} else {
+  http.createServer(requestHandler).listen(port, hostname, () => {
+    console.log(`> HTTP server ready on http://${hostname}:${port}`);
+    console.log(`> SSL certificates not found, running in HTTP mode`);
+    console.log(`> API proxy: ${apiUrl}`);
+  });
+}
