@@ -110,6 +110,7 @@ docs/*
 !docs/implementation-report.html
 !docs/implementation-report.pdf
 !docs/deliverables/
+!docs/testing/
 
 # Analysis documents
 ANALYSIS*.md
