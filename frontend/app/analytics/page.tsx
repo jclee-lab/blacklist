@@ -45,7 +45,7 @@ interface AnalyticsResponse {
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(365);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
@@ -95,11 +95,11 @@ export default function AnalyticsPage() {
             onChange={(e) => setDays(Number(e.target.value))}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value={7}>최근 7일</option>
-            <option value={14}>최근 14일</option>
             <option value={30}>최근 30일</option>
-            <option value={60}>최근 60일</option>
             <option value={90}>최근 90일</option>
+            <option value={180}>최근 180일</option>
+            <option value={365}>최근 1년</option>
+            <option value={730}>최근 2년</option>
           </select>
           <button
             onClick={fetchData}

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.18] - 2026-02-03
+
+### Fixed
+- **Frontend**: Analytics page default days changed from 30 to 365 and added 180/365/730 day options
+
+---
+
 ## [3.5.17] - 2026-02-03
 
 ### Fixed

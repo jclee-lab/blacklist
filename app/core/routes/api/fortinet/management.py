@@ -72,7 +72,7 @@ def get_devices():
         logger.error(f"Error getting FortiGate devices: {e}", exc_info=True)
         raise DatabaseError(
             message="Failed to retrieve FortiGate devices",
-            details={"error_type": type(e).__name__},
+            table="fortigate_devices",
         )
 
 
