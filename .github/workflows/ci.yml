@@ -51,7 +51,7 @@ jobs:
   # ===========================================================================
   lint:
     name: Lint & Type Check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, homelab]
     if: ${{ !inputs.skip_tests }}
     defaults:
       run:
@@ -82,7 +82,7 @@ jobs:
   # ===========================================================================
   test:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, homelab]
     needs: lint
     if: ${{ !inputs.skip_tests }}
     defaults:
@@ -120,7 +120,7 @@ jobs:
   # ===========================================================================
   build:
     name: Build Docker Image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, homelab]
     needs: [lint, test]
     if: |
       always() &&
@@ -160,7 +160,7 @@ jobs:
   # ===========================================================================
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, lxc220]
+    runs-on: [self-hosted, homelab]
     needs: build
     if: |
       needs.build.result == 'success' &&
@@ -190,7 +190,7 @@ jobs:
   # ===========================================================================
   package:
     name: Create Airgap Bundle
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, homelab]
     needs: build
     if: |
       needs.build.result == 'success' &&
@@ -247,7 +247,7 @@ jobs:
   # ===========================================================================
   deploy:
     name: Deploy to LXC 220
-    runs-on: [self-hosted, lxc220]
+    runs-on: [self-hosted, homelab]
     needs: build
     if: |
       always() &&

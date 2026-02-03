@@ -26,7 +26,7 @@ env:
 jobs:
   build-airgap:
     name: Build Complete Airgap Bundle
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, homelab]
     # Note: Requires self-hosted runner with SSH access to PVE_HOST
     # or pre-built images in registry
     
