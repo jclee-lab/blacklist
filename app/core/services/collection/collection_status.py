@@ -87,7 +87,7 @@ class CollectionStatusManager:
         try:
             import requests
 
-            collector_url = "http://blacklist-collector:8545"
+            collector_url = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
             response = requests.get(f"{collector_url}/health", timeout=5)
 
             if response.status_code == 200:

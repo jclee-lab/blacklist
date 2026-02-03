@@ -173,7 +173,7 @@ class RegtechConfigService:
             # Phase 2: 수집 컨테이너 헬스체크
             logger.info("🏥 Phase 2: 수집 컨테이너 상태 확인")
             try:
-                collector_url = "http://blacklist-collector:8545"
+                collector_url = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
                 health_response = requests.get(f"{collector_url}/health", timeout=10)
 
                 if health_response.status_code == 200:

@@ -323,7 +323,8 @@ def get_collector_status():
 
         # Get status from collector health endpoint
         try:
-            response = requests.get("http://blacklist-collector:8545/status", timeout=2)
+            collector_url = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
+            response = requests.get(f"{collector_url}/status", timeout=2)
             collector_data = response.json()
 
             collectors = collector_data.get("collectors", {})
@@ -516,7 +517,8 @@ def get_live_logs():
         import requests
 
         # Get logs from collector's /logs endpoint
-        response = requests.get("http://blacklist-collector:8545/logs", timeout=2)
+        collector_url = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
+        response = requests.get(f"{collector_url}/logs", timeout=2)
         data = response.json()
 
         if not data or "logs" not in data:

@@ -51,7 +51,7 @@ def trigger_regtech_collection():
 
         # 컬렉터 서비스 호출 (내부 네트워크)
         collector_response = requests.post(
-            "http://blacklist-collector:8545/api/force-collection/REGTECH",
+            os.environ.get("COLLECTOR_URL", "http://localhost:8545") + "/api/force-collection/REGTECH",
             timeout=30,
             json={
                 "source": "regtech_api_trigger",

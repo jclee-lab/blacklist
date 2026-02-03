@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.19] - 2026-02-03
+
+### Fixed
+- **App**: Replaced hardcoded `blacklist-collector:8545` URLs with `COLLECTOR_URL` environment variable (8 locations)
+- **Collector**: Fixed `trigger_manual_collection()` parameter mismatch in health_server.py
+
+---
+
 ## [3.5.18] - 2026-02-03
 
 ### Fixed

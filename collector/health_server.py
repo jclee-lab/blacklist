@@ -92,7 +92,7 @@ class HealthServer:
 
                 logger.info(f"Manual collection triggered: {source}, {start_date} ~ {end_date}")
 
-                result = self.scheduler.trigger_manual_collection(start_date=start_date, end_date=end_date)
+                result = self.scheduler.trigger_manual_collection()
 
                 return jsonify(
                     {

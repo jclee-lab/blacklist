@@ -417,7 +417,7 @@ class BlacklistService:
     async def _collect_regtech_data(self, force: bool = False) -> Dict[str, Any]:
         import requests
 
-        COLLECTOR_URL = "http://blacklist-collector:8545"
+        COLLECTOR_URL = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
 
         try:
             response = requests.post(
@@ -459,7 +459,7 @@ class BlacklistService:
             import requests
 
             try:
-                collector_url = "http://blacklist-collector:8545"
+                collector_url = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
                 health_response = requests.get(f"{collector_url}/health", timeout=5)
                 collector_healthy = health_response.status_code == 200
             except BaseException:
@@ -507,7 +507,7 @@ class BlacklistService:
         try:
             import requests
 
-            collector_url = "http://blacklist-collector:8545"
+            collector_url = os.environ.get("COLLECTOR_URL", "http://localhost:8545")
             try:
                 data_response = requests.get(f"{collector_url}/api/data", timeout=30)
 
