@@ -205,21 +205,33 @@ setup_secrets() {
     log_step "Setup Environment Secrets"
 
     local env_file="${SCRIPT_DIR}/.env"
+    local need_gen=false
 
+    # Check if .env exists and has required keys
     if [ -f "${env_file}" ]; then
-        log_info ".env already exists, skipping secret generation"
-        return 0
-    fi
-
-    if ! command -v openssl &> /dev/null; then
-        log_warning "openssl not found, using /dev/urandom for secrets"
-        local gen_secret="head -c 32 /dev/urandom | xxd -p | tr -d '\n'"
+        if grep -q "CREDENTIAL_MASTER_KEY=.\+" "${env_file}" && \
+           grep -q "SECRET_KEY=.\+" "${env_file}" && \
+           grep -q "CREDENTIAL_ENCRYPTION_KEY=.\+" "${env_file}"; then
+            log_info ".env already exists with all required secrets"
+            return 0
+        else
+            log_warning ".env exists but missing required secrets, regenerating..."
+            need_gen=true
+        fi
     else
-        local gen_secret="openssl rand -hex 32"
+        need_gen=true
     fi
 
-    log_info "Generating secrets..."
-    cat > "${env_file}" << EOF
+    if [ "$need_gen" = true ]; then
+        if ! command -v openssl &> /dev/null; then
+            log_warning "openssl not found, using /dev/urandom for secrets"
+            local gen_secret="head -c 32 /dev/urandom | xxd -p | tr -d '\n'"
+        else
+            local gen_secret="openssl rand -hex 32"
+        fi
+
+        log_info "Generating secrets..."
+        cat > "${env_file}" << EOF
 # Blacklist Platform Secrets (auto-generated)
 # Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # WARNING: Keep this file secure. Do not commit to version control.
@@ -229,9 +241,10 @@ SECRET_KEY=$(eval $gen_secret)
 CREDENTIAL_ENCRYPTION_KEY=$(eval $gen_secret)
 EOF
 
-    chmod 600 "${env_file}"
-    log_success "Secrets generated (.env)"
-    log_warning "Store .env securely - it contains encryption keys"
+        chmod 600 "${env_file}"
+        log_success "Secrets generated (.env)"
+        log_warning "Store .env securely - it contains encryption keys"
+    fi
 }
 
 deploy_services() {
