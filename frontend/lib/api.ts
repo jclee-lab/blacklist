@@ -109,7 +109,21 @@ export const getDatabaseSchema = async () => {
 
 // Fortinet 로그 조회 API
 export const getFortinetPullLogs = async (params?: string) => {
-  return { success: false, data: [] as unknown[], stats: null, error: 'Not supported' };
+  return { 
+    success: false, 
+    data: [] as Array<{
+      id: number;
+      device_ip: string;
+      user_agent?: string;
+      endpoint?: string;
+      ip_count?: number;
+      response_time_ms?: number;
+      status_code?: number;
+      created_at?: string;
+    }>, 
+    stats: null as { total_pulls: number; successful_pulls: number; failed_pulls: number; unique_devices: number } | null, 
+    error: 'Not supported' 
+  };
 };
 
 // Fortinet 차단 목록 조회 API
