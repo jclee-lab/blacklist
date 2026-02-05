@@ -54,3 +54,17 @@ api_bp.register_blueprint(settings_api_bp)
 
 from .collection.credentials import collection_credentials_bp
 api_bp.register_blueprint(collection_credentials_bp)
+
+from .collection.status import collection_status_bp
+from .collection.trigger import collection_trigger_bp
+from .collection.history import collection_history_bp
+from .collection.sync import collection_sync_bp
+from .collection.config import collection_config_bp
+from .collection.sources import sources_bp
+
+api_bp.register_blueprint(collection_status_bp, url_prefix="/collection")
+api_bp.register_blueprint(collection_trigger_bp, url_prefix="/collection")
+api_bp.register_blueprint(collection_history_bp, url_prefix="/collection")
+api_bp.register_blueprint(collection_sync_bp)
+api_bp.register_blueprint(collection_config_bp)
+api_bp.register_blueprint(sources_bp, url_prefix="/collection")
