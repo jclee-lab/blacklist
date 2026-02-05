@@ -27,7 +27,7 @@ export default function DatabaseOverviewClient() {
       }
 
       const tablesData = Object.entries(
-        payload.tables as Record<string, { columns: unknown[]; record_count: number }>
+        (payload.tables || {}) as Record<string, { columns: unknown[]; record_count: number }>
       ).map(([name, info]) => ({
         name,
         column_count: info.columns?.length || 0,

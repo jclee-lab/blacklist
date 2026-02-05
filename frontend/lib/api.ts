@@ -99,73 +99,51 @@ export const testCredential = async (source: string) => {
 
 // 데이터베이스 테이블 목록 API
 export const getDatabaseTables = async () => {
-  const { data } = await api.get('/database/tables');
-  return data;
+  return { success: false, tables: {} as Record<string, unknown>, message: 'Not supported' };
 };
 
 // 데이터베이스 스키마 조회 API
 export const getDatabaseSchema = async () => {
-  const { data } = await api.get('/database/schema');
-  return data;
+  return { success: false, schema: {} as Record<string, unknown>, message: 'Not supported' };
 };
 
 // Fortinet 로그 조회 API
 export const getFortinetPullLogs = async (params?: string) => {
-  const url = params ? `/fortinet/pull-logs?${params}` : '/fortinet/pull-logs';
-  const { data } = await api.get(url);
-  return data;
+  return { logs: [], message: 'Not supported' };
 };
 
 // Fortinet 차단 목록 조회 API
 export const getFortinetBlocklist = async () => {
-  // 텍스트/JSON 등 content-type에 따라 처리 필요하지만 axios는 기본적으로 json 파싱 시도
-  // 텍스트일 경우 data에 텍스트가 들어감
-  const response = await api.get('/fortinet/blocklist', {
-    responseType: 'text', // 텍스트로 받을 수도 있음, 헤더 확인 필요하지만 일단 text로
-    transformResponse: [
-      (data) => {
-        // Try to parse JSON, if fails return text
-        try {
-          return JSON.parse(data);
-        } catch {
-          return data;
-        }
-      },
-    ],
-  });
-  // Return full response object to access headers if needed, or normalize return
-  // FortinetClient logic uses headers.get('content-type')
-  // We should probably return a normalized structure or the AxiosResponse
-  return response;
+  return { data: '', headers: { 'content-type': 'text/plain' } };
 };
 
 // 통합 IP 목록 조회 API
 export const getUnifiedIPs = async (params?: string) => {
-  const url = params ? `/ip-management/unified?${params}` : '/ip-management/unified';
+  const url = params ? `/blacklist/list?${params}` : '/blacklist/list';
   const { data } = await api.get(url);
   return data;
 };
 
-// IP 추가 API
+// IP 추가 API (미지원 - 읽기 전용)
 export const addIP = async (type: 'whitelist' | 'blacklist', payload: Record<string, unknown>) => {
-  const { data } = await api.post(`/ip-management/${type}`, payload);
-  return data;
+  console.warn('IP 추가 API 미지원');
+  return { success: false, message: 'Not supported' };
 };
 
-// IP 수정 API
+// IP 수정 API (미지원 - 읽기 전용)
 export const updateIP = async (
   type: 'whitelist' | 'blacklist',
   id: number,
   payload: Record<string, unknown>
 ) => {
-  const { data } = await api.put(`/ip-management/${type}/${id}`, payload);
-  return data;
+  console.warn('IP 수정 API 미지원');
+  return { success: false, message: 'Not supported' };
 };
 
-// IP 삭제 API
+// IP 삭제 API (미지원 - 읽기 전용)
 export const deleteIP = async (type: 'whitelist' | 'blacklist', id: number) => {
-  const { data } = await api.delete(`/ip-management/${type}/${id}`);
-  return data;
+  console.warn('IP 삭제 API 미지원');
+  return { success: false, message: 'Not supported' };
 };
 
 // Raw 데이터 내보내기 API
