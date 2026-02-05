@@ -66,12 +66,22 @@ const getContentType = (ext) => ({
 
 const proxyRequest = (req, res, targetPath) => {
   const parsedApi = new URL(apiUrl);
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+    || req.socket?.remoteAddress 
+    || req.connection?.remoteAddress 
+    || '0.0.0.0';
+  
   const options = {
     hostname: parsedApi.hostname,
     port: parsedApi.port || 80,
     path: targetPath,
     method: req.method,
-    headers: { ...req.headers, host: parsedApi.host },
+    headers: { 
+      ...req.headers, 
+      host: parsedApi.host,
+      'x-forwarded-for': clientIp,
+      'x-real-ip': clientIp,
+    },
   };
 
   const proxyReq = http.request(options, (proxyRes) => {

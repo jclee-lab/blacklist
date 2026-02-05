@@ -223,22 +223,19 @@ setup_secrets() {
     fi
 
     if [ "$need_gen" = true ]; then
-        if ! command -v openssl &> /dev/null; then
-            log_warning "openssl not found, using /dev/urandom for secrets"
-            local gen_secret="head -c 32 /dev/urandom | xxd -p | tr -d '\n'"
-        else
-            local gen_secret="openssl rand -hex 32"
-        fi
-
         log_info "Generating secrets..."
+        
+        local fernet_key=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
+        local secret_key=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p | tr -d '\n')
+        local master_key=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p | tr -d '\n')
+        
         cat > "${env_file}" << EOF
 # Blacklist Platform Secrets (auto-generated)
 # Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-# WARNING: Keep this file secure. Do not commit to version control.
 
-CREDENTIAL_MASTER_KEY=$(eval $gen_secret)
-SECRET_KEY=$(eval $gen_secret)
-CREDENTIAL_ENCRYPTION_KEY=$(eval $gen_secret)
+CREDENTIAL_MASTER_KEY=${master_key}
+SECRET_KEY=${secret_key}
+CREDENTIAL_ENCRYPTION_KEY=${fernet_key}
 EOF
 
         chmod 600 "${env_file}"

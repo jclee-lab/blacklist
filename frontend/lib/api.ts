@@ -33,9 +33,10 @@ export const getSystemStatus = async () => {
   return data;
 };
 
-// 화이트리스트 조회 API
+// 화이트리스트 조회 API (현재 미지원 - blacklist/list 사용)
 export const getWhitelist = async (params?: string) => {
-  const url = params ? `/ip-management/whitelist?${params}` : '/ip-management/whitelist';
+  // Backend에 whitelist 전용 API 없음, blacklist/list로 대체
+  const url = params ? `/blacklist/list?${params}` : '/blacklist/list';
   const { data } = await api.get(url);
   return data;
 };
@@ -67,14 +68,14 @@ export const getCollectionStatistics = async () => {
 
 // 블랙리스트 목록 조회 API
 export const getBlacklist = async (params?: string) => {
-  const url = params ? `/ip-management/blacklist?${params}` : '/ip-management/blacklist';
+  const url = params ? `/blacklist/list?${params}` : '/blacklist/list';
   const { data } = await api.get(url);
   return data;
 };
 
 // 블랙리스트 통계 API
 export const getBlacklistStats = async () => {
-  const { data } = await api.get('/blacklist/stats');
+  const { data } = await api.get('/collection/stats');
   return data;
 };
 
