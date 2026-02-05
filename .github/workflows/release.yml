@@ -148,6 +148,7 @@ jobs:
           cp deploy/airgap/docker-compose.yml ${BUNDLE_DIR}/
           cp deploy/airgap/install.sh ${BUNDLE_DIR}/
           chmod +x ${BUNDLE_DIR}/install.sh
+          cp -r deploy/airgap/ssl ${BUNDLE_DIR}/
           
           cd ${BUNDLE_DIR}/images && sha256sum *.tar.gz > checksums.sha256 && cd ../..
           

@@ -172,6 +172,7 @@ frontend/coverage/
 .opencode/
 frontend/test-results/
 ssl/
+!deploy/airgap/ssl/
 frontend/ssl/
 app/pytest.ini
 app/pytest.ini
