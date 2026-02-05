@@ -83,11 +83,11 @@ preflight_checks() {
     fi
 
     local required_images=(
-        "blacklist-app.tar.gz"
-        "blacklist-collector.tar.gz"
-        "blacklist-frontend.tar.gz"
-        "blacklist-postgres.tar.gz"
-        "blacklist-redis.tar.gz"
+        "app.tar.gz"
+        "collector.tar.gz"
+        "frontend.tar.gz"
+        "postgres.tar.gz"
+        "redis.tar.gz"
     )
 
     for img in "${required_images[@]}"; do
