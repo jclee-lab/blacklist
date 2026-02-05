@@ -108,9 +108,9 @@ export const getDatabaseSchema = async () => {
 };
 
 // Fortinet 로그 조회 API
-export const getFortinetPullLogs = async (params?: string) => {
-  return { 
-    success: false, 
+export const getFortinetPullLogs = async (_params?: string) => {
+  return {
+    success: false,
     data: [] as Array<{
       id: number;
       device_ip: string;
@@ -120,15 +120,26 @@ export const getFortinetPullLogs = async (params?: string) => {
       response_time_ms?: number;
       status_code?: number;
       created_at?: string;
-    }>, 
-    stats: null as { total_pulls: number; successful_pulls: number; failed_pulls: number; unique_devices: number } | null, 
-    error: 'Not supported' 
+    }>,
+    stats: null as {
+      total_pulls: number;
+      successful_pulls: number;
+      failed_pulls: number;
+      unique_devices: number;
+    } | null,
+    error: 'Not supported',
   };
 };
 
-// Fortinet 차단 목록 조회 API
-export const getFortinetBlocklist = async () => {
-  return { data: '', headers: { 'content-type': 'text/plain' } };
+// Fortinet 차단 목록 조회 API (미지원)
+export const getFortinetBlocklist = async (): Promise<{
+  data: string | { success: boolean; blocklist?: string; error?: string };
+  headers: Record<string, string>;
+}> => {
+  return {
+    data: { success: false, error: 'Not supported' },
+    headers: { 'content-type': 'application/json' },
+  };
 };
 
 // 통합 IP 목록 조회 API
@@ -139,25 +150,25 @@ export const getUnifiedIPs = async (params?: string) => {
 };
 
 // IP 추가 API (미지원 - 읽기 전용)
-export const addIP = async (type: 'whitelist' | 'blacklist', payload: Record<string, unknown>) => {
-  console.warn('IP 추가 API 미지원');
-  return { success: false, message: 'Not supported' };
+export const addIP = async (
+  _type: 'whitelist' | 'blacklist',
+  _payload: Record<string, unknown>
+) => {
+  return { success: false, message: 'Not supported', error: 'Not supported' };
 };
 
 // IP 수정 API (미지원 - 읽기 전용)
 export const updateIP = async (
-  type: 'whitelist' | 'blacklist',
-  id: number,
-  payload: Record<string, unknown>
+  _type: 'whitelist' | 'blacklist',
+  _id: number,
+  _payload: Record<string, unknown>
 ) => {
-  console.warn('IP 수정 API 미지원');
-  return { success: false, message: 'Not supported' };
+  return { success: false, message: 'Not supported', error: 'Not supported' };
 };
 
 // IP 삭제 API (미지원 - 읽기 전용)
-export const deleteIP = async (type: 'whitelist' | 'blacklist', id: number) => {
-  console.warn('IP 삭제 API 미지원');
-  return { success: false, message: 'Not supported' };
+export const deleteIP = async (_type: 'whitelist' | 'blacklist', _id: number) => {
+  return { success: false, message: 'Not supported', error: 'Not supported' };
 };
 
 // Raw 데이터 내보내기 API
@@ -183,7 +194,10 @@ export const triggerCollectionService = async (
   serviceName: string,
   options?: { force?: boolean }
 ) => {
-  const { data } = await collectionApi.post(`/proxy/collection/trigger/${serviceName}`, options || {});
+  const { data } = await collectionApi.post(
+    `/proxy/collection/trigger/${serviceName}`,
+    options || {}
+  );
   return data;
 };
 

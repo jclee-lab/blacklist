@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.33] - 2026-02-05
+
+### Fixed
+- **Frontend**: Resolved TypeScript type narrowing errors in FortinetClient.tsx
+- **Frontend**: Fixed API stub return types to include `error` field for proper error handling
+
+---
+
 ## [3.5.19] - 2026-02-03
 
 ### Fixed

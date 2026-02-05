@@ -73,18 +73,25 @@ export default function FortinetClient() {
 
       const data = response.data;
 
-      if (contentType.includes('application/json') || (typeof data === 'object' && data !== null)) {
-        if (data?.success && data?.blocklist) {
+      if (typeof data === 'object' && data !== null) {
+        // Handle JSON response object
+        if (
+          'success' in data &&
+          data.success &&
+          'blocklist' in data &&
+          typeof data.blocklist === 'string'
+        ) {
           blocklistText = data.blocklist;
-        } else if (typeof data?.data === 'string') {
-          blocklistText = data.data;
-        } else if (typeof data === 'string') {
-          blocklistText = data;
+        } else if ('error' in data && typeof data.error === 'string') {
+          throw new Error(data.error || '블랙리스트 다운로드 실패');
         } else {
-          throw new Error(data?.error || '블랙리스트 다운로드 실패');
+          throw new Error('블랙리스트 다운로드 실패');
         }
+      } else if (typeof data === 'string') {
+        // Handle plain text response
+        blocklistText = data;
       } else {
-        blocklistText = typeof data === 'string' ? data : JSON.stringify(data);
+        throw new Error('블랙리스트 다운로드 실패');
       }
 
       if (!blocklistText) {
