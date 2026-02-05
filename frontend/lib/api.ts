@@ -23,13 +23,13 @@ export const collectionApi = axios.create({
 
 // 통계 API
 export const getStats = async () => {
-  const { data } = await api.get('/dashboard/stats');
+  const { data } = await api.get('/web-stats');
   return data;
 };
 
 // 시스템 상태 API (Dashboard)
 export const getSystemStatus = async () => {
-  const { data } = await api.get('/dashboard/status');
+  const { data } = await api.get('/connection/status');
   return data;
 };
 
@@ -42,7 +42,7 @@ export const getWhitelist = async (params?: string) => {
 
 // 수집 상태 API
 export const getCollectionStatus = async () => {
-  const { data } = await api.get('/collection/status');
+  const { data } = await api.get('/proxy/collection/status');
   return data;
 };
 
@@ -54,14 +54,14 @@ export const searchIP = async (ip: string) => {
 
 // 수집 내역 API
 export const getCollectionHistory = async (params?: string) => {
-  const url = params ? `/collection/history?${params}` : '/collection/history';
+  const url = params ? `/proxy/collection/history?${params}` : '/proxy/collection/history';
   const { data } = await api.get(url);
   return data;
 };
 
 // 수집 통계 API
 export const getCollectionStatistics = async () => {
-  const { data } = await api.get('/collection/statistics');
+  const { data } = await api.get('/proxy/collection/statistics');
   return data;
 };
 
@@ -80,19 +80,19 @@ export const getBlacklistStats = async () => {
 
 // 인증정보 조회 API
 export const getCredential = async (source: string) => {
-  const { data } = await api.get(`/collection/credentials/${source}`);
+  const { data } = await api.get(`/proxy/collection/credentials/${source}`);
   return data;
 };
 
 // 인증정보 수정 API
 export const updateCredential = async (source: string, credentialData: Record<string, unknown>) => {
-  const { data } = await api.put(`/collection/credentials/${source}`, credentialData);
+  const { data } = await api.put(`/proxy/collection/credentials/${source}`, credentialData);
   return data;
 };
 
 // 인증정보 연결 테스트 API
 export const testCredential = async (source: string) => {
-  const { data } = await api.post(`/collection/credentials/${source}/test`);
+  const { data } = await api.post(`/proxy/collection/credentials/${source}/test`);
   return data;
 };
 
@@ -178,7 +178,7 @@ export const exportBlacklistRaw = async (params?: string) => {
 
 // 수집 트리거 API
 export const triggerCollection = async (startDate: string, endDate: string) => {
-  const { data } = await collectionApi.post('/collection/regtech/trigger', {
+  const { data } = await collectionApi.post('/proxy/collection/trigger/regtech', {
     start_date: startDate,
     end_date: endDate,
   });
@@ -190,7 +190,7 @@ export const triggerCollectionService = async (
   serviceName: string,
   options?: { force?: boolean }
 ) => {
-  const { data } = await collectionApi.post(`/collection/trigger/${serviceName}`, options || {});
+  const { data } = await collectionApi.post(`/proxy/collection/trigger/${serviceName}`, options || {});
   return data;
 };
 
@@ -202,7 +202,7 @@ export const getHealth = async () => {
 
 // 인증 상태 API
 export const getAuthStatus = async () => {
-  const { data } = await api.get('/collection/credentials/regtech');
+  const { data } = await api.get('/proxy/collection/credentials/regtech');
   return data;
 };
 
