@@ -146,35 +146,8 @@ jobs:
           done
           
           cp deploy/airgap/docker-compose.yml ${BUNDLE_DIR}/
-          
-          cat > ${BUNDLE_DIR}/install.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          echo "==================================="
-          echo "Blacklist Platform - Airgap Install"
-          echo "==================================="
-          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-          cd "$SCRIPT_DIR"
-          echo "[1/3] Loading Docker images..."
-          for img in images/*.tar.gz; do
-            echo "  Loading $(basename $img .tar.gz)..."
-            gunzip -c "$img" | docker load
-          done
-          echo "[2/3] Starting services..."
-          docker compose up -d
-          echo "[3/3] Waiting for health checks..."
-          sleep 10
-          echo ""
-          echo "==================================="
-          echo "Installation complete!"
-          echo "Services:"
-          echo "  - Frontend:  https://localhost"
-          echo "  - API:       http://localhost:2542"
-          echo "  - Collector: http://localhost:8545"
-          echo "==================================="
-          EOF
+          cp deploy/airgap/install.sh ${BUNDLE_DIR}/
           chmod +x ${BUNDLE_DIR}/install.sh
-          sed -i 's/^          //' ${BUNDLE_DIR}/install.sh
           
           cd ${BUNDLE_DIR}/images && sha256sum *.tar.gz > checksums.sha256 && cd ../..
           
