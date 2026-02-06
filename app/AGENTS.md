@@ -1,6 +1,6 @@
 # APP KNOWLEDGE BASE
 
-**Generated:** 2026-01-17
+**Generated:** 2026-02-06
 **Role:** Core Flask API Service
 **Parent:** [../AGENTS.md](../AGENTS.md)
 

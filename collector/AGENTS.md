@@ -1,6 +1,6 @@
 # COLLECTOR KNOWLEDGE BASE
 
-**Generated:** 2026-01-17
+**Generated:** 2026-02-06
 **Role:** ETL 서비스 (데이터 수집)
 **Parent:** [../AGENTS.md](../AGENTS.md)
 

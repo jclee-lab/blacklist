@@ -1,6 +1,6 @@
 # API ROUTES KNOWLEDGE BASE
 
-**Generated:** 2026-01-17
+**Generated:** 2026-02-06
 **Role:** JSON API Surface (Flask)
 **Parent:** [../../AGENTS.md](../../AGENTS.md)
 

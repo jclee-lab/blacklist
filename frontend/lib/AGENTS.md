@@ -1,6 +1,6 @@
 # FRONTEND LIB KNOWLEDGE BASE
 
-**Generated:** 2026-01-17  
+**Generated:** 2026-02-06  
 **Role:** API Client & Utilities  
 **Parent:** ../AGENTS.md
 
@@ -10,9 +10,9 @@ Centralized API client (Axios). ALL backend communication MUST go through `api.t
 
 ## WHERE TO LOOK
 
-| If you need to… | Go to… |
-|---|---|
-| Make API calls | `api.ts` |
+| If you need to…  | Go to…                |
+| ---------------- | --------------------- |
+| Make API calls   | `api.ts`              |
 | Add new endpoint | `api.ts` (add method) |
 
 ## CONVENTIONS
@@ -24,9 +24,9 @@ Centralized API client (Axios). ALL backend communication MUST go through `api.t
 
 ## ANTI-PATTERNS
 
-| Forbidden | Why |
-|-----------|-----|
-| `fetch()` in components | Bypasses error handling, CSRF |
-| `localhost:2542` | Hardcoded port breaks deployment |
-| `axios.create()` elsewhere | Must use shared instance |
-| Ignoring API errors | Always handle with user feedback |
+| Forbidden                  | Why                              |
+| -------------------------- | -------------------------------- |
+| `fetch()` in components    | Bypasses error handling, CSRF    |
+| `localhost:2542`           | Hardcoded port breaks deployment |
+| `axios.create()` elsewhere | Must use shared instance         |
+| Ignoring API errors        | Always handle with user feedback |

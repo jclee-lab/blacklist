@@ -1,6 +1,6 @@
 # POSTGRES KNOWLEDGE BASE
 
-**Generated:** 2026-02-01
+**Generated:** 2026-02-06
 **Role:** Database Schema & Migrations
 **Parent:** [../AGENTS.md](../AGENTS.md)
 

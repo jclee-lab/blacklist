@@ -1,6 +1,6 @@
 # COLLECTOR CORE KNOWLEDGE BASE
 
-**Generated:** 2026-01-17
+**Generated:** 2026-02-06
 **Role:** ETL Pipeline & Data Normalization
 **Parent:** [../AGENTS.md](../AGENTS.md)
 

@@ -1,6 +1,6 @@
 # FRONTEND KNOWLEDGE BASE
 
-**Generated:** 2026-01-17
+**Generated:** 2026-02-06
 **Role:** Dashboard UI (관리 인터페이스)
 **Parent:** [../AGENTS.md](../AGENTS.md)
 

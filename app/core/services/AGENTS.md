@@ -1,6 +1,6 @@
 # SERVICE LAYER KNOWLEDGE BASE
 
-**Generated:** 2026-01-17
+**Generated:** 2026-02-06
 **Role:** Business Logic & DI Container
 **Parent:** [../../AGENTS.md](../../AGENTS.md)
 
