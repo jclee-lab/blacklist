@@ -79,6 +79,9 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.BASE_URL || 'http://localhost:2543',
 
+    /* Accept self-signed certificates for staging/sandbox environments */
+    ignoreHTTPSErrors: true,
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
 
@@ -91,8 +94,18 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    // Smoke tests - fast deployment verification (< 30s)
+    // Run with: npm run test:e2e -- --project=smoke
+    {
+      name: 'smoke',
+      testMatch: /smoke\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+      retries: 0,
+    },
+
     {
       name: 'chromium',
+      testIgnore: /smoke\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
 
@@ -133,10 +146,14 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: process.env.BASE_URL || 'http://localhost:2543',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  /* Skip webServer when BASE_URL points to external environment */
+  webServer:
+    process.env.BASE_URL && !process.env.BASE_URL.includes('localhost')
+      ? undefined
+      : {
+          command: 'npm run dev',
+          url: 'http://localhost:2543',
+          reuseExistingServer: !process.env.CI,
+          timeout: 120000,
+        },
 });
