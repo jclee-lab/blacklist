@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.36] - 2026-02-06
+
+### Changed
+- **Frontend**: Refactored CollectionManagementClient.tsx (665→119 lines, 82% reduction)
+- **Frontend**: Extracted components: types.ts, useCollectionManagement.ts, CollectionStats.tsx, CollectorCard.tsx, CredentialEditModal.tsx
+
+---
+
+## [3.5.35] - 2026-02-06
+
+### Changed
+- **E2E Tests**: Removed mobile test projects (Mobile Chrome, Mobile Safari)
+- **E2E Tests**: Desktop browsers only (smoke, chromium, firefox, webkit)
+
+---
+
 ## [3.5.34] - 2026-02-06
 
 ### Added
