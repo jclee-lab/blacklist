@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.5.34] - 2026-02-06
+
+### Added
+- **E2E Tests**: Enhanced Playwright config for external URL testing
+- **E2E Tests**: Added deployment smoke tests and error handling tests
+
+### Changed
+- **Docs**: Updated AGENTS.md hierarchy with project patterns
+
+---
+
 ## [3.5.33] - 2026-02-05
 
 ### Fixed
